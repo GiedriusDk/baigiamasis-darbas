@@ -43,6 +43,7 @@ export default function App() {
           <NavLink label="Pagrindinis" active />
           <NavLink label="Sugeneruoti planą" />
           <NavLink label="Mano planas" />
+          <NavLink label="Pratimai" />
           <NavLink label="Treneriai" />
           <NavLink label="Apmokėjimai" />
           <NavLink label="Nustatymai" />

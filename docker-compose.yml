@@ -1,49 +1,61 @@
-version: "3.9"
+# docker-compose.yml
 
 services:
   gateway:
     image: nginx:alpine
-    volumes:
-      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
       - "8080:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - catalog
 
   catalog:
-    build: ./services/catalog
+    build:
+      context: ./services/catalog
+    working_dir: /var/www/html
     environment:
       APP_ENV: local
-      APP_KEY: base64:tempwillbeset
       APP_DEBUG: "true"
       APP_URL: http://localhost:8080/catalog
+
+      # SUTAPINTA SU DB SERVISU ŽEMIAU
       DB_CONNECTION: pgsql
       DB_HOST: db
       DB_PORT: 5432
-      DB_DATABASE: fit
-      DB_USERNAME: app
-      DB_PASSWORD: app
+      DB_DATABASE: catalog_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
+
+      # Redis (jei naudoji cache/queue)
       REDIS_HOST: cache
       REDIS_PORT: 6379
     volumes:
       - ./services/catalog:/var/www/html
-    command: php -S 0.0.0.0:9000 -t public
-    ports:
-      - "9001:9000" # nebūtina, bet patogu diagnostikai
+
+    # Laiko konteinerį "gyvą" ir serviruoja Laravel per :9000
+    # + sugeneruoja APP_KEY, jei jo nėra
+    command: sh -lc "php artisan key:generate --force && php -S 0.0.0.0:9000 -t public"
+
+    # (nebūtina) jei nori tiesiogiai pasiekti be gateway:
+    # ports:
+    #   - "9001:9000"
+
     depends_on:
       - db
       - cache
 
   db:
     image: postgres:16
+    restart: always
     environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
-      POSTGRES_DB: fit
+      POSTGRES_DB: catalog_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
     ports:
       - "5432:5432"
     volumes:
-      - dbdata:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
 
   cache:
     image: redis:7
@@ -51,4 +63,4 @@ services:
       - "6379:6379"
 
 volumes:
-  dbdata:
+  db_data:
