@@ -4,7 +4,7 @@ import {
   MultiSelect, TextInput, Button, Pagination, Stack, Badge
 } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-import { getExercises, getFilters } from '../api'
+import { getExercises, getFilters } from '../api/catalog'
 
 const PER_PAGE = 24; // fiksuotas
 

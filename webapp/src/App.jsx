@@ -1,15 +1,60 @@
-import { useState } from 'react'
-import { AppShell, Burger, Button, Group, NavLink, ScrollArea, Title } from '@mantine/core'
-import { Routes, Route, Link, useLocation } from 'react-router-dom'
-import ExercisesPage from './pages/ExercisesPage.jsx'
+// webapp/src/App.jsx
+import { useState } from 'react';
+import {
+  AppShell, Burger, Group, NavLink, ScrollArea, Title,
+  Menu, Avatar, Loader, Button
+} from '@mantine/core';
+import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './auth/useAuth';
+
+import ExercisesPage from './pages/ExercisesPage.jsx';
+import RegisterPage from './pages/RegisterPage.jsx';
+import LoginPage from './pages/LoginPage.jsx';
+import CoachProfilePage from './pages/CoachProfilePage.jsx';
+import CoachExercisesPage from './pages/CoachExercisesPage.jsx';
 
 function Home() {
-  return <Title order={3}>Pagrindinis</Title>
+  return <Title order={3}>Home</Title>;
 }
 
-export default function App() {
-  const [opened, setOpened] = useState(false)
-  const location = useLocation()
+function HeaderRight() {
+  const { user, ready, doLogout } = useAuth();
+  if (!ready) return <Loader size="sm" />;
+
+  if (!user) {
+    return <Button component={Link} to="/login" variant="light">Join Us</Button>;
+  }
+
+  return (
+    <Menu>
+      <Menu.Target>
+        <Group gap="xs" style={{ cursor: 'pointer' }}>
+          <Avatar radius="xl">{user.name?.[0]?.toUpperCase() || '?'}</Avatar>
+          <span>{user.name || user.email}</span>
+        </Group>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item component={Link} to="/">Home</Menu.Item>
+        <Menu.Item onClick={doLogout} c="red">Logout</Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  );
+}
+
+// Guard – leidžia tik prisijungusiems
+function RequireAuth({ children }) {
+  const { user, ready } = useAuth();
+  if (!ready) return <Loader size="sm" />;
+  return user ? children : <Navigate to="/login" replace />;
+}
+
+function AppInner() {
+  const [opened, setOpened] = useState(false);
+  const location = useLocation();
+  const { user, ready } = useAuth();
+
+  // ar vartotojas turi coach rolę?
+  const isCoach = !!user?.roles?.some(r => r.name === 'coach');
 
   return (
     <AppShell
@@ -20,12 +65,10 @@ export default function App() {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group gap="sm">
-            <Burger opened={opened} onClick={() => setOpened((o) => !o)} hiddenFrom="sm" />
+            <Burger opened={opened} onClick={() => setOpened(o => !o)} hiddenFrom="sm" />
             <Title order={3}>Fit Plans</Title>
           </Group>
-          <Group>
-            <Button variant="light">Prisijungti</Button>
-          </Group>
+          <HeaderRight />
         </Group>
       </AppShell.Header>
 
@@ -35,7 +78,24 @@ export default function App() {
           <NavLink component={Link} to="/plans" label="Sugeneruoti planą" active={location.pathname === '/plans'} />
           <NavLink component={Link} to="/my" label="Mano planas" active={location.pathname === '/my'} />
           <NavLink component={Link} to="/exercises" label="Pratimai" active={location.pathname.startsWith('/exercises')} />
-          <NavLink component={Link} to="/coaches" label="Treneriai" active={location.pathname === '/coaches'} />
+
+          {ready && isCoach && (
+            <>
+              <NavLink
+                component={Link}
+                to="/coach/profile"
+                label="Coach profile"
+                active={location.pathname.startsWith('/coach/profile')}
+              />
+              <NavLink
+                component={Link}
+                to="/coach/exercises"
+                label="Coach exercises"
+                active={location.pathname.startsWith('/coach/exercises')}
+              />
+            </>
+          )}
+
           <NavLink component={Link} to="/billing" label="Apmokėjimai" active={location.pathname === '/billing'} />
           <NavLink component={Link} to="/settings" label="Nustatymai" active={location.pathname === '/settings'} />
         </ScrollArea>
@@ -45,9 +105,38 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/exercises" element={<ExercisesPage />} />
-          {/* kiti maršrutai vėliau */}
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Coach pages – apsaugoti */}
+          <Route
+            path="/coach/profile"
+            element={
+              <RequireAuth>
+                <CoachProfilePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/coach/exercises"
+            element={
+              <RequireAuth>
+                <CoachExercisesPage />
+              </RequireAuth>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell.Main>
     </AppShell>
-  )
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
+  );
 }

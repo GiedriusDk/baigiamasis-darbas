@@ -1,66 +1,82 @@
-# docker-compose.yml
+version: "3.9"
 
 services:
   gateway:
     image: nginx:alpine
-    ports:
-      - "8080:80"
+    ports: ["8080:80"]
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - catalog
+    depends_on: [catalog, auth, profiles]
 
   catalog:
-    build:
-      context: ./services/catalog
+    build: ./services/catalog
     working_dir: /var/www/html
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
       APP_URL: http://localhost:8080/catalog
-
-      # SUTAPINTA SU DB SERVISU ŽEMIAU
       DB_CONNECTION: pgsql
       DB_HOST: db
       DB_PORT: 5432
       DB_DATABASE: catalog_db
       DB_USERNAME: postgres
       DB_PASSWORD: secret
-
-      # Redis (jei naudoji cache/queue)
-      REDIS_HOST: cache
-      REDIS_PORT: 6379
     volumes:
       - ./services/catalog:/var/www/html
-
-    # Laiko konteinerį "gyvą" ir serviruoja Laravel per :9000
-    # + sugeneruoja APP_KEY, jei jo nėra
     command: sh -lc "php artisan key:generate --force && php -S 0.0.0.0:9000 -t public"
+    depends_on: [db]
 
-    # (nebūtina) jei nori tiesiogiai pasiekti be gateway:
-    # ports:
-    #   - "9001:9000"
+  auth:
+    build: ./services/auth
+    working_dir: /var/www/html
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8080/auth
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: auth_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
+      # VIENODAS abiem servisams:
+      JWT_SECRET: 10zFI1SZnvOExwt3CpzUO99ZweKgrL4GipKSnLZqN7IMPnY3VBN7Tdoez1FoPbON
+    volumes:
+      - ./services/auth:/var/www/html
+    command: sh -lc "php artisan key:generate --force && php -S 0.0.0.0:9000 -t public"
+    depends_on: [db]
 
-    depends_on:
-      - db
-      - cache
+  profiles:
+    build: ./services/profiles
+    working_dir: /var/www/html
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8080/profiles
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: profiles_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
+      # tas pats, kaip AUTH:
+      JWT_SECRET: 10zFI1SZnvOExwt3CpzUO99ZweKgrL4GipKSnLZqN7IMPnY3VBN7Tdoez1FoPbON
+    volumes:
+      - ./services/profiles:/var/www/html
+    command: sh -lc "php artisan key:generate --force && php -S 0.0.0.0:9000 -t public"
+    depends_on: [db]
 
   db:
     image: postgres:16
     restart: always
     environment:
-      POSTGRES_DB: catalog_db
+      POSTGRES_DB: postgres
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secret
-    ports:
-      - "5432:5432"
+    ports: ["5432:5432"]
     volumes:
       - db_data:/var/lib/postgresql/data
-
-  cache:
-    image: redis:7
-    ports:
-      - "6379:6379"
+      - ./db/init-multi-db.sql:/docker-entrypoint-initdb.d/init-multi-db.sql:ro
 
 volumes:
   db_data:
