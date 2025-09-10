@@ -158,17 +158,14 @@ class CoachExerciseController extends Controller
 
     public function reorder(Request $request)
     {
-        // 1) auth per request->user()
         $uid = $request->user()?->id;
         if (!$uid) return response()->json(['message' => 'Unauthenticated.'], 401);
 
-        // 2) validacija
         $data = $request->validate([
             'order'   => ['required', 'array', 'min:1'],
             'order.*' => ['integer'],
         ]);
 
-        // 3) tik savo įrašai
         $exIds = \App\Models\CoachExercise::where('user_id', $uid)->pluck('id')->toArray();
 
         foreach ($data['order'] as $id) {
