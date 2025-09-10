@@ -49,4 +49,11 @@ export async function me() {
   return req('/me', { method: 'GET' }); // ← NE '/auth/me'
 }
 
+export async function updateMe(payload) {
+  return req('/me', {
+    method: 'PUT',
+    body: JSON.stringify(payload), // pvz. { name: 'Naujas vardas' }
+  });
+}
+
 export function logout() { clearToken(); }

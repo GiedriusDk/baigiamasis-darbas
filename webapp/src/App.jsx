@@ -1,5 +1,5 @@
 // webapp/src/App.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   AppShell, Burger, Group, NavLink, ScrollArea, Title,
   Menu, Avatar, Loader, Button
@@ -13,24 +13,63 @@ import LoginPage from './pages/LoginPage.jsx';
 import CoachProfilePage from './pages/CoachProfilePage.jsx';
 import CoachExercisesPage from './pages/CoachExercisesPage.jsx';
 
+import { getCoachProfile } from './api/profiles';  
+
 function Home() {
   return <Title order={3}>Home</Title>;
 }
 
 function HeaderRight() {
   const { user, ready, doLogout } = useAuth();
-  if (!ready) return <Loader size="sm" />;
+  const [avatar, setAvatar] = useState('');
+  const [displayName, setDisplayName] = useState('');
 
-  if (!user) {
-    return <Button component={Link} to="/login" variant="light">Join Us</Button>;
-  }
+  // inicijuojam pagal konteksto user
+  useEffect(() => {
+    setDisplayName(user?.name || user?.email || '');
+  }, [user]);
+
+  // avatar kaip buvo
+  useEffect(() => {
+    async function load() {
+      if (!ready || !user) { setAvatar(''); return; }
+      try {
+        const p = await getCoachProfile();
+        setAvatar(p?.avatar_path || '');
+      } catch { setAvatar(''); }
+    }
+    load();
+  }, [ready, user]);
+
+  // klausom profilio avataro
+  useEffect(() => {
+    const onProfileUpdated = (e) => setAvatar(e.detail?.avatar || '');
+    window.addEventListener('profile:updated', onProfileUpdated);
+    return () => window.removeEventListener('profile:updated', onProfileUpdated);
+  }, []);
+
+  // klausom vardo pakeitimo
+  useEffect(() => {
+    const onAuthUpdated = (e) => {
+      if (e.detail?.name) setDisplayName(e.detail.name);
+    };
+    window.addEventListener('auth:updated', onAuthUpdated);
+    return () => window.removeEventListener('auth:updated', onAuthUpdated);
+  }, []);
+
+  if (!ready) return <Loader size="sm" />;
+  if (!user) return <Button component={Link} to="/login" variant="light">Join Us</Button>;
+
+  const initial = (displayName || '?')[0]?.toUpperCase() || '?';
 
   return (
     <Menu>
       <Menu.Target>
         <Group gap="xs" style={{ cursor: 'pointer' }}>
-          <Avatar radius="xl">{user.name?.[0]?.toUpperCase() || '?'}</Avatar>
-          <span>{user.name || user.email}</span>
+          <Avatar radius="xl" src={avatar || undefined}>
+            {!avatar && initial}
+          </Avatar>
+          <span>{displayName}</span>
         </Group>
       </Menu.Target>
       <Menu.Dropdown>

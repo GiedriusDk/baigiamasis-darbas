@@ -34,5 +34,9 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    
+    'auth' => [
+        'base' => env('AUTH_BASE', 'http://gateway/auth/api'),
+    ],
 
 ];

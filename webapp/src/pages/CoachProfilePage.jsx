@@ -6,19 +6,25 @@ import {
   LoadingOverlay, Divider, Text
 } from '@mantine/core';
 import { IconUpload, IconTrash } from '@tabler/icons-react';
-import { getCoachProfile, saveCoachProfile } from '../api/profiles';
+import { getCoachProfile, saveCoachProfile, uploadCoachAvatar } from '../api/profiles';
+import { me, updateMe } from '../api/auth';
 import { notifications } from '@mantine/notifications';
 
 export default function CoachProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Vartotojas iš AUTH (vardas, email)
+  const [user, setUser] = useState(null);
+  const [name, setName] = useState(''); // ← TRŪKO
+
+  // Trenerio profilis iš PROFILES
   const [form, setForm] = useState({
     bio: '',
     experience_years: 0,
     price_per_session: 0,
     specializations: '',
-    avatar_url: '',
+    avatar_path: '',
     city: '',
     availability_note: '',
   });
@@ -28,54 +34,70 @@ export default function CoachProfilePage() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await getCoachProfile();
-        if (data) setForm((f) => ({ ...f, ...data }));
-      } catch (e) {
-        // jei profilio dar nėra – nieko baisaus, rodom tuščią formą
+        const [u, p] = await Promise.all([me(), getCoachProfile()]);
+        if (u) { setUser(u); setName(u.name || ''); }
+        if (p) setForm((f) => ({ ...f, ...p }));
+      } catch {
+        // jei profilio nėra – bus kuriamas pirmo išsaugojimo metu
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  function update(k, v) {
-    setForm((f) => ({ ...f, [k]: v }));
-  }
+  function update(k, v) { setForm((f) => ({ ...f, [k]: v })); }
 
   async function onSave() {
     setSaving(true);
     try {
+      // 1) jei pakeistas vardas – atnaujinam AUTH
+      if (user && name && name !== (user.name || '')) {
+        const u = await updateMe({ name });
+        window.dispatchEvent(new CustomEvent('auth:updated', { detail: { name } }));
+        setUser(u);
+      }
+
+      // 2) jei įkeltas avataro failas – upload į PROFILES
+      if (avatarFile) {
+        const { url } = await uploadCoachAvatar(avatarFile); // grįžta { url }
+        update('avatar_path', url);
+        // pranešam header’iui, kad atsinaujintų avataras
+        window.dispatchEvent(new CustomEvent('profile:updated', { detail: { avatar: url } }));
+      }
+
+      // 3) išsaugom coach profilį
       const payload = { ...form };
-      const res = await saveCoachProfile(payload, avatarFile || undefined);
-      setForm((f) => ({ ...f, ...res }));      // atnaujinam, kad gautume galutinį avatar_url ir t.t.
+      const res = await saveCoachProfile(payload); // PUT /profiles/api/coach/profile
+      setForm((f) => ({ ...f, ...res }));
       setAvatarFile(null);
+
       notifications.show({ color: 'green', message: 'Profile saved' });
     } catch (e) {
       notifications.show({ color: 'red', message: e.message || 'Save failed' });
     } finally {
       setSaving(false);
     }
-  }
 
+  }
+  
   function clearAvatar() {
     setAvatarFile(null);
-    update('avatar_url', '');
+    update('avatar_path', '');
+    window.dispatchEvent(new CustomEvent('profile:updated', { detail: { avatar: '' } }));
   }
 
-  const avatarPreview = avatarFile ? URL.createObjectURL(avatarFile) : form.avatar_url || undefined;
+  const avatarPreview = avatarFile ? URL.createObjectURL(avatarFile) : (form.avatar_path || undefined);
 
   return (
     <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto', position: 'relative' }}>
       <LoadingOverlay visible={loading} zIndex={10} />
-
       <Group justify="space-between" mb="md">
         <Title order={2}>Coach profile</Title>
       </Group>
-
       <Divider mb="lg" />
 
       <Grid gutter="xl" align="start">
-        {/* Kairė kolona – Avatar + “asmeniniai” laukai */}
+        {/* Kairė kolona – Avatar + asmeniniai laukai */}
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Stack gap="lg">
             <Stack gap="xs" align="center">
@@ -83,24 +105,13 @@ export default function CoachProfilePage() {
                 src={avatarPreview}
                 size={140}
                 radius={999}
-                styles={{
-                  root: { boxShadow: '0 8px 24px rgba(0,0,0,.10)' },
-                  image: { objectFit: 'cover' }
-                }}
+                styles={{ root: { boxShadow: '0 8px 24px rgba(0,0,0,.10)' }, image: { objectFit: 'cover' } }}
               />
               <Group gap="xs">
-                <FileButton
-                  onChange={(file) => setAvatarFile(file)}
-                  accept="image/png,image/jpeg,image/jpg,image/webp"
-                >
-                  {(props) => (
-                    <Button leftSection={<IconUpload size={16} />} {...props}>
-                      Upload
-                    </Button>
-                  )}
+                <FileButton onChange={setAvatarFile} accept="image/png,image/jpeg,image/jpg,image/webp">
+                  {(props) => <Button leftSection={<IconUpload size={16} />} {...props}>Upload</Button>}
                 </FileButton>
-
-                {(avatarFile || form.avatar_url) && (
+                {(avatarFile || form.avatar_path) && (
                   <Tooltip label="Remove avatar">
                     <ActionIcon variant="light" color="red" onClick={clearAvatar}>
                       <IconTrash size={18} />
@@ -108,10 +119,15 @@ export default function CoachProfilePage() {
                   </Tooltip>
                 )}
               </Group>
-              <Text c="dimmed" size="sm">
-                Square image looks best (min ~400×400).
-              </Text>
+              <Text c="dimmed" size="sm">Square image looks best (min ~400×400).</Text>
             </Stack>
+
+            {/* Vardas – iš AUTH */}
+            <TextInput
+              label="Name"
+              value={name}
+              onChange={(e) => setName(e.currentTarget.value)}
+            />
 
             <TextInput
               label="City"
@@ -130,7 +146,7 @@ export default function CoachProfilePage() {
           </Stack>
         </Grid.Col>
 
-        {/* Dešinė kolona – pagrindiniai */}
+        {/* Dešinė kolona */}
         <Grid.Col span={{ base: 12, md: 8 }}>
           <Stack gap="lg">
             <Textarea
@@ -169,9 +185,7 @@ export default function CoachProfilePage() {
             />
 
             <Group justify="flex-end">
-              <Button onClick={onSave} loading={saving} size="md">
-                Save
-              </Button>
+              <Button onClick={onSave} loading={saving} size="md">Save</Button>
             </Group>
           </Stack>
         </Grid.Col>
