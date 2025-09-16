@@ -33,6 +33,7 @@ class CoachExerciseController extends Controller
             'equipment'      => 'nullable|string|max:120',
             'primary_muscle' => 'nullable|string|max:120',
             'difficulty'     => 'nullable|in:easy,medium,hard',
+            'is_paid'        => 'nullable|boolean',
             'tags'           => 'nullable|array',
             'tags.*'         => 'string|max:40',
 
@@ -65,6 +66,7 @@ class CoachExerciseController extends Controller
             'equipment'      => $data['equipment'] ?? null,
             'primary_muscle' => $data['primary_muscle'] ?? null,
             'difficulty'     => $data['difficulty'] ?? null,
+            'is_paid'        => $data['is_paid'] ?? false,
             'tags'           => $data['tags'] ?? null,
             'media_path'     => $mediaPath,
             'media_type'     => $mediaType,
@@ -87,11 +89,13 @@ class CoachExerciseController extends Controller
             'equipment'      => 'nullable|string|max:120',
             'primary_muscle' => 'nullable|string|max:120',
             'difficulty'     => 'nullable|in:easy,medium,hard',
+            'is_paid'        => 'nullable|boolean',
             'tags'           => 'nullable|array',
             'tags.*'         => 'string|max:40',
 
             'media'          => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,webm|max:30720',
             'media_url'      => 'nullable|string|max:2048',
+            
         ]);
 
         // Media pakeitimas
@@ -136,6 +140,7 @@ class CoachExerciseController extends Controller
             'equipment'      => $data['equipment']      ?? $coachExercise->equipment,
             'primary_muscle' => $data['primary_muscle'] ?? $coachExercise->primary_muscle,
             'difficulty'     => $data['difficulty']     ?? $coachExercise->difficulty,
+            'is_paid'        => array_key_exists('is_paid', $data) ? (bool)$data['is_paid'] : $coachExercise->is_paid,
             'tags'           => $data['tags']           ?? $coachExercise->tags,
         ])->save();
 

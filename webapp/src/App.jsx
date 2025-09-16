@@ -12,8 +12,12 @@ import RegisterPage from './pages/RegisterPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import CoachProfilePage from './pages/CoachProfilePage.jsx';
 import CoachExercisesPage from './pages/CoachExercisesPage.jsx';
+import { getCoachProfile, getUserProfile } from './api/profiles'; 
 
-import { getCoachProfile } from './api/profiles';  
+import UserProfilePage from './pages/UserProfilePage.jsx';
+
+import CoachesListPage from './pages/CoachesListPage.jsx';
+import CoachPublicPage from './pages/CoachPublicPage.jsx';
 
 function Home() {
   return <Title order={3}>Home</Title>;
@@ -22,45 +26,41 @@ function Home() {
 function HeaderRight() {
   const { user, ready, doLogout } = useAuth();
   const [avatar, setAvatar] = useState('');
-  const [displayName, setDisplayName] = useState('');
 
-  // inicijuojam pagal konteksto user
-  useEffect(() => {
-    setDisplayName(user?.name || user?.email || '');
-  }, [user]);
-
-  // avatar kaip buvo
+  // Užkraunam avatarą – coach arba user
   useEffect(() => {
     async function load() {
       if (!ready || !user) { setAvatar(''); return; }
+
+      let url = '';
       try {
-        const p = await getCoachProfile();
-        setAvatar(p?.avatar_path || '');
-      } catch { setAvatar(''); }
+        const isCoach = !!user?.roles?.some(r => r.name === 'coach');
+        if (isCoach) {
+          const cp = await getCoachProfile().catch(() => null);
+          url = cp?.avatar_path || cp?.avatar_url || '';
+        }
+        if (!url) {
+          const up = await getUserProfile().catch(() => null);
+          url = up?.avatar_path || '';
+        }
+      } finally {
+        setAvatar(url || '');
+      }
     }
     load();
   }, [ready, user]);
 
-  // klausom profilio avataro
+  // Reaguojam į avataro atnaujinimą
   useEffect(() => {
-    const onProfileUpdated = (e) => setAvatar(e.detail?.avatar || '');
-    window.addEventListener('profile:updated', onProfileUpdated);
-    return () => window.removeEventListener('profile:updated', onProfileUpdated);
-  }, []);
-
-  // klausom vardo pakeitimo
-  useEffect(() => {
-    const onAuthUpdated = (e) => {
-      if (e.detail?.name) setDisplayName(e.detail.name);
-    };
-    window.addEventListener('auth:updated', onAuthUpdated);
-    return () => window.removeEventListener('auth:updated', onAuthUpdated);
+    const onUpdated = (e) => setAvatar(e.detail?.avatar || '');
+    window.addEventListener('profile:updated', onUpdated);
+    return () => window.removeEventListener('profile:updated', onUpdated);
   }, []);
 
   if (!ready) return <Loader size="sm" />;
   if (!user) return <Button component={Link} to="/login" variant="light">Join Us</Button>;
 
-  const initial = (displayName || '?')[0]?.toUpperCase() || '?';
+  const initial = (user.name || user.email || '?')[0]?.toUpperCase() || '?';
 
   return (
     <Menu>
@@ -69,7 +69,7 @@ function HeaderRight() {
           <Avatar radius="xl" src={avatar || undefined}>
             {!avatar && initial}
           </Avatar>
-          <span>{displayName}</span>
+          <span>{user.name || user.email}</span>
         </Group>
       </Menu.Target>
       <Menu.Dropdown>
@@ -116,7 +116,20 @@ function AppInner() {
           <NavLink component={Link} to="/" label="Pagrindinis" active={location.pathname === '/'} />
           <NavLink component={Link} to="/plans" label="Sugeneruoti planą" active={location.pathname === '/plans'} />
           <NavLink component={Link} to="/my" label="Mano planas" active={location.pathname === '/my'} />
-          <NavLink component={Link} to="/exercises" label="Pratimai" active={location.pathname.startsWith('/exercises')} />
+          <NavLink component={Link} to="/exercises" label="Exercises" active={location.pathname.startsWith('/exercises')} />
+          
+          <NavLink component={Link} to="/coaches" label="Coaches" active={location.pathname.startsWith('/coaches')} />
+
+          {ready && !isCoach && (
+            <>
+              <NavLink
+                component={Link}
+                to="/profile"
+                label="My profile"
+                active={location.pathname.startsWith('/profile')}
+              />
+            </>
+          )}
 
           {ready && isCoach && (
             <>
@@ -146,6 +159,8 @@ function AppInner() {
           <Route path="/exercises" element={<ExercisesPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/coaches" element={<CoachesListPage />} />
+          <Route path="/coaches/:id" element={<CoachPublicPage />} /> 
 
           {/* Coach pages – apsaugoti */}
           <Route
@@ -164,6 +179,16 @@ function AppInner() {
               </RequireAuth>
             }
           />
+          <Route
+            path="/profile"
+            element={
+              <RequireAuth>
+                <UserProfilePage />
+              </RequireAuth>
+            }
+          />
+
+          
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

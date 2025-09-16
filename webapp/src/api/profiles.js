@@ -43,7 +43,7 @@ export function uploadCoachAvatar(file) {
   fd.append('file', file);
   return request('/coach/upload', {
     method: 'POST',
-    headers: authHeaders(), // NENUSTATYK 'Content-Type' ranka!
+    headers: authHeaders(),
     body: fd,
   });
 }
@@ -120,4 +120,43 @@ export async function reorderCoachExercises(ids) {
     headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ order: ids }),
   });
+}
+
+/* ===================== User profile (paprastas vartotojas) ===================== */
+
+export function getUserProfile() {
+  return request('/user/profile', { headers: authHeaders() });
+}
+
+export function saveUserProfile(payload) {
+  return request('/user/profile', {
+    method: 'PUT',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function uploadUserAvatar(file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  return request('/user/upload', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: fd,
+  });
+}
+
+
+
+/* ============ Public coaches ============ */
+
+export function getPublicCoaches(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return request(`/coach/public${qs ? `?${qs}` : ''}`, { headers: { Accept: 'application/json' } });
+}
+export function getPublicCoach(id) {
+  return request(`/coach/public/${id}`, { headers: { Accept: 'application/json' } });
+}
+export function getPublicCoachExercises(id) {
+  return request(`/coach/public/${id}/exercises`, { headers: { Accept: 'application/json' } });
 }

@@ -1,14 +1,15 @@
+// webapp/src/pages/CoachExercisesPage.jsx
 import { useEffect, useState } from 'react';
 import {
-  Title, Text, Grid, Paper, Group, Stack, TextInput, Textarea, Select, NumberInput,
-  Button, Badge, Image, Card, ActionIcon, FileButton, Divider, Loader, Alert, Modal, Tooltip
+  Title, Text, Grid, Paper, Group, Stack, TextInput, Textarea, Select,
+  Button, Badge, Image, Card, ActionIcon, FileButton, Divider, Loader,
+  Alert, Modal, Tooltip, Switch
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
-  IconPlus, IconTrash, IconUpload, IconPhoto, IconMovie, IconPencil, IconArrowUp, IconArrowDown
+  IconPlus, IconTrash, IconUpload, IconPhoto, IconMovie, IconPencil,
+  IconArrowUp, IconArrowDown, IconLock
 } from '@tabler/icons-react';
-
-import { useDisclosure } from '@mantine/hooks';
 
 import {
   listCoachExercises,
@@ -18,60 +19,133 @@ import {
   reorderCoachExercises,
 } from '../api/profiles';
 
-
+/* ----------------------- Helpers ----------------------- */
 const difficulties = [
-  { value: 'easy', label: 'Easy' },
+  { value: 'easy',   label: 'Easy' },
   { value: 'medium', label: 'Medium' },
-  { value: 'hard', label: 'Hard' },
+  { value: 'hard',   label: 'Hard' },
 ];
 
+// Palaiko watch?v=, youtu.be/, embed/, shorts/ + papildomus query
 function getYoutubeId(url = '') {
-  const m = url.match(/(?:youtube\.com.*(?:\?|&)v=|youtu\.be\/)([^&#]+)/i);
+  const rx = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/i;
+  const m = url.match(rx);
   return m ? m[1] : null;
 }
 function isVideoUrl(u = '') {
   const x = u.toLowerCase();
   return x.endsWith('.mp4') || x.endsWith('.webm') || x.includes('vimeo.com');
 }
-function isGifUrl(u=''){ return u.toLowerCase().endsWith('.gif'); }
+function isGifUrl(u = '') {
+  return /\/[^?]+\.(gif)(?:\?|$)/i.test(u);
+}
+function isImageUrl(u = '') {
+  return /\/[^?]+\.(png|jpg|jpeg|webp|avif)(?:\?|$)/i.test(u);
+}
 
-// NAUJAS MediaThumb
-function MediaThumb({ url }) {
-  const [opened, { open, close }] = useDisclosure(false);
+/* -------------------- MediaThumb ----------------------- */
+function MediaThumb({ url, blurred = false }) {
+  const [opened, setOpened] = useState(false);
 
   if (!url) return <IconPhoto size={48} color="var(--mantine-color-dimmed)" />;
 
-  // 1) YouTube – rodom thumbnail, klik – atidaro YouTube naujame lange
+  const commonStyle = {
+    filter: blurred ? 'blur(8px) brightness(0.8)' : 'none',
+    userSelect: 'none',
+    borderRadius: 12,
+    display: 'block',
+    width: '100%',
+  };
+
+  // YouTube – thumbnail
   const ytId = getYoutubeId(url);
   if (ytId) {
     const thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-    return (
+    return blurred ? (
+      <Image src={thumb} alt="YouTube" height={160} fit="cover" radius="md" style={commonStyle} />
+    ) : (
       <a href={url} target="_blank" rel="noreferrer" style={{ position: 'relative', display: 'block' }}>
-        <Image src={thumb} alt="YouTube" height={160} fit="cover" radius="md" />
+        <Image src={thumb} alt="YouTube" height={160} fit="cover" radius="md" style={commonStyle} />
         <IconMovie
           size={32}
           style={{
             position: 'absolute', top: '50%', left: '50%',
-            transform: 'translate(-50%, -50%)', color: 'white', opacity: 0.85
+            transform: 'translate(-50%, -50%)', color: 'white', opacity: 0.9
           }}
         />
       </a>
     );
   }
+  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    // Fallback jei regex nepagauna
+    return (
+      <Group h={160} justify="center" align="center" style={{ ...commonStyle, background: 'rgba(0,0,0,.05)' }}>
+        <IconMovie />
+        {!blurred && (
+          <Button component="a" href={url} target="_blank" variant="subtle" size="xs">
+            Open
+          </Button>
+        )}
+      </Group>
+    );
+  }
 
-  // 2) .mp4/.webm (ir pan.) – rodom HTML5 video player
+  // mp4 / webm
   if (isVideoUrl(url)) {
     return (
       <video
         src={url}
         height={160}
-        controls
-        style={{ borderRadius: 12, display: 'block', maxWidth: '100%' }}
+        controls={!blurred}
+        style={{ ...commonStyle, maxWidth: '100%' }}
       />
     );
   }
 
-  // 3) Paveikslai/GIF – rodom, o paspaudus atidarom pilno ekrano modal
+  // Image / GIF
+if (isGifUrl(url) || isImageUrl(url)) {
+  if (blurred) {
+    return (
+      <div style={{ position: 'relative', height: 160 }}>
+        <Image
+          src={url}
+          alt=""
+          height={160}
+          fit="contain"
+          radius="md"
+          style={{
+            filter: 'blur(10px) brightness(0.6)', // stipresnis blur + patamsinimas
+            pointerEvents: 'none', // kad nebūtų klikų
+            objectFit: 'cover',
+            width: '100%',
+            height: '100%',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            style={{
+              padding: '6px 12px',
+              borderRadius: 999,
+              background: 'rgba(255,255,255,.9)',
+              fontWeight: 600,
+              boxShadow: '0 4px 16px rgba(0,0,0,.2)',
+            }}
+          >
+            🔒 Paid
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <Image
@@ -81,11 +155,11 @@ function MediaThumb({ url }) {
         fit="contain"
         radius="md"
         style={{ cursor: 'zoom-in' }}
-        onClick={open}
+        onClick={() => setOpened(true)}
       />
       <Modal
         opened={opened}
-        onClose={close}
+        onClose={() => setOpened(false)}
         centered
         withCloseButton
         padding={0}
@@ -96,7 +170,6 @@ function MediaThumb({ url }) {
           src={url}
           alt=""
           fit="contain"
-          // Mantine v7: galite naudoti style, kad apribot max dydį
           style={{ maxWidth: '90vw', maxHeight: '80vh' }}
         />
       </Modal>
@@ -104,13 +177,22 @@ function MediaThumb({ url }) {
   );
 }
 
+  // Nežinomas tipas – neutralus placeholderis
+  return (
+    <Group h={160} justify="center" align="center" style={{ ...commonStyle, background: 'rgba(0,0,0,.05)' }}>
+      <IconPhoto />
+    </Group>
+  );
+}
+
+/* ------------------ Main component --------------------- */
 export default function CoachExercisesPage() {
-  // sąrašas
+  // Sąrašas
   const [items, setItems] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [errList, setErrList] = useState(null);
 
-  // kūrimo forma
+  // Kūrimo forma
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -119,16 +201,18 @@ export default function CoachExercisesPage() {
     difficulty: 'easy',
     tagsLine: '',
     media_url: '',
+    is_paid: false,
   });
   const [mediaFile, setMediaFile] = useState(null);
   const [creating, setCreating] = useState(false);
 
-  // modalinis redagavimas
+  // Redagavimo modalas
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [editFile, setEditFile] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // Load list
   useEffect(() => {
     (async () => {
       setLoadingList(true); setErrList(null);
@@ -143,6 +227,7 @@ export default function CoachExercisesPage() {
     })();
   }, []);
 
+  /* ---------------- Create ---------------- */
   async function handleCreate(e) {
     e.preventDefault();
     if (!form.title.trim()) {
@@ -157,20 +242,19 @@ export default function CoachExercisesPage() {
         equipment: form.equipment.trim() || undefined,
         primary_muscle: form.primary_muscle.trim() || undefined,
         difficulty: form.difficulty || 'easy',
+        is_paid: !!form.is_paid,
         tags: form.tagsLine
           ? form.tagsLine.split(',').map(s => s.trim()).filter(Boolean)
           : undefined,
         media_url: mediaFile ? undefined : (form.media_url.trim() || undefined),
       };
-
       const created = await createCoachExercise(payload, mediaFile || undefined);
-      setItems((prev) => [...prev, created]);
+      setItems(prev => [...prev, created]);
       setForm({
         title: '', description: '', equipment: '', primary_muscle: '',
-        difficulty: 'easy', tagsLine: '', media_url: '',
+        difficulty: 'easy', tagsLine: '', media_url: '', is_paid: false,
       });
       setMediaFile(null);
-
       notifications.show({ color: 'green', message: 'Exercise created' });
     } catch (e) {
       notifications.show({ color: 'red', message: e.message || 'Create failed' });
@@ -179,6 +263,7 @@ export default function CoachExercisesPage() {
     }
   }
 
+  /* ---------------- Edit ---------------- */
   function openEdit(ex) {
     setEditItem({
       ...ex,
@@ -198,11 +283,11 @@ export default function CoachExercisesPage() {
         equipment: editItem.equipment?.trim() || undefined,
         primary_muscle: editItem.primary_muscle?.trim() || undefined,
         difficulty: editItem.difficulty || undefined,
+        is_paid: !!editItem.is_paid,
         tags: editItem.tagsLine
           ? editItem.tagsLine.split(',').map(s => s.trim()).filter(Boolean)
           : [],
       };
-
       const updated = await updateCoachExercise(editItem.id, payload, editFile || undefined);
       setItems(prev => prev.map(x => x.id === updated.id ? updated : x));
       setEditOpen(false);
@@ -229,6 +314,7 @@ export default function CoachExercisesPage() {
     }
   }
 
+  /* ---------------- Delete ---------------- */
   async function handleDelete(id) {
     try {
       await deleteCoachExercise(id);
@@ -239,29 +325,25 @@ export default function CoachExercisesPage() {
     }
   }
 
+  /* ---------------- Reorder ---------------- */
   async function move(id, dir) {
-    // lokaliai perkeliu
-    const idx = items.findIndex(x => x.id === id);
+    const prev = items;
+    const idx = prev.findIndex(x => x.id === id);
     if (idx < 0) return;
-    const newArr = [...items];
+    const arr = [...prev];
     const swapWith = dir === 'up' ? idx - 1 : idx + 1;
-    if (swapWith < 0 || swapWith >= newArr.length) return;
-    [newArr[idx], newArr[swapWith]] = [newArr[swapWith], newArr[idx]];
-    setItems(newArr);
-
+    if (swapWith < 0 || swapWith >= arr.length) return;
+    [arr[idx], arr[swapWith]] = [arr[swapWith], arr[idx]];
+    setItems(arr);
     try {
-      await reorderCoachExercises(newArr.map(x => x.id));
+      await reorderCoachExercises(arr.map(x => x.id));
     } catch (e) {
-    // jei backend nesuveikė – grąžinam buvusią būseną
-    notifications.show({
-      color: 'red',
-      title: 'Reorder failed',
-      message: e.message || 'Unknown error',
-    });
-    setItems(items);
-  }
+      setItems(prev); // restore
+      notifications.show({ color: 'red', message: `Reorder failed: ${e.message || ''}` });
+    }
   }
 
+  /* ---------------- Render ---------------- */
   return (
     <Stack gap="lg">
       <Group justify="space-between" align="start">
@@ -275,7 +357,7 @@ export default function CoachExercisesPage() {
         <Grid.Col span={{ base: 12 }}>
           <Paper p="lg" radius="lg" withBorder>
             <form onSubmit={handleCreate}>
-              <Grid gutter="lg">
+              <Grid gutter="lg" align="end">
                 <Grid.Col span={{ base: 12 }}>
                   <TextInput
                     label="Title"
@@ -333,7 +415,7 @@ export default function CoachExercisesPage() {
                   />
                 </Grid.Col>
 
-                <Grid.Col span={{ base: 12 }}>
+                <Grid.Col span={{ base: 12, md: 6 }}>
                   <Group wrap="wrap" gap="md" align="end">
                     <TextInput
                       style={{ flexGrow: 1, minWidth: 260 }}
@@ -352,12 +434,7 @@ export default function CoachExercisesPage() {
                         )}
                       </FileButton>
                       {mediaFile && (
-                        <Button
-                          ml="xs"
-                          variant="subtle"
-                          color="red"
-                          onClick={() => setMediaFile(null)}
-                        >
+                        <Button ml="xs" variant="subtle" color="red" onClick={() => setMediaFile(null)}>
                           Clear selected
                         </Button>
                       )}
@@ -372,6 +449,14 @@ export default function CoachExercisesPage() {
                       </Group>
                     </Paper>
                   )}
+                </Grid.Col>
+
+                <Grid.Col span={{ base: 12, md: 6 }}>
+                  <Switch
+                    label="Paid (hidden preview)"
+                    checked={form.is_paid}
+                    onChange={(e) => setForm({ ...form, is_paid: e.currentTarget.checked })}
+                  />
                 </Grid.Col>
 
                 <Grid.Col span={{ base: 12 }}>
@@ -395,58 +480,79 @@ export default function CoachExercisesPage() {
         <>
           <Text c="dimmed" size="sm" mb="sm">Total: {items.length}</Text>
           <Grid gutter="lg">
-            {items.map((ex, i) => (
-              <Grid.Col key={ex.id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
-                <Card withBorder radius="lg" shadow="sm" padding="sm">
-                  <div
-                    style={{
-                      height: 160,
-                      background: 'white',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      overflow: 'hidden',
-                      borderRadius: 12,
-                    }}
-                  >
-                    <MediaThumb url={ex.media_url || ex.media_path} />
-                  </div>
+            {items.map((ex, i) => {
+              const mediaUrl = ex.media_path || ex.external_url || ex.media_url || '';
+              const isPaid = !!ex.is_paid;
+              return (
+                <Grid.Col key={ex.id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
+                  <Card withBorder radius="lg" shadow="sm" padding="sm">
+                    <div
+                      style={{
+                        height: 160,
+                        background: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        borderRadius: 12,
+                        position: 'relative',
+                      }}
+                    >
+                      <MediaThumb url={mediaUrl} blurred={isPaid} />
+                      {isPaid && (
+                        <Badge
+                          leftSection={<IconLock size={14} />}
+                          radius="lg"
+                          variant="white"
+                          style={{
+                            position: 'absolute',
+                            top: '50%', left: '50%',
+                            transform: 'translate(-50%,-50%)',
+                            boxShadow: '0 8px 24px rgba(0,0,0,.15)'
+                          }}
+                        >
+                          Paid
+                        </Badge>
+                      )}
+                    </div>
 
-                  <Group justify="space-between" mt="sm" align="start">
-                    <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
-                      <Text fw={600} lineClamp={2}>{ex.title}</Text>
+                    <Group justify="space-between" mt="sm" align="start">
+                      <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+                        <Text fw={600} lineClamp={2}>{ex.title}</Text>
+                        <Group gap={6} wrap="wrap">
+                          {isPaid && <Badge color="red" variant="filled">PAID</Badge>}
+                          {ex.primary_muscle && <Badge variant="light">{ex.primary_muscle}</Badge>}
+                          {ex.equipment && <Badge variant="outline">{ex.equipment}</Badge>}
+                          {ex.difficulty && <Badge variant="dot">{ex.difficulty}</Badge>}
+                        </Group>
+                      </Stack>
                       <Group gap={6}>
-                        {ex.primary_muscle && <Badge variant="light">{ex.primary_muscle}</Badge>}
-                        {ex.equipment && <Badge variant="outline">{ex.equipment}</Badge>}
-                        {ex.difficulty && <Badge variant="dot">{ex.difficulty}</Badge>}
+                        <Tooltip label="Move up">
+                          <ActionIcon variant="subtle" onClick={() => move(ex.id, 'up')} disabled={i === 0}>
+                            <IconArrowUp size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Move down">
+                          <ActionIcon variant="subtle" onClick={() => move(ex.id, 'down')} disabled={i === items.length - 1}>
+                            <IconArrowDown size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Edit">
+                          <ActionIcon variant="subtle" onClick={() => openEdit(ex)}>
+                            <IconPencil size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Delete">
+                          <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(ex.id)}>
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Tooltip>
                       </Group>
-                    </Stack>
-                    <Group gap={6}>
-                      <Tooltip label="Move up">
-                        <ActionIcon variant="subtle" onClick={() => move(ex.id, 'up')} disabled={i === 0}>
-                          <IconArrowUp size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                      <Tooltip label="Move down">
-                        <ActionIcon variant="subtle" onClick={() => move(ex.id, 'down')} disabled={i === items.length - 1}>
-                          <IconArrowDown size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                      <Tooltip label="Edit">
-                        <ActionIcon variant="subtle" onClick={() => openEdit(ex)}>
-                          <IconPencil size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                      <Tooltip label="Delete">
-                        <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(ex.id)}>
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Tooltip>
                     </Group>
-                  </Group>
-                </Card>
-              </Grid.Col>
-            ))}
+                  </Card>
+                </Grid.Col>
+              );
+            })}
 
             {items.length === 0 && (
               <Grid.Col span={12}>
@@ -493,6 +599,11 @@ export default function CoachExercisesPage() {
               data={difficulties}
               value={editItem.difficulty || null}
               onChange={(v) => setEditItem({ ...editItem, difficulty: v || '' })}
+            />
+            <Switch
+              label="Paid (hidden preview)"
+              checked={!!editItem.is_paid}
+              onChange={(e) => setEditItem({ ...editItem, is_paid: e.currentTarget.checked })}
             />
             <TextInput
               label="Tags (comma-separated)"

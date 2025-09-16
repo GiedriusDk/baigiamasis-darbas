@@ -7,15 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 class CoachExercise extends Model
 {
     protected $fillable = [
-        'user_id', 'title', 'description',
-        'equipment', 'primary_muscle', 'difficulty',
-        'tags', 'media_path', 'media_type', 'external_url',
-        'position'
-    ];
+  'user_id','title','description','equipment','primary_muscle',
+  'difficulty','tags','media_path','media_type','external_url',
+  'position','is_paid',
+];
 
-    protected $casts = [
-        'tags' => 'array',
-    ];
+protected $casts = [
+  'tags' => 'array',
+  'is_paid' => 'boolean',
+];
 
     // Patogumui – galutinis laukas, kurį rodysim fronte
     protected $appends = ['media_url'];
