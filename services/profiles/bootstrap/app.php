@@ -12,15 +12,6 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // jei norite – globalus arba grupinis middleware:
-        // $middleware->append(\App\Http\Middleware\TrustProxies::class);
-
-        // API grupė (palikite pagal poreikį)
-        $middleware->group('api', [
-            \Illuminate\Routing\Middleware\SubstituteBindings::class,
-        ]);
-
-        // ČIA yra esmė: aliasai maršrutams
         $middleware->alias([
             'auth.proxy' => \App\Http\Middleware\AuthViaAuthService::class,
         ]);

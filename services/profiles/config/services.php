@@ -36,7 +36,8 @@ return [
     ],
     
     'auth' => [
-        'base' => env('AUTH_BASE', 'http://gateway/auth/api'),
+        'base' => env('AUTH_BASE', 'http://gateway/api/auth'),
+        'timeout' => 5,
     ],
 
 ];

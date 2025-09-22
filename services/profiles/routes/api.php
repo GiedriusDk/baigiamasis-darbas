@@ -32,6 +32,3 @@ Route::prefix('coach/public')->group(function () {
     Route::get('{id}',     [CoachPublicController::class, 'show']);
     Route::get('{id}/exercises', [CoachPublicController::class, 'exercises']);
 });
-Route::prefix('public')->group(function () {
-    Route::get('/users/{id}', [PublicUsersController::class, 'show']);
-});
