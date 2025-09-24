@@ -71,3 +71,10 @@ Route::get('/filters', function () {
         'muscles'    => DB::table('muscles')->orderBy('name')->pluck('name'),
     ];
 });
+
+Route::get('/exercises/{id}', function (int $id) {
+    $row = DB::table('exercises')
+        ->select('id','name','primary_muscle','equipment','image_url')
+        ->where('id', $id)->first();
+    return $row ? ['data' => $row] : response()->json(['message' => 'Not found'], 404);
+});
