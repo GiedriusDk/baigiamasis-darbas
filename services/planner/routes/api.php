@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PlanController;
+use App\Http\Controllers\WorkoutExerciseController;
 
 Route::middleware('auth.proxy')->get('/me', function (Request $r) {
     // matysi ką atidavė AUTH /me
@@ -14,5 +15,8 @@ Route::middleware('auth.proxy')->group(function () {
     Route::get('/plans/latest', [\App\Http\Controllers\PlanController::class, 'latest']);
     Route::get('/plans/{plan}', [\App\Http\Controllers\PlanController::class, 'show']);
     
-    
+
+    Route::get('/workouts/{workout}/exercises/{order}/alternatives', [WorkoutExerciseController::class, 'alternatives']);
+    Route::patch('/workouts/{workout}/exercises/{order}', [WorkoutExerciseController::class, 'swap']);
+    Route::get('/exercises/search', [WorkoutExerciseController::class, 'search']);
 });

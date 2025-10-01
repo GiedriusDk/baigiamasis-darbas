@@ -14,6 +14,7 @@ class Plan extends Model
         'sessions_per_week',
         'start_date',
         'weeks',
+        'session_minutes',
     ];
 
     public function workouts(): HasMany

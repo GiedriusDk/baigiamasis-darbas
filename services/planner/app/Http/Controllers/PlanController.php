@@ -45,13 +45,15 @@ class PlanController extends Controller
 
         $data = $r->validate([
             'goal'              => 'required|string|in:fat_loss,muscle_gain,performance,general_fitness',
-            'sessions_per_week' => 'required|integer|in:3,4,5',
+            'sessions_per_week' => 'required|integer|in:2,3,4',
             'equipment'         => 'nullable|string',
             'start_date'        => 'nullable|date',
             'weeks'             => 'nullable|integer|min:4|max:24',
+            'session_minutes'   => 'nullable|integer|in:30,45,60,75,90',
         ]);
 
         $weeks = $data['weeks'] ?? 8;
+        $sessionMinutes = (int)($data['session_minutes'] ?? 60);
 
         DB::beginTransaction();
         try {
@@ -61,12 +63,14 @@ class PlanController extends Controller
                 'sessions_per_week' => (int)$data['sessions_per_week'],
                 'start_date'        => $data['start_date'] ?? now()->toDateString(),
                 'weeks'             => $weeks,
+                'session_minutes'   => $sessionMinutes,
             ]);
 
             $template = $splitGen->generate(
                 $data['goal'],
                 (int)$data['sessions_per_week'],
-                $data['equipment'] ?? null
+                $data['equipment'] ?? null,
+                $sessionMinutes 
             );
 
             if (!$template) {
@@ -146,4 +150,5 @@ class PlanController extends Controller
 
         return response()->json($plan);
     }
+    
 }

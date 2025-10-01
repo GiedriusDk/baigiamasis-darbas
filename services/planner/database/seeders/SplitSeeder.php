@@ -1,114 +1,120 @@
 <?php
+// database/seeders/SplitSeeder.php
 
 namespace Database\Seeders;
 
-use App\Models\Split;
-use App\Models\SplitDay;
-use App\Models\SplitSlot;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class SplitSeeder extends Seeder
 {
     public function run(): void
     {
-        // muscle_gain + 3 (PPL)
-        $split = Split::updateOrCreate(
-            ['goal' => 'muscle_gain', 'sessions_per_week' => 3],
-            ['slug' => 'muscle_gain_3_ppl', 'meta' => null]
-        );
+        // Išvalom (nebūtina, jei migruoji švariai)
+        // DB::table('split_slots')->delete();
+        // DB::table('split_days')->delete();
+        // DB::table('splits')->delete();
 
-        $this->seedDays($split, [
-            ['name' => 'Push', 'slots' => [
-                ['tag' => 'horizontal_push', 'count' => 2, 'min_compound' => 1],
-                ['tag' => 'vertical_push',   'count' => 1, 'min_compound' => 0],
-                ['tag' => 'core_anti_extension', 'count' => 1, 'min_compound' => 0],
-            ]],
-            ['name' => 'Pull', 'slots' => [
-                ['tag' => 'horizontal_pull', 'count' => 2, 'min_compound' => 1],
-                ['tag' => 'vertical_pull',   'count' => 1, 'min_compound' => 0],
-                ['tag' => 'core_rotation',   'count' => 1, 'min_compound' => 0],
-            ]],
-            ['name' => 'Legs', 'slots' => [
-                ['tag' => 'hinge', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'squat', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'lunge', 'count' => 1, 'min_compound' => 0],
-                ['tag' => 'core_anti_extension', 'count' => 1, 'min_compound' => 0],
-            ]],
-        ]);
+        // 9 kombinacijos: goal × sessions={2,3,4}
+        $spec = [
+            // MUSCLE GAIN
+            ['goal' => 'muscle_gain', 'sessions' => 2, 'slug' => 'mg_2_ul',      'days' => ['Upper','Lower']],
+            ['goal' => 'muscle_gain', 'sessions' => 3, 'slug' => 'mg_3_ppl',     'days' => ['Push','Pull','Legs']],
+            ['goal' => 'muscle_gain', 'sessions' => 4, 'slug' => 'mg_4_ulul',    'days' => ['Upper','Lower','Upper','Lower']],
 
-        // general_fitness + 4 (ULUL)
-        $split = Split::updateOrCreate(
-            ['goal' => 'general_fitness', 'sessions_per_week' => 4],
-            ['slug' => 'general_fitness_4_ulul', 'meta' => null]
-        );
+            // FAT LOSS
+            ['goal' => 'fat_loss',    'sessions' => 2, 'slug' => 'fl_2_fb_card', 'days' => ['Full Body','Cardio']],
+            ['goal' => 'fat_loss',    'sessions' => 3, 'slug' => 'fl_3_fbfbcard','days' => ['Full Body','Full Body','Cardio']],
+            ['goal' => 'fat_loss',    'sessions' => 4, 'slug' => 'fl_4_ulfbcard','days' => ['Upper','Lower','Full Body','Cardio']],
 
-        $this->seedDays($split, [
-            ['name' => 'Upper', 'slots' => [
-                ['tag' => 'horizontal_push', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'vertical_pull',   'count' => 1, 'min_compound' => 1],
-                ['tag' => 'accessory_upper', 'count' => 2, 'min_compound' => 0],
-                ['tag' => 'core_anti_extension', 'count' => 1, 'min_compound' => 0],
-            ]],
-            ['name' => 'Lower', 'slots' => [
-                ['tag' => 'squat', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'hinge', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'lunge', 'count' => 1, 'min_compound' => 0],
-                ['tag' => 'core_rotation', 'count' => 1, 'min_compound' => 0],
-            ]],
-            ['name' => 'Upper', 'slots' => [
-                ['tag' => 'horizontal_pull', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'vertical_push',   'count' => 1, 'min_compound' => 1],
-                ['tag' => 'accessory_upper', 'count' => 2, 'min_compound' => 0],
-                ['tag' => 'core_lateral', 'count' => 1, 'min_compound' => 0],
-            ]],
-            ['name' => 'Lower', 'slots' => [
-                ['tag' => 'squat', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'hinge', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'conditioning', 'count' => 1, 'min_compound' => 0],
-                ['tag' => 'core_anti_extension', 'count' => 1, 'min_compound' => 0],
-            ]],
-        ]);
+            // GENERAL FITNESS
+            ['goal' => 'general_fitness', 'sessions' => 2, 'slug' => 'gf_2_ul',   'days' => ['Upper','Lower']],
+            ['goal' => 'general_fitness', 'sessions' => 3, 'slug' => 'gf_3_ulfb', 'days' => ['Upper','Lower','Full Body']],
+            ['goal' => 'general_fitness', 'sessions' => 4, 'slug' => 'gf_4_ulul', 'days' => ['Upper','Lower','Upper','Lower']],
+        ];
 
-        // fat_loss + 3 (FullBody + FullBody + Cardio)
-        $split = Split::updateOrCreate(
-            ['goal' => 'fat_loss', 'sessions_per_week' => 3],
-            ['slug' => 'fat_loss_3_fbfbc', 'meta' => null]
-        );
+        foreach ($spec as $row) {
+            $splitId = DB::table('splits')->insertGetId([
+                'goal'              => $row['goal'],
+                'sessions_per_week' => $row['sessions'],
+                'slug'              => $row['slug'],
+                'created_at'        => now(),
+                'updated_at'        => now(),
+            ]);
 
-        $this->seedDays($split, [
-            ['name' => 'Full Body', 'slots' => [
-                ['tag' => 'squat', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'horizontal_push', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'horizontal_pull', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'core_anti_extension', 'count' => 1, 'min_compound' => 0],
-            ]],
-            ['name' => 'Full Body', 'slots' => [
-                ['tag' => 'hinge', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'vertical_push', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'vertical_pull', 'count' => 1, 'min_compound' => 1],
-                ['tag' => 'core_rotation', 'count' => 1, 'min_compound' => 0],
-            ]],
-            ['name' => 'Cardio', 'slots' => [
-                ['tag' => 'conditioning', 'count' => 1, 'min_compound' => 0],
-                ['tag' => 'core_lateral', 'count' => 1, 'min_compound' => 0],
-            ]],
-        ]);
-    }
+            foreach ($row['days'] as $i => $name) {
+                $dayId = DB::table('split_days')->insertGetId([
+                    'split_id'   => $splitId,
+                    'day_index'  => $i,
+                    'name'       => $name,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
 
-    private function seedDays(Split $split, array $days): void
-    {
-        foreach ($days as $idx => $d) {
-            $day = \App\Models\SplitDay::updateOrCreate(
-                ['split_id' => $split->id, 'day_index' => $idx],
-                ['name' => $d['name']]
-            );
-
-            foreach ($d['slots'] as $s) {
-                SplitSlot::updateOrCreate(
-                    ['split_day_id' => $day->id, 'tag' => $s['tag']],
-                    ['count' => $s['count'], 'min_compound' => $s['min_compound']]
+                DB::table('split_slots')->insert(
+                    array_map(fn($s) => [
+                        'split_day_id'  => $dayId,
+                        'tag'           => $s['tag'],
+                        'count'         => $s['count'],
+                        'min_compound'  => $s['min_compound'],
+                        'created_at'    => now(),
+                        'updated_at'    => now(),
+                    ], $this->slotsFor($name))
                 );
             }
         }
+    }
+
+    // ČIA – vieną kartą aprašom, kaip atrodo kiekvienos dienos „receptas“ (slot’ai).
+    // Tai tie patys „default masyvai“, tik dabar – SEEDER’YJE, o ne generatoriaus kode.
+    private function slotsFor(string $day): array
+    {
+        return match ($day) {
+            'Upper' => [
+                ['tag'=>'horizontal_push',     'count'=>1, 'min_compound'=>1],
+                ['tag'=>'horizontal_pull',     'count'=>1, 'min_compound'=>1],
+                ['tag'=>'vertical_push',       'count'=>1, 'min_compound'=>0],
+                ['tag'=>'vertical_pull',       'count'=>1, 'min_compound'=>0],
+                ['tag'=>'core_anti_extension', 'count'=>1, 'min_compound'=>0],
+            ],
+            'Lower' => [
+                ['tag'=>'squat',               'count'=>1, 'min_compound'=>1],
+                ['tag'=>'hinge',               'count'=>1, 'min_compound'=>1],
+                ['tag'=>'lunge',               'count'=>1, 'min_compound'=>0],
+                ['tag'=>'core_anti_extension', 'count'=>1, 'min_compound'=>0],
+            ],
+            'Full Body' => [
+                ['tag'=>'squat',               'count'=>1, 'min_compound'=>1],
+                ['tag'=>'horizontal_push',     'count'=>1, 'min_compound'=>1],
+                ['tag'=>'horizontal_pull',     'count'=>1, 'min_compound'=>1],
+                ['tag'=>'hinge',               'count'=>1, 'min_compound'=>1],
+                ['tag'=>'core_anti_extension', 'count'=>1, 'min_compound'=>0],
+            ],
+            'Push' => [
+                ['tag'=>'horizontal_push',     'count'=>2, 'min_compound'=>1],
+                ['tag'=>'vertical_push',       'count'=>1, 'min_compound'=>0],
+                ['tag'=>'core_anti_extension', 'count'=>1, 'min_compound'=>0],
+            ],
+            'Pull' => [
+                ['tag'=>'horizontal_pull',     'count'=>2, 'min_compound'=>1],
+                ['tag'=>'vertical_pull',       'count'=>1, 'min_compound'=>0],
+                ['tag'=>'core_rotation',       'count'=>1, 'min_compound'=>0],
+            ],
+            'Legs' => [
+                ['tag'=>'hinge',               'count'=>1, 'min_compound'=>1],
+                ['tag'=>'squat',               'count'=>1, 'min_compound'=>1],
+                ['tag'=>'lunge',               'count'=>1, 'min_compound'=>0],
+                ['tag'=>'core_anti_extension', 'count'=>1, 'min_compound'=>0],
+            ],
+            'Cardio' => [
+                ['tag'=>'cardio',        'count'=>3, 'min_compound'=>0],
+            ],
+            default => [
+                ['tag'=>'horizontal_push',     'count'=>1, 'min_compound'=>1],
+                ['tag'=>'horizontal_pull',     'count'=>1, 'min_compound'=>1],
+                ['tag'=>'squat',               'count'=>1, 'min_compound'=>1],
+                ['tag'=>'core_anti_extension', 'count'=>1, 'min_compound'=>0],
+            ],
+        };
     }
 }
