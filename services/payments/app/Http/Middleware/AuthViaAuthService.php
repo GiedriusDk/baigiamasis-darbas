@@ -19,16 +19,19 @@ class AuthViaAuthService
 
         try {
             $res = Http::withHeaders(['Authorization' => $auth])
-                ->accept('application/json')
+                ->acceptJson()
                 ->get($base . '/me');
 
             if (!$res->ok()) {
                 return response()->json(['message' => 'Unauthenticated.'], 401);
             }
 
-            $user = $res->json();
+            $payload = $res->json();
 
-            // padedam į request (abiem patogiais būdais)
+            // /me gali grąžinti {"user": {...}} arba tiesiog {...}
+            $user = $payload['user'] ?? $payload;
+
+            // padedam į Request
             $request->attributes->set('auth_user', $user);
             $request->setUserResolver(fn () => (object) $user);
 

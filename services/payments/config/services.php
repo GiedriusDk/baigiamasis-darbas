@@ -39,4 +39,12 @@ return [
         'base' => env('AUTH_BASE', 'http://gateway/api/auth'),
     ],
 
+    'stripe' => [
+        'public'      => env('STRIPE_PUBLIC_KEY'),
+        'secret'      => env('STRIPE_SECRET_KEY'), 
+        'currency'    => 'eur',
+        'success_url' => env('CHECKOUT_SUCCESS_URL'),
+        'cancel_url'  => env('CHECKOUT_CANCEL_URL'),
+    ],
+
 ];

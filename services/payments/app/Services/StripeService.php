@@ -2,82 +2,64 @@
 
 namespace App\Services;
 
-use Stripe\StripeClient;
 use App\Models\Order;
+use Stripe\StripeClient;
 
 class StripeService
 {
-    protected StripeClient $stripe;
+    public function __construct(
+        protected ?StripeClient $client = null
+    ) {
+        $this->client = $this->client ?: new StripeClient(config('services.stripe.secret'));
+    }
 
-    public function __construct()
+    public function retrieveCheckoutSession(string $sessionId): \Stripe\Checkout\Session
     {
-        $this->stripe = new StripeClient(config('stripe.secret'));
+        return $this->client->checkout->sessions->retrieve($sessionId, []);
     }
 
     public function createCheckoutSessionForOrder(Order $order): string
     {
-        // Šitam MVP naudosim vieną "line item" iš Order sumos (centais).
-        // Jei nori realių pozicijų — paimsi iš products/order_items.
-        $amount   = (int) $order->total_price_cents;
-        $currency = config('stripe.currency', 'eur');
+        $currency = strtolower(config('services.stripe.currency', 'eur'));
 
-        $session = $this->stripe->checkout->sessions->create([
+        $success = rtrim(config('services.stripe.success_url') ?: '', '/');
+        $cancel  = rtrim(config('services.stripe.cancel_url')  ?: '', '/');
+
+        if ($success === '') {
+            $success = rtrim(env('FRONTEND_URL', env('APP_URL', 'http://localhost:8080')), '/')
+                     . '/payments/success';
+        }
+        if ($cancel === '') {
+            $cancel = rtrim(env('FRONTEND_URL', env('APP_URL', 'http://localhost:8080')), '/')
+                    . '/payments/cancel';
+        }
+
+        $success .= '?order=' . $order->public_id;
+        $cancel  .= '?order=' . $order->public_id;
+
+        $amount = (int) $order->amount;
+
+        $session = $this->client->checkout->sessions->create([
             'mode'        => 'payment',
-            'success_url' => config('stripe.success_url'),
-            'cancel_url'  => config('stripe.cancel_url'),
+            'success_url' => $success,
+            'cancel_url'  => $cancel,
             'line_items'  => [[
                 'price_data' => [
                     'currency'     => $currency,
                     'product_data' => [
-                        'name' => 'Order #'.$order->id,
+                        'name'        => 'Order #' . $order->id,
+                        'description' => 'Product ID: ' . $order->product_id,
                     ],
                     'unit_amount'  => $amount,
                 ],
                 'quantity' => 1,
             ]],
-            // Patogu pasidėti orderio ID
             'metadata' => [
-                'order_id' => (string)$order->id,
+                'order_id'  => (string) $order->id,
+                'public_id' => (string) $order->public_id,
             ],
         ]);
 
         return $session->url;
-    }
-
-    public function verifyAndHandleWebhook(string $payload, ?string $sigHeader): void
-    {
-        $secret = config('stripe.webhook_secret');
-        // Paprastumui: jeigu webhook secret nėra nustatytas, praleidžiam verifikaciją (dev režimas).
-        if ($secret) {
-            $event = \Stripe\Webhook::constructEvent($payload, $sigHeader, $secret);
-        } else {
-            $event = json_decode($payload);
-        }
-
-        $type = $event->type ?? $event->type ?? null;
-
-        if ($type === 'checkout.session.completed') {
-            $session = $event->data->object ?? null;
-            $orderId = $session?->metadata?->order_id ?? null;
-
-            if ($orderId) {
-                $order = \App\Models\Order::find($orderId);
-                if ($order && $order->status !== 'paid') {
-                    $order->status = 'paid';
-                    $order->save();
-
-                    // (nebūtina) įrašyk Payment į payments lentelę, jei turi modelį
-                    \App\Models\Payment::create([
-                        'order_id'         => $order->id,
-                        'provider'         => 'stripe',
-                        'provider_ref'     => $session->id ?? null,
-                        'amount_cents'     => $order->total_price_cents,
-                        'currency'         => config('stripe.currency', 'eur'),
-                        'status'           => 'succeeded',
-                        'raw_payload_json' => json_encode($session),
-                    ]);
-                }
-            }
-        }
     }
 }

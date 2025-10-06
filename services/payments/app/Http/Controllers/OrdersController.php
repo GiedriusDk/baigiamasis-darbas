@@ -45,4 +45,18 @@ class OrdersController extends Controller
     {
         return response()->json(['data' => $order->load('product')]);
     }
+
+    public function access(Request $request, Order $order)
+    {
+        $user = $request->attributes->get('auth_user');
+        $can  = ($order->status === 'paid') && ((int)$order->user_id === (int)($user['id'] ?? 0));
+
+        return response()->json([
+            'data' => [
+                'can_access' => $can,
+                'status'     => $order->status,
+                'order_id'   => $order->id,
+            ]
+        ]);
+    }
 }
