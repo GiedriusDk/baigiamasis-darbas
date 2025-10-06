@@ -6,7 +6,6 @@ use App\Http\Controllers\PlanController;
 use App\Http\Controllers\WorkoutExerciseController;
 
 Route::middleware('auth.proxy')->get('/me', function (Request $r) {
-    // matysi ką atidavė AUTH /me
     return response()->json($r->attributes->get('auth_user'));
 });
 

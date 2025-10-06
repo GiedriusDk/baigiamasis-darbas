@@ -8,10 +8,11 @@ import App from './App.jsx'
 import '@mantine/core/styles.css'
 import '@mantine/notifications/styles.css'
 
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <MantineProvider defaultColorScheme="light">
-      <Notifications position="top-right" />
+      <Notifications position="top-left" />
       <BrowserRouter>
         <App />
       </BrowserRouter>

@@ -1,45 +1,78 @@
 // webapp/src/pages/LoginPage.jsx
 import { useState } from 'react';
-import { Button, Card, PasswordInput, TextInput, Title, Alert, Anchor, Group } from '@mantine/core';
-import { Link, useNavigate } from 'react-router-dom';
+import {
+  Card, Title, Text, TextInput, PasswordInput,
+  Button, Group, Anchor, Stack
+} from '@mantine/core';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { notifications } from '@mantine/notifications';
+import { login, me as fetchMe, setToken } from '../api/auth';
 import { useAuth } from '../auth/useAuth';
 
 export default function LoginPage() {
-  const { doLogin } = useAuth();
-  const nav = useNavigate();
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(false);
+  const { setUser } = useAuth(); // make sure your AuthProvider exposes setUser
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/';
 
   async function onSubmit(e) {
     e.preventDefault();
-    setErr(null); setLoading(true);
+    setLoading(true);
     try {
-      await doLogin(email, password);
-      nav('/');
-    } catch (e) {
-      setErr(e.message || 'Login failed');
+      const res = await login({ email: email.trim(), password });
+      if (res?.token) setToken(res.token);
+
+      const user = await fetchMe();
+      setUser?.(user);
+
+      notifications.show({ color: 'green', message: 'Signed in.' });
+      navigate(from, { replace: true });
+    } catch (err) {
+      notifications.show({ color: 'red', message: err.message || 'Login failed' });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <Card maw={520} mx="auto" withBorder radius="lg" p="lg">
-      <Title order={2} mb="md">Sign in</Title>
-      {err && <Alert color="red" mb="md">{err}</Alert>}
+    <Card maw={520} mx="auto" mt="xl" withBorder radius="md" p="lg">
+      <Title order={3} mb="md">Sign in</Title>
 
       <form onSubmit={onSubmit}>
-        <TextInput label="Email" type="email" required value={email} onChange={(e) => setEmail(e.currentTarget.value)} mb="sm" />
-        <PasswordInput label="Password" required value={password} onChange={(e) => setPassword(e.currentTarget.value)} mb="md" />
-        <Button fullWidth type="submit" loading={loading}>Sign in</Button>
-      </form>
+        <Stack>
+          <TextInput
+            label="Email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.currentTarget.value)}
+            required
+          />
+          <PasswordInput
+            label="Password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.currentTarget.value)}
+            required
+          />
 
-      <Group justify="center" mt="md">
-        <Anchor component={Link} to="/register">Create an account</Anchor>
-      </Group>
+          <Group justify="space-between" mt="xs">
+            <Anchor component={Link} to="/forgot-password" size="sm">
+              Forgot your password?
+            </Anchor>
+            <Button type="submit" loading={loading}>
+              Sign in
+            </Button>
+          </Group>
+
+          <Text size="sm" c="dimmed">
+            Don’t have an account?{' '}
+            <Anchor component={Link} to="/register">Create an account</Anchor>
+          </Text>
+        </Stack>
+      </form>
     </Card>
   );
 }

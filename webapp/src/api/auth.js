@@ -1,5 +1,5 @@
 // webapp/src/api/auth.js
-const BASE = '/auth/api/auth'; // vieną kartą "auth" čia – OK
+const BASE = 'http://localhost:8080/api/auth';
 
 const LS_KEY = 'auth_token';
 
@@ -7,53 +7,84 @@ export const getToken = () => localStorage.getItem(LS_KEY);
 export const setToken = (t) => t && localStorage.setItem(LS_KEY, t);
 export const clearToken = () => localStorage.removeItem(LS_KEY);
 
+function pickFirstError(errors) {
+  if (!errors || typeof errors !== 'object') return null;
+  for (const k of Object.keys(errors)) {
+    const v = Array.isArray(errors[k]) ? errors[k][0] : errors[k];
+    if (v) return v;
+  }
+  return null;
+}
+
 async function req(path, options = {}) {
   const token = getToken();
   const headers = {
+    Accept: 'application/json',
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
     ...(options.headers || {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  const r = await fetch(`${BASE}${path}`, { ...options, headers });
-  const txt = await r.text();
-  let data;
-  try { data = txt ? JSON.parse(txt) : null; } catch { data = { message: txt }; }
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  const text = await res.text();
 
-  if (!r.ok) {
-    throw new Error((data && (data.message || data.error)) || `HTTP ${r.status}`);
+  let data;
+  try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }
+
+  if (!res.ok) {
+    // Laravel validator errors
+    const msg = data?.message || pickFirstError(data?.errors) || `HTTP ${res.status}`;
+    throw new Error(msg);
   }
   return data;
 }
 
-export async function register({ name, email, password, password_confirmation, role }) {
-  const res = await req('/register', {
+// ------- Auth endpoints -------
+export async function register({ first_name, last_name, email, password, password_confirmation, role }) {
+  const out = await req('/register', {
     method: 'POST',
-    body: JSON.stringify({ name, email, password, password_confirmation, role }), // ← pridėjome role
+    body: JSON.stringify({ first_name, last_name, email, password, password_confirmation, role }),
   });
-  if (res?.token) setToken(res.token);
-  return res;
+  if (out?.token) setToken(out.token);
+  return out;
 }
 
 export async function login({ email, password }) {
-  const res = await req('/login', { // ← NE '/auth/login'
+  const out = await req('/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
-  if (res?.token) setToken(res.token);
-  return res;
+  if (out?.token) setToken(out.token);
+  return out;
 }
 
 export async function me() {
-  return req('/me', { method: 'GET' }); // ← NE '/auth/me'
+  return req('/me', { method: 'GET' });
 }
 
 export async function updateMe(payload) {
-  return req('/me', {
+  // Your API currently exposes both /users/me and /me in different places.
+  // Prefer /users/me; if you only have /me, switch this to '/me'.
+  return req('/users/me', {
     method: 'PUT',
-    body: JSON.stringify(payload), // pvz. { name: 'Naujas vardas' }
+    body: JSON.stringify(payload),
   });
 }
 
-export function logout() { clearToken(); }
+export async function updateEmail({ email, password }) {
+  return req('/me/email', {
+    method: 'PUT',
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function updatePassword({ current_password, password, password_confirmation }) {
+  return req('/me/password', {
+    method: 'PUT',
+    body: JSON.stringify({ current_password, password, password_confirmation }),
+  });
+}
+
+export function logout() {
+  clearToken();
+}

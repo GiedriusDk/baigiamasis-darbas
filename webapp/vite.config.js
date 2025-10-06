@@ -8,7 +8,10 @@ export default defineConfig({
     proxy: {
       '/catalog': { target: 'http://localhost:8080', changeOrigin: true },
       '/auth':    { target: 'http://localhost:8080', changeOrigin: true },
+      '/api/profiles':    { target: 'http://localhost:8080', changeOrigin: true },
       '/profiles':    { target: 'http://localhost:8080', changeOrigin: true },
+      '/api/planner':    { target: 'http://localhost:8080', changeOrigin: true },
+      '/api/payments':    { target: 'http://localhost:8080', changeOrigin: true },
     },
   },
 })

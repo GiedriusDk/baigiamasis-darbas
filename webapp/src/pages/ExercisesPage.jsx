@@ -4,9 +4,11 @@ import {
   MultiSelect, TextInput, Button, Pagination, Stack, Badge
 } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-import { getExercises, getFilters } from '../api/catalog'
+// Svarbu: naudok tą patį wrapperį, kuris kreipiasi į /api/catalog/**
+import { getExercises, getFilters } from '../api' // arba '../api/catalog' jei čia pas tave atskiras failas
+import ExerciseDetailsModal from '../components/ExerciseDetailsModal.jsx'
 
-const PER_PAGE = 24; // fiksuotas
+const PER_PAGE = 24
 
 export default function ExercisesPage() {
   const [list, setList]   = useState([])
@@ -16,13 +18,15 @@ export default function ExercisesPage() {
 
   const [filters, setFilters] = useState({ equipments: [], muscles: [] })
   const [q, setQ] = useState('')
-  const [equipments, setEquipments] = useState([]) // multiple
-  const [muscles, setMuscles]       = useState([]) // multiple
+  const [equipments, setEquipments] = useState([])
+  const [muscles, setMuscles]       = useState([])
 
   const [page, setPage] = useState(1)
   const [qDebounced] = useDebouncedValue(q, 350)
 
-  // parsitraukiam filtrų variantus
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [detailsEx, setDetailsEx]     = useState(null)
+
   useEffect(() => {
     (async () => {
       try {
@@ -111,13 +115,9 @@ export default function ExercisesPage() {
           hidePickedOptions
         />
 
-        {/* Cards per page – fiksuotas, todėl valdiklio nenaudojam */}
-        {/* <NumberInput .../> */}
-
         <Button variant="subtle" onClick={clearFilters}>Clear filters</Button>
       </Group>
 
-      {/* pasirinkti filtrai – neberodys „0“, nes naudojam Boolean(...) */}
       {Boolean(q || equipments.length || muscles.length) && (
         <Group gap="xs">
           {q && <Badge color="gray" variant="light">search: “{q}”</Badge>}
@@ -140,7 +140,19 @@ export default function ExercisesPage() {
         <>
           <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="lg">
             {list.map((ex) => (
-              <Card key={ex.id} withBorder radius="lg" padding="md" shadow="sm">
+              <Card
+                key={ex.id}
+                withBorder
+                radius="lg"
+                padding="md"
+                shadow="sm"
+                style={{ cursor: "pointer" }}
+                onClick={() => {
+                  // perduodam PILNĄ objektą – modalas, jei trūks instructions, atsisiųs pagal id
+                  setDetailsEx(ex);
+                  setDetailsOpen(true);
+                }}
+              >
                 <div style={{
                   height: 180, background: 'white',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -163,6 +175,13 @@ export default function ExercisesPage() {
               </Card>
             ))}
           </SimpleGrid>
+
+          <ExerciseDetailsModal
+            opened={detailsOpen}
+            onClose={() => setDetailsOpen(false)}
+            exercise={detailsEx?.name ? detailsEx : null}
+            exerciseId={!detailsEx?.name ? detailsEx?.id : null}
+          />
 
           <Group justify="space-between" mt="lg">
             <Text c="dimmed" size="sm">

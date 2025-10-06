@@ -3,51 +3,68 @@
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use App\Http\Controllers\AuthController;
-// use App\Http\Controllers\UserController; // <- nebūtinas, jei nenaudosi users/me
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\NewPasswordController;
 
 Route::prefix('auth')->group(function () {
-    // Auth pagrindas
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login',    [AuthController::class, 'login']);
 
-    // Kas aš? (reikia JWT)
-    Route::get('me', [AuthController::class, 'me'])->middleware('auth:api');
-
-    // Atnaujinti savo vardą (reikia JWT)
-    Route::middleware('auth:api')->put('me', function (\Illuminate\Http\Request $r) {
-        $data = $r->validate(['name' => 'required|string|max:120']);
-        $u = $r->user();
-        $u->name = $data['name'];
-        $u->save();
-        return ['id' => $u->id, 'name' => $u->name, 'email' => $u->email];
+    Route::middleware('auth:api')->group(function () {
+        Route::get('me', [AuthController::class, 'me']);
+        Route::put('users/me', [UserController::class, 'updateMe']);        // update profile (first/last)
+        Route::put('me/email', [UserController::class, 'updateEmail']);     // update email
+        Route::put('me/password', [UserController::class, 'updatePassword']); // update password
     });
 
-    // Viešas minimalus endpoint'as (be JWT) – coach vardui rodyti
-    Route::get('public/users/{id}', function ($id) {
-        $u = \App\Models\User::findOrFail($id);
-        return [
-            'id'         => $u->id,
-            'name'       => $u->name,
-            // jei norėsi, gali pridėti 'avatar_url' => $u->avatar_url ?? null,
-        ];
-    });
+    Route::middleware('throttle:5,1')->post('forgot-password', [PasswordResetLinkController::class, 'store']);
+    Route::middleware('throttle:5,1')->post('reset-password',  [NewPasswordController::class, 'store']);
+});
 
-    // Adminams skirtas endpoint'as – mato el. paštą ir roles (reikia JWT + ADMIN)
-    Route::middleware('auth:api')->get('users/{id}', function ($id, \Illuminate\Http\Request $r) {
-        $me = $r->user();
+Route::middleware('auth:api')->get('/users/{id}', function ($id, \Illuminate\Http\Request $r) {
+    $u = $r->user(); // prisijungęs useris
 
-        // leisti tik jei turi admin vardinę rolę arba role_id=1
-        if (!$me->roles->contains('name', 'admin') && !$me->roles->contains('id', 1)) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
+    // tik admin role (pagal vardą) ARBA role_id=1
+    if (!$u->roles->contains('name', 'admin') && !$u->roles->contains('id', 1)) {
+        return response()->json(['message' => 'Forbidden'], 403);
+    }
 
-        $target = \App\Models\User::with('roles:id,name')->findOrFail($id);
+    $target = \App\Models\User::findOrFail($id);
 
-        return [
-            'id'    => $target->id,
-            'name'  => $target->name,
-            'email' => $target->email,
-            'roles' => $target->roles->pluck('name'),
-        ];
-    });
+    return [
+        'id'         => $target->id,
+        'first_name' => $target->first_name,
+        'last_name'  => $target->last_name,
+        'email'      => $target->email,
+        'roles'      => $target->roles->pluck('name'),
+    ];
+});
+
+Route::middleware('auth:api')->put('/auth/me', function (\Illuminate\Http\Request $r) {
+    $data = $r->validate([
+        'first_name' => 'required|string|max:120',
+        'last_name'  => 'required|string|max:120',
+    ]);
+
+    $u = $r->user(); // JWT guardas jau veikia
+    $u->first_name = $data['first_name'];
+    $u->last_name  = $data['last_name'];
+    $u->save();
+
+    return [
+        'id'         => $u->id,
+        'first_name' => $u->first_name,
+        'last_name'  => $u->last_name,
+        'email'      => $u->email,
+    ];
+});
+
+Route::get('public/users/{id}', function ($id) {
+    $u = \App\Models\User::findOrFail($id);
+    return [
+        'id'         => $u->id,
+        'first_name' => $u->first_name,
+        'last_name'  => $u->last_name,
+    ];
 });

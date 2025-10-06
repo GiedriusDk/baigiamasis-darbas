@@ -7,10 +7,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/exercises', function (Request $r) {
     $per  = max(1, min((int) $r->query('per_page', 24), 60));
     $page = max(1, (int) $r->query('page', 1));
+    $q    = trim((string) $r->query('q', ''));
 
-    $q = trim((string) $r->query('q', ''));
-
-    // Accept both singular/plural and old body_parts names (CSV)
     $equipCsv = (string) ($r->query('equipment', '') ?? '');
     $musCsv   = (string) (
         $r->query('muscles', '') ??
@@ -18,36 +16,44 @@ Route::get('/exercises', function (Request $r) {
         $r->query('body_parts', '') ??
         $r->query('body_part', '')
     );
+    $tag = trim((string) $r->query('tag', ''));   // <-- NAUJA
 
-    // Normalize to arrays
     $equipments = array_values(array_filter(array_map('trim', explode(',', $equipCsv))));
     $muscles    = array_values(array_filter(array_map('trim', explode(',', $musCsv))));
 
-    $sql = DB::table('exercises')
-        ->select('id','name','primary_muscle','equipment','image_url')
-        ->orderBy('name');
+    $sql = DB::table('exercises as e')
+        ->select('e.id','e.name','e.primary_muscle','e.equipment','e.image_url')
+        ->orderBy('e.name');
 
     if ($q !== '') {
-        $sql->where('name', 'ilike', '%'.$q.'%');
+        $sql->where('e.name', 'ilike', '%'.$q.'%');
     }
 
-    // EQUIPMENT: (eq1 OR eq2 OR …)
+    // TAG: where exists (e <-> exercise_tag <-> tags)
+    if ($tag !== '') {
+        $sql->whereExists(function ($q2) use ($tag) {
+            $q2->from('exercise_tag as et')
+               ->join('tags as t', 't.id', '=', 'et.tag_id')
+               ->whereColumn('et.exercise_id', 'e.id')
+               ->where('t.slug', $tag);
+        });
+    }
+
     if ($equipments) {
         $sql->where(function ($w) use ($equipments) {
-            $w->whereIn('equipment', $equipments);
+            $w->whereIn('e.equipment', $equipments);
             foreach ($equipments as $e) {
-                $w->orWhereJsonContains('equipments_j', $e);
+                $w->orWhereJsonContains('e.equipments_j', $e);
             }
         });
     }
 
-    // MUSCLES (replaces body parts): (m1 OR m2 OR …)
     if ($muscles) {
         $sql->where(function ($w) use ($muscles) {
-            $w->whereIn('primary_muscle', $muscles);
+            $w->whereIn('e.primary_muscle', $muscles);
             foreach ($muscles as $m) {
-                $w->orWhereJsonContains('target_muscles', $m)
-                  ->orWhereJsonContains('secondary_muscles', $m);
+                $w->orWhereJsonContains('e.target_muscles', $m)
+                  ->orWhereJsonContains('e.secondary_muscles', $m);
             }
         });
     }
@@ -74,7 +80,58 @@ Route::get('/filters', function () {
 
 Route::get('/exercises/{id}', function (int $id) {
     $row = DB::table('exercises')
-        ->select('id','name','primary_muscle','equipment','image_url')
-        ->where('id', $id)->first();
-    return $row ? ['data' => $row] : response()->json(['message' => 'Not found'], 404);
+        ->select(
+            'id',
+            'name',
+            'primary_muscle',
+            'equipment',
+            'image_url',
+            'instructions',
+            'target_muscles',
+            'secondary_muscles',
+            'equipments_j'
+        )
+        ->where('id', $id)
+        ->first();
+
+    if (!$row) {
+        return response()->json(['message' => 'Not found'], 404);
+    }
+
+    // Dekoduojam JSON laukus
+    $row->target_muscles     = $row->target_muscles     ? json_decode($row->target_muscles, true)     : [];
+    $row->secondary_muscles  = $row->secondary_muscles  ? json_decode($row->secondary_muscles, true)  : [];
+    $row->equipments_j       = $row->equipments_j       ? json_decode($row->equipments_j, true)       : [];
+    $row->instructions       = $row->instructions       ? json_decode($row->instructions, true)       : [];
+
+    return ['data' => $row];
+});
+
+
+Route::get('/exercises/by-tag', function (Request $r) {
+    $tag = (string) $r->query('tag', '');
+    if ($tag === '') {
+        return response()->json(['data' => []]);
+    }
+
+    // optional: equipment filtras kaip ir /exercises
+    $equipCsv = (string) ($r->query('equipment', '') ?? '');
+    $equipments = array_values(array_filter(array_map('trim', explode(',', $equipCsv))));
+
+    $q = DB::table('exercise_tag as et')
+        ->join('tags as t', 't.id', '=', 'et.tag_id')
+        ->join('exercises as e', 'e.id', '=', 'et.exercise_id')
+        ->select('e.id','e.name','e.primary_muscle','e.equipment','e.image_url')
+        ->where('t.slug', $tag);
+
+    if ($equipments) {
+        $q->where(function ($w) use ($equipments) {
+            $w->whereIn('e.equipment', $equipments);
+            foreach ($equipments as $e) {
+                $w->orWhereJsonContains('e.equipments_j', $e);
+            }
+        });
+    }
+
+    return response()->json(['data' => $q->orderBy('e.name')->limit(200)->get()]);
 });

@@ -1,51 +1,54 @@
 // webapp/src/auth/useAuth.jsx
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import * as api from '../api/auth';
+import { createContext, useContext, useEffect, useState } from 'react';
+import * as api from '../api/auth'; // turi turėti login, logout, me ir t.t.
 
 const AuthCtx = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
+  const [user, setUser] = useState(null);
 
+  // Paleidžiant app – užkraunam esamą user
   useEffect(() => {
-    let cancelled = false;
-    async function bootstrap() {
+    (async () => {
       try {
-        if (api.getToken()) {
-          const u = await api.me();
-          if (!cancelled) setUser(u);
-        }
-      } catch {
-        api.logout();
+        const u = await api.me(); // GET /api/auth/me
+        setUser(u);
+      } catch (_) {
+        setUser(null);
       } finally {
-        if (!cancelled) setReady(true);
+        setReady(true);
       }
-    }
-    bootstrap();
-    return () => { cancelled = true; };
+    })();
   }, []);
 
-  const value = useMemo(() => ({
-    user,
-    ready,
-    async doLogin(email, password) {
-      await api.login({ email, password });
-      const u = await api.me();
-      setUser(u);
-    },
-    async doRegister(name, email, password, password_confirmation, role) {
-      await api.register({ name, email, password, password_confirmation, role });
-      const u = await api.me();
-      setUser(u);
-    },
-    doLogout() {
-      api.logout();
-      setUser(null);
-    },
-  }), [user, ready]);
+  async function doLogin({ email, password }) {
+    const res = await api.login({ email, password });
+    setUser(res.user); // login grąžina { token, user }
+    return res;
+  }
 
-  return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
+  function doLogout() {
+    api.logout();
+    setUser(null);
+  }
+
+  async function refreshMe() {
+    try {
+      const u = await api.me();
+      setUser(u);
+    } catch (_) {
+      setUser(null);
+    }
+  }
+
+  return (
+    <AuthCtx.Provider value={{ ready, user, setUser, doLogin, doLogout, refreshMe }}>
+      {children}
+    </AuthCtx.Provider>
+  );
 }
 
-export const useAuth = () => useContext(AuthCtx);
+export function useAuth() {
+  return useContext(AuthCtx);
+}

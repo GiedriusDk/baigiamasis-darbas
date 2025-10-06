@@ -6,7 +6,6 @@ import {
   LoadingOverlay, Divider, Select
 } from '@mantine/core';
 import { IconUpload, IconTrash } from '@tabler/icons-react';
-import { me, updateMe } from '../api/auth';
 import { getUserProfile, saveUserProfile, uploadUserAvatar } from '../api/profiles';
 import { notifications } from '@mantine/notifications';
 
@@ -14,11 +13,6 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // auth vartotojas
-  const [user, setUser] = useState(null);
-  const [name, setName] = useState('');
-
-  // profilio forma
   const [form, setForm] = useState({
     sex: '',
     birth_date: '',
@@ -37,8 +31,7 @@ export default function UserProfilePage() {
   useEffect(() => {
     (async () => {
       try {
-        const [u, p] = await Promise.all([me(), getUserProfile()]);
-        if (u) { setUser(u); setName(u.name || ''); }
+        const p = await getUserProfile();
         if (p) setForm(f => ({ ...f, ...p }));
       } catch (e) {
         console.error(e);
@@ -48,29 +41,28 @@ export default function UserProfilePage() {
     })();
   }, []);
 
-  function update(k, v) { setForm(f => ({ ...f, [k]: v })); }
+  function update(k, v) {
+    setForm(f => ({ ...f, [k]: v }));
+  }
 
   async function onSave() {
     setSaving(true);
     try {
-      // vardas (AUTH)
-      if (user && name && name !== (user.name || '')) {
-        const updated = await updateMe({ name });
-        setUser(updated);
-        window.dispatchEvent(new CustomEvent('profile:updated', { detail: { name: updated?.name || name } }));
-      }
+      let newAvatarPath = form.avatar_path;
 
-      // avataras
       if (avatarFile) {
-        const { url } = await uploadUserAvatar(avatarFile);
-        update('avatar_path', url);
-        setAvatarFile(null);
-        window.dispatchEvent(new CustomEvent('profile:updated', { detail: { avatar: newAvatarUrl }}));
+        const { url } = await uploadUserAvatar(avatarFile); // turi grąžinti pilną URL per gateway
+        newAvatarPath = url;
       }
 
-      // kiti duomenys
-      const res = await saveUserProfile({ ...form, avatar_path: undefined });
-      setForm(f => ({ ...f, ...res }));
+      const payload = { ...form, avatar_path: newAvatarPath };
+      const res = await saveUserProfile(payload);
+
+      setForm(f => ({ ...f, ...res, avatar_path: newAvatarPath }));
+      setAvatarFile(null);
+
+      // pranešk header’iui, kad perpieštų avatarą
+      window.dispatchEvent(new CustomEvent('profile:updated', { detail: { avatar: newAvatarPath } }));
 
       notifications.show({ color: 'green', message: 'Profile saved' });
     } catch (e) {
@@ -99,7 +91,7 @@ export default function UserProfilePage() {
       <Divider mb="lg" />
 
       <Grid gutter="xl" align="start">
-        {/* Kairė – avatar + asmeniniai */}
+        {/* Left: avatar + personal */}
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Stack gap="lg">
             <Stack gap="xs" align="center">
@@ -123,8 +115,6 @@ export default function UserProfilePage() {
               </Group>
             </Stack>
 
-            <TextInput label="Name" value={name} onChange={(e) => setName(e.currentTarget.value)} />
-
             <Select
               label="Sex"
               data={[
@@ -145,19 +135,19 @@ export default function UserProfilePage() {
 
             <NumberInput
               label="Height (cm)"
-              value={form.height_cm || ''}
+              value={form.height_cm ?? ''}
               onChange={(v) => update('height_cm', v)}
             />
 
             <NumberInput
               label="Weight (kg)"
-              value={form.weight_kg || ''}
+              value={form.weight_kg ?? ''}
               onChange={(v) => update('weight_kg', v)}
             />
           </Stack>
         </Grid.Col>
 
-        {/* Dešinė – tikslai */}
+        {/* Right: goals */}
         <Grid.Col span={{ base: 12, md: 8 }}>
           <Stack gap="lg">
             <Select
@@ -187,13 +177,13 @@ export default function UserProfilePage() {
 
             <NumberInput
               label="Sessions per week"
-              value={form.sessions_per_week || 0}
+              value={form.sessions_per_week ?? 0}
               onChange={(v) => update('sessions_per_week', v)}
             />
 
             <NumberInput
               label="Available minutes per workout"
-              value={form.available_minutes || 0}
+              value={form.available_minutes ?? 0}
               onChange={(v) => update('available_minutes', v)}
             />
 

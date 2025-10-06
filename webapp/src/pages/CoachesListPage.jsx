@@ -59,7 +59,7 @@ export default function CoachesListPage() {
                   )}
                 </div>
                 <Stack gap={4} mt="sm">
-                  <Text fw={700}>{c.name || 'Coach'}</Text> {/* Vardas iš AUTH per backend */}
+                  <Text fw={700}>{c.first_name || 'Coach'}</Text> {/* Vardas iš AUTH per backend */}
                   <Group gap={6} wrap="wrap">
                     {Array.isArray(c.specializations) && c.specializations.slice(0,3).map((s, i) => (
                       <Badge key={i} variant="light">{s}</Badge>

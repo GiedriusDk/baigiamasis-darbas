@@ -62,7 +62,5 @@ class Kernel extends HttpKernel
         'throttle'   => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified'   => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
 
-        // 🔑 čia pridedi savo proxy middleware
-        'auth.proxy' => \App\Http\Middleware\AuthProxy::class,
     ];
 }

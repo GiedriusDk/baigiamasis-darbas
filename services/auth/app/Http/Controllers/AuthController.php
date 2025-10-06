@@ -8,55 +8,77 @@ use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
+    /** Helper: nuoseklus user resursas */
+    private function userResource(User $u): array
+    {
+        $u->loadMissing('roles:id,name');
+
+        return [
+            'id'         => $u->id,
+            'email'      => $u->email,
+            'first_name' => $u->first_name,
+            'last_name'  => $u->last_name,
+            'full_name'  => trim(($u->first_name ?? '').' '.($u->last_name ?? '')),
+            'roles'      => $u->roles->map(fn($r) => ['id' => $r->id, 'name' => $r->name])->all(),
+        ];
+    }
+
     public function register(Request $r)
     {
         $data = $r->validate([
-            'name'                  => 'required|string|max:255',
-            'email'                 => 'required|email|unique:users,email',
-            'password'              => 'required|string|min:6|confirmed',
-            'role'                  => 'nullable|string|in:user,coach', // NEW
+            'first_name' => ['required','string','max:120'],
+            'last_name'  => ['required','string','max:120'],
+            'email'      => ['required','email','unique:users,email'],
+            'password'   => ['required','string','min:8','confirmed'],
+            'role'       => ['nullable','in:user,coach'],
         ]);
 
         $user = User::create([
-            'name'     => $data['name'],
-            'email'    => $data['email'],
-            'password' => bcrypt($data['password']),
+            'first_name' => $data['first_name'],
+            'last_name'  => $data['last_name'],
+            'email'      => $data['email'],
+            'password'   => bcrypt($data['password']),
         ]);
 
-        // Priskiriame rolę (numatytai 'user')
+        // Priskiriam rolę (jei nenurodyta – 'user')
         $roleName = $data['role'] ?? 'user';
         if ($role = Role::where('name', $roleName)->first()) {
-            $user->roles()->sync([$role->id]); // vieną rolę
+            $user->roles()->sync([$role->id]); // viena rolė
         }
 
-        $token = auth()->login($user);
+        // JWT token
+        $token = auth('api')->login($user);
 
-        // duokime roles ir per /register
         return response()->json([
             'token' => $token,
-            'user'  => $user->load('roles:id,name'),
+            'user'  => $this->userResource($user),
         ], 201);
     }
 
     public function login(Request $r)
     {
         $cred = $r->validate([
-            'email'    => 'required|email',
-            'password' => 'required|string',
+            'email'    => ['required','email'],
+            'password' => ['required','string'],
         ]);
 
-        if (!$token = auth()->attempt($cred)) {
+        if (!$token = auth('api')->attempt($cred)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        /** @var \App\Models\User $me */
+        $me = auth('api')->user();
+
         return response()->json([
             'token' => $token,
-            'user'  => auth()->user()->load('roles:id,name'),
+            'user'  => $this->userResource($me),
         ]);
     }
 
-    public function me()
+    public function me(Request $r)
     {
-        return response()->json(auth()->user()->load('roles:id,name'));
+        /** @var \App\Models\User $me */
+        $me = $r->user(); // guard 'api'
+        return response()->json($this->userResource($me));
     }
 }

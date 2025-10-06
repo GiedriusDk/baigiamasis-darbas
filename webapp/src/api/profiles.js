@@ -1,7 +1,7 @@
 // webapp/src/api/profiles.js
 import { getToken } from './auth';
 
-const BASE = '/profiles/api';
+const BASE = '/api/profiles';
 
 function authHeaders(extra = {}) {
   const t = getToken();
