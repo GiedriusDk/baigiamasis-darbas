@@ -13,19 +13,27 @@ Route::prefix('auth')->group(function () {
 
     Route::middleware('auth:api')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
-        Route::put('users/me', [UserController::class, 'updateMe']);        // update profile (first/last)
-        Route::put('me/email', [UserController::class, 'updateEmail']);     // update email
-        Route::put('me/password', [UserController::class, 'updatePassword']); // update password
+        Route::put('users/me', [UserController::class, 'updateMe']);
+        Route::put('me/email', [UserController::class, 'updateEmail']);
+        Route::put('me/password', [UserController::class, 'updatePassword']);
     });
 
     Route::middleware('throttle:5,1')->post('forgot-password', [PasswordResetLinkController::class, 'store']);
     Route::middleware('throttle:5,1')->post('reset-password',  [NewPasswordController::class, 'store']);
+
+    Route::get('public/users/{id}', function ($id) {
+    $u = \App\Models\User::findOrFail($id);
+    return [
+        'id'         => $u->id,
+        'first_name' => $u->first_name,
+        'last_name'  => $u->last_name,
+    ];
+});
 });
 
 Route::middleware('auth:api')->get('/users/{id}', function ($id, \Illuminate\Http\Request $r) {
-    $u = $r->user(); // prisijungęs useris
+    $u = $r->user();
 
-    // tik admin role (pagal vardą) ARBA role_id=1
     if (!$u->roles->contains('name', 'admin') && !$u->roles->contains('id', 1)) {
         return response()->json(['message' => 'Forbidden'], 403);
     }
@@ -47,7 +55,7 @@ Route::middleware('auth:api')->put('/auth/me', function (\Illuminate\Http\Reques
         'last_name'  => 'required|string|max:120',
     ]);
 
-    $u = $r->user(); // JWT guardas jau veikia
+    $u = $r->user();
     $u->first_name = $data['first_name'];
     $u->last_name  = $data['last_name'];
     $u->save();
@@ -60,11 +68,3 @@ Route::middleware('auth:api')->put('/auth/me', function (\Illuminate\Http\Reques
     ];
 });
 
-Route::get('public/users/{id}', function ($id) {
-    $u = \App\Models\User::findOrFail($id);
-    return [
-        'id'         => $u->id,
-        'first_name' => $u->first_name,
-        'last_name'  => $u->last_name,
-    ];
-});

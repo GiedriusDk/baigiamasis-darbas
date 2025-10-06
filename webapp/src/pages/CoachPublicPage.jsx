@@ -1,44 +1,45 @@
-// webapp/src/pages/CoachPublicPage.jsx
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Title, Text, Grid, Stack, Group, Badge, Image, Card,
   Loader, Alert, Divider, Button
-} from '@mantine/core';
-import { getPublicCoach, getPublicCoachExercises } from '../api/profiles';
-import { listProducts, createOrder, checkout } from '../api/payments';
-import { useAuth } from '../auth/useAuth';
+} from "@mantine/core";
+import { getPublicCoach, getPublicCoachExercises } from "../api/profiles";
+import { listProducts, createOrder, checkout } from "../api/payments";
+import { getPublicUser } from "../api/auth";
+import { useAuth } from "../auth/useAuth";
+import PlanCard from "../components/PlanCard";
 
-function getYoutubeId(url = '') {
+function getYoutubeId(url = "") {
   const m = url.match(/(?:youtube\.com.*(?:\?|&)v=|youtu\.be\/)([^&#]+)/i);
   return m ? m[1] : null;
 }
-function isVideoUrl(u = '') {
+function isVideoUrl(u = "") {
   const x = u.toLowerCase();
-  return x.endsWith('.mp4') || x.endsWith('.webm') || x.includes('vimeo.com');
+  return x.endsWith(".mp4") || x.endsWith(".webm") || x.includes("vimeo.com");
 }
 function MediaThumb({ url, blurred }) {
   if (!url) return null;
-  const commonStyle = blurred ? { filter: 'blur(10px) brightness(0.7)', pointerEvents: 'none', userSelect: 'none' } : {};
+  const commonStyle = blurred ? { filter: "blur(10px) brightness(0.7)", pointerEvents: "none", userSelect: "none" } : {};
   const ytId = getYoutubeId(url);
   if (ytId) {
     const thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
     return (
-      <a href={blurred ? undefined : url} target={blurred ? undefined : '_blank'} rel="noreferrer" style={{ position: 'relative', display: 'block' }}>
+      <a href={blurred ? undefined : url} target={blurred ? undefined : "_blank"} rel="noreferrer" style={{ position: "relative", display: "block" }}>
         <Image src={thumb} alt="YouTube" height={160} fit="cover" radius="md" style={commonStyle} />
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 28, textShadow: '0 2px 6px rgba(0,0,0,.5)' }}>
-          {blurred ? 'Locked' : '▶'}
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 28, textShadow: "0 2px 6px rgba(0,0,0,.5)" }}>
+          {blurred ? "Locked" : "▶"}
         </div>
       </a>
     );
   }
   if (isVideoUrl(url)) {
     return blurred ? (
-      <div style={{ height: 160, borderRadius: 12, background: 'rgba(0,0,0,.06)', position: 'relative' }}>
-        <div style={{ ...commonStyle, position: 'absolute', inset: 0, background: 'rgba(0,0,0,.06)', borderRadius: 12 }} />
+      <div style={{ height: 160, borderRadius: 12, background: "rgba(0,0,0,.06)", position: "relative" }}>
+        <div style={{ ...commonStyle, position: "absolute", inset: 0, background: "rgba(0,0,0,.06)", borderRadius: 12 }} />
       </div>
     ) : (
-      <video src={url} height={160} controls style={{ borderRadius: 12, display: 'block', maxWidth: '100%' }} />
+      <video src={url} height={160} controls style={{ borderRadius: 12, display: "block", maxWidth: "100%" }} />
     );
   }
   return <Image src={url} alt="" height={160} fit="cover" radius="md" style={commonStyle} />;
@@ -48,7 +49,9 @@ export default function CoachPublicPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, ready } = useAuth();
+
   const [coach, setCoach] = useState(null);
+  const [coachUser, setCoachUser] = useState(null);
   const [exercises, setExercises] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,8 +67,15 @@ export default function CoachPublicPage() {
         setCoach(c);
         const e = await getPublicCoachExercises(id);
         setExercises(Array.isArray(e) ? e : []);
+        const uid = Number(c?.user_id || c?.coach_user_id || c?.id);
+        if (uid) {
+          const u = await getPublicUser(uid).catch(() => null);
+          setCoachUser(u);
+        } else {
+          setCoachUser(null);
+        }
       } catch (e) {
-        setErr(e.message || 'Failed to load coach');
+        setErr(e.message || "Failed to load coach");
       } finally {
         setLoading(false);
       }
@@ -79,7 +89,13 @@ export default function CoachPublicPage() {
       try {
         const all = await listProducts();
         const list = Array.isArray(all?.data) ? all.data : Array.isArray(all) ? all : [];
-        setPlans(list.filter(p => Number(p.coach_id) === Number(coach.id) && p.is_active));
+        const coachIds = [
+          Number(coach.id),
+          Number(coach.user_id),
+          Number(coach.coach_id),
+        ].filter(Boolean);
+        const filtered = list.filter(p => coachIds.includes(Number(p.coach_id)) && p.is_active !== false);
+        setPlans(filtered);
       } catch {
         setPlans([]);
       } finally {
@@ -90,21 +106,27 @@ export default function CoachPublicPage() {
 
   async function handleBuy(productId) {
     if (!ready || !user) {
-      navigate('/login', { replace: true, state: { from: `/coaches/${id}` } });
+      navigate("/login", { replace: true, state: { from: `/coaches/${id}` } });
       return;
     }
     try {
       setBuyingId(productId);
       const order = await createOrder(productId, 1);
-      const url = await checkout(order.data?.id || order.id);
-      const checkoutUrl = url?.checkout_url || url?.url || url;
+      const cs = await checkout(order.data?.id || order.id);
+      const checkoutUrl = cs?.checkout_url || cs?.url || cs;
       if (checkoutUrl) window.location.href = checkoutUrl;
     } catch (e) {
-      alert(e.message || 'Purchase failed');
+      alert(e.message || "Purchase failed");
     } finally {
       setBuyingId(null);
     }
   }
+
+  const displayName = useMemo(() => {
+    const fn = coachUser?.first_name || coach?.first_name || coach?.name || "Coach";
+    const ln = coachUser?.last_name || coach?.last_name || "";
+    return `${fn}${ln ? " " + ln : ""}`.trim();
+  }, [coachUser, coach]);
 
   if (loading) return <Group justify="center"><Loader /></Group>;
   if (err) return <Alert color="red">{err}</Alert>;
@@ -115,8 +137,8 @@ export default function CoachPublicPage() {
       <Group gap="lg" align="start">
         <Image src={coach.avatar_path || undefined} alt="" radius="xl" w={120} h={120} />
         <Stack gap={2}>
-          <Title order={2}>{coach.name || 'Coach'}</Title>
-          <Text c="dimmed">{coach.city || '—'}</Text>
+          <Title order={2}>{displayName}</Title>
+          <Text c="dimmed">{coach.city || "—"}</Text>
           <Group gap={8}>
             {coach.experience_years ? <Badge variant="dot">{coach.experience_years} years</Badge> : null}
             {coach.price_per_session ? <Badge variant="outline">€{coach.price_per_session} / session</Badge> : null}
@@ -143,26 +165,8 @@ export default function CoachPublicPage() {
         <Grid gutter="lg">
           {plans.map(p => (
             <Grid.Col key={p.id} span={{ base: 12, sm: 6, md: 4 }}>
-              <Card withBorder radius="lg" padding="md">
-                <Stack gap="xs">
-                  <Group justify="space-between">
-                    <Title order={4} style={{ lineHeight: 1.2 }}>{p.title}</Title>
-                    <Badge size="lg" variant="light">€{(p.price ?? p.price_cents / 100) || 0}</Badge>
-                  </Group>
-                  {p.description ? <Text c="dimmed" lineClamp={3}>{p.description}</Text> : null}
-                  <Group gap="xs" wrap="wrap">
-                    {p.currency ? <Badge variant="outline">{String(p.currency).toUpperCase()}</Badge> : null}
-                    {'metadata' in p && p.metadata?.weeks ? <Badge variant="dot">{p.metadata.weeks} weeks</Badge> : null}
-                  </Group>
-                  <Button
-                    fullWidth
-                    onClick={() => handleBuy(p.id)}
-                    loading={buyingId === p.id}
-                  >
-                    Buy
-                  </Button>
-                </Stack>
-              </Card>
+              <PlanCard plan={p} onBuy={() => handleBuy(p.id)} />
+              {buyingId === p.id && <Button loading fullWidth mt="xs">Processing…</Button>}
             </Grid.Col>
           ))}
           {plans.length === 0 && (
@@ -176,12 +180,12 @@ export default function CoachPublicPage() {
         {exercises.map(e => (
           <Grid.Col key={e.id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
             <Card withBorder radius="lg" padding="sm">
-              <div style={{ height: 160, overflow: 'hidden', borderRadius: 12, background: '#fff' }}>
+              <div style={{ height: 160, overflow: "hidden", borderRadius: 12, background: "#fff" }}>
                 <MediaThumb url={e.media_url} blurred={!!e.is_paid} />
               </div>
               <Stack gap={4} mt="sm">
                 <Text fw={600} lineClamp={2}>
-                  {e.title} {e.is_paid ? '🔒' : ''}
+                  {e.title} {e.is_paid ? "🔒" : ""}
                 </Text>
                 <Group gap={6}>
                   {e.primary_muscle && <Badge variant="light">{e.primary_muscle}</Badge>}

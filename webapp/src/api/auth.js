@@ -30,16 +30,13 @@ async function req(path, options = {}) {
 
   let data;
   try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }
-
   if (!res.ok) {
-    // Laravel validator errors
-    const msg = data?.message || pickFirstError(data?.errors) || `HTTP ${res.status}`;
+    const msg = data?.message || `HTTP ${res.status}`;
     throw new Error(msg);
   }
   return data;
 }
 
-// ------- Auth endpoints -------
 export async function register({ first_name, last_name, email, password, password_confirmation, role }) {
   const out = await req('/register', {
     method: 'POST',
@@ -63,8 +60,6 @@ export async function me() {
 }
 
 export async function updateMe(payload) {
-  // Your API currently exposes both /users/me and /me in different places.
-  // Prefer /users/me; if you only have /me, switch this to '/me'.
   return req('/users/me', {
     method: 'PUT',
     body: JSON.stringify(payload),
@@ -87,4 +82,16 @@ export async function updatePassword({ current_password, password, password_conf
 
 export function logout() {
   clearToken();
+}
+
+export async function getPublicUser(id) {
+  const res = await fetch(`${BASE}/public/users/${id}`, {
+    headers: { Accept: 'application/json' },
+    credentials: 'omit',
+  });
+  const text = await res.text();
+  let data;
+  try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }
+  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+  return data;
 }

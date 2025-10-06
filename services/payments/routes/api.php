@@ -7,24 +7,22 @@ use App\Http\Controllers\CheckoutController;
 
 Route::prefix('')->group(function () {
     Route::get('products', [ProductsController::class, 'index']);
-    Route::get('products/{product}', [ProductsController::class, 'show']);
-
-    Route::get('confirm', [CheckoutController::class, 'confirm']);
 
     Route::middleware('auth.service')->group(function () {
-        Route::get('products/mine', [ProductsController::class, 'mine'])->middleware('coach');
-        Route::post('products', [ProductsController::class, 'store'])->middleware('coach');
-        Route::patch('products/{product}', [ProductsController::class, 'update'])->middleware('coach');
-        Route::delete('products/{product}', [ProductsController::class, 'destroy'])->middleware('coach');
+        Route::middleware('coach')->group(function () {
+            Route::get('products/mine', [ProductsController::class, 'mine']);
+            Route::post('products', [ProductsController::class, 'store']);
+            Route::patch('products/{product}', [ProductsController::class, 'update'])->whereNumber('product');
+            Route::delete('products/{product}', [ProductsController::class, 'destroy'])->whereNumber('product');
+        });
 
         Route::post('orders', [OrdersController::class, 'store']);
+        Route::get('orders/{order}', [OrdersController::class, 'show'])->whereNumber('order');
+        Route::get('orders/{order}/access', [OrdersController::class, 'access'])->whereNumber('order');
+
+        Route::post('checkout/{order}', [CheckoutController::class, 'create'])->whereNumber('order');
+        Route::get('confirm', [CheckoutController::class, 'confirm']);
     });
 
-    Route::get('orders/{order}/access', [OrdersController::class, 'access'])
-            ->middleware('auth.service');
-    
-    Route::get('orders/{order}', [OrdersController::class, 'show']);
-
-    Route::post('checkout/{order}', [CheckoutController::class, 'create']);
-    Route::get('checkout/confirm', [CheckoutController::class, 'confirm']);
+    Route::get('products/{product}', [ProductsController::class, 'show'])->whereNumber('product');
 });

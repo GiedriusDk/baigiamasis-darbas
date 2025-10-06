@@ -1,26 +1,56 @@
-import React from "react";
+import { Card, Stack, Group, Text, Badge, Button } from "@mantine/core";
+
+function eur(priceCents, currency = "EUR") {
+  const euros = Number(priceCents || 0) / 100;
+  return new Intl.NumberFormat("lt-LT", { style: "currency", currency }).format(euros);
+}
 
 export default function PlanCard({ plan, onBuy, onEdit, onArchive }) {
+  const hasWeeks = plan?.metadata && typeof plan.metadata === "object" && plan.metadata.weeks;
+
   return (
-    <div className="border rounded-xl p-4 flex flex-col gap-3">
-      <div className="text-lg font-semibold">{plan.title}</div>
-      <div className="text-sm text-gray-600 whitespace-pre-line">{plan.description || ""}</div>
-      <div className="mt-auto flex items-center justify-between">
-        <div className="text-base font-medium">{(plan.price / 100).toFixed(2)} {plan.currency}</div>
-        {onBuy && (
-          <button onClick={() => onBuy(plan)} className="px-3 py-1.5 rounded-lg bg-black text-white">
-            Buy
-          </button>
-        )}
-        {onEdit && (
-          <div className="flex gap-2">
-            <button onClick={() => onEdit(plan)} className="px-3 py-1.5 rounded-lg border">Edit</button>
-            <button onClick={() => onArchive(plan)} className="px-3 py-1.5 rounded-lg border border-red-500 text-red-600">
+    <Card withBorder radius="lg" padding="md" shadow="sm">
+      <Stack gap="xs">
+        <Group justify="space-between" align="start">
+          <Text fw={700} size="lg" style={{ lineHeight: 1.2 }}>
+            {plan.title}
+          </Text>
+          <Badge size="lg" variant="light" color="blue">
+            {eur(plan.price, plan.currency || "EUR")}
+          </Badge>
+        </Group>
+
+        {plan.description ? (
+          <Text c="dimmed" size="sm">
+            {plan.description}
+          </Text>
+        ) : null}
+
+        <Group gap="xs" mt="xs" wrap="wrap">
+          {plan.currency ? (
+            <Badge variant="outline">{String(plan.currency).toUpperCase()}</Badge>
+          ) : null}
+          {hasWeeks ? <Badge variant="dot">{plan.metadata.weeks} WEEKS</Badge> : null}
+        </Group>
+
+        <Group mt="sm" gap="xs" wrap="wrap">
+          {onBuy ? (
+            <Button onClick={() => onBuy(plan)} fullWidth>
+              Buy
+            </Button>
+          ) : null}
+          {onEdit ? (
+            <Button variant="light" onClick={() => onEdit(plan)}>
+              Edit
+            </Button>
+          ) : null}
+          {onArchive ? (
+            <Button variant="subtle" color="red" onClick={() => onArchive(plan)}>
               Archive
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+            </Button>
+          ) : null}
+        </Group>
+      </Stack>
+    </Card>
   );
 }
