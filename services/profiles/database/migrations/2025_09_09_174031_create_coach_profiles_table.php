@@ -9,14 +9,20 @@ return new class extends Migration {
     {
         Schema::create('coach_profiles', function (Blueprint $t) {
             $t->id();
-            $t->unsignedBigInteger('user_id')->unique(); // iš tokeno
+            $t->unsignedBigInteger('user_id')->unique();
             $t->text('bio')->nullable();
             $t->string('city')->nullable();
+            $t->string('country')->nullable();
             $t->unsignedSmallInteger('experience_years')->default(0);
-            $t->unsignedInteger('price_per_session')->default(0);
             $t->json('specializations')->nullable();
             $t->text('availability_note')->nullable();
-            $t->string('avatar_path')->nullable(); // /storage/...
+            $t->json('socials')->nullable();
+            $t->string('avatar_path')->nullable();
+            $t->string('timezone')->nullable();
+            $t->json('languages')->nullable();
+            $t->json('certifications')->nullable();
+            $t->string('phone')->nullable();
+            $t->string('website_url')->nullable();
             $t->timestamps();
         });
     }

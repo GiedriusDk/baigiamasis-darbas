@@ -11,6 +11,7 @@ Route::prefix('')->group(function () {
     Route::middleware('auth.service')->group(function () {
         Route::middleware('coach')->group(function () {
             Route::get('products/mine', [ProductsController::class, 'mine']);
+            Route::put('/products/reorder', [ProductsController::class, 'reorder']);
             Route::post('products', [ProductsController::class, 'store']);
             Route::patch('products/{product}', [ProductsController::class, 'update'])->whereNumber('product');
             Route::delete('products/{product}', [ProductsController::class, 'destroy'])->whereNumber('product');

@@ -72,3 +72,11 @@ export function confirm(orderId, sessionId) {
 export function access(orderId) {
   return request(`/orders/${orderId}/access`, { headers: authHeaders() });
 }
+
+export function reorderProducts(ids) {
+  return request("/products/reorder", {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ ids }),
+  });
+}

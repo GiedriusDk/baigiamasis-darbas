@@ -9,19 +9,27 @@ class CoachProfile extends Model
     protected $table = 'coach_profiles';
 
     protected $fillable = [
-            'user_id',
-            'bio',
-            'city',
-            'experience_years',
-            'price_per_session',
-            'specializations',
-            'availability_note',
-            'avatar_path',
-        ];
+        'user_id',
+        'bio',
+        'city',
+        'country',
+        'experience_years',
+        'specializations',
+        'availability_note',
+        'socials',
+        'avatar_path',
+        'timezone',
+        'languages',
+        'certifications',
+        'phone',
+        'website_url',
+    ];
 
     protected $casts = [
-        'specializations'  => 'array',
-        'experience_years' => 'integer',
-        'price_per_session'=> 'integer',
+        'specializations'   => 'array',
+        'socials'           => 'array',
+        'languages'         => 'array',
+        'certifications'    => 'array',
+        'experience_years'  => 'integer',
     ];
 }

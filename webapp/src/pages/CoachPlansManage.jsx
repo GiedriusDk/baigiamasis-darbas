@@ -1,27 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Container,
-  Title,
-  Card,
-  Grid,
-  TextInput,
-  Textarea,
-  Switch,
-  Button,
-  Group,
-  Stack,
-  Loader,
-  Alert,
-  Text,
-  NumberInput,
-  Select,
-  Divider,
-  Collapse,
+import { Container, Title, Card, Grid, TextInput, Textarea, Switch, Button, Group, Stack, Loader, Alert, Text, NumberInput, Select, Divider, Collapse, Image,
 } from "@mantine/core";
 import { myProducts, createProduct, updateProduct, archiveProduct } from "../api/payments";
 import PlanCard from "../components/PlanCard";
+import { reorderProducts } from '../api/payments';
+import { ActionIcon, Tooltip } from '@mantine/core';
+import { IconArrowUp, IconArrowDown } from '@tabler/icons-react';
 
-const empty = { title: "", description: "", price: "", currency: "EUR", is_active: true, metadata: "{}" };
+const empty = {
+  title: "",
+  description: "",
+  price: "",
+  currency: "EUR",
+  type: "online",
+  gym_name: "",
+  gym_address: "",
+  duration_weeks: "",
+  sessions_per_week: "",
+  access_days: "",
+  includes_chat: true,
+  includes_calls: false,
+  level: "",
+  thumbnail_url: "",
+  sort_order: 0,
+  is_active: true,
+  metadata: "{}",
+};
 
 function parseMetaStr(s) {
   try {
@@ -58,12 +62,12 @@ function MetadataEditor({ value, onChange }) {
     if (video) next.video_calls = true;
     if (notes) next.notes = notes;
     onChange(stringifyMeta(next));
-  }, [weeks, level, video, notes, advanced]);
+  }, [weeks, level, video, notes, advanced]); // eslint-disable-line
 
   useEffect(() => {
     if (!advanced) return;
     setRaw(value || "{}");
-  }, [advanced]);
+  }, [advanced, value]);
 
   function saveRaw(v) {
     setRaw(v);
@@ -71,7 +75,7 @@ function MetadataEditor({ value, onChange }) {
       JSON.parse(v || "{}");
       setJsonErr("");
       onChange(v || "{}");
-    } catch (e) {
+    } catch {
       setJsonErr("Invalid JSON");
     }
   }
@@ -145,7 +149,7 @@ function MetadataEditor({ value, onChange }) {
 
       <Divider />
       <Text size="xs" c="dimmed">
-        Šie metaduomenys bus išsaugoti JSON formatu ir gali būti naudojami planų rodymui (pvz., ženkleliui „12 weeks“).
+        Šie metaduomenys bus saugomi JSON formatu ir gali būti naudojami planų rodymui.
       </Text>
     </Stack>
   );
@@ -171,6 +175,25 @@ export default function CoachPlansManage() {
     }
   }
 
+  async function movePlan(id, dir) {
+    const prev = plans;
+    const idx = prev.findIndex(p => p.id === id);
+    if (idx < 0) return;
+    const arr = [...prev];
+    const swapWith = dir === 'up' ? idx - 1 : idx + 1;
+    if (swapWith < 0 || swapWith >= arr.length) return;
+
+    [arr[idx], arr[swapWith]] = [arr[swapWith], arr[idx]];
+    setPlans(arr);
+
+    try {
+      await reorderProducts(arr.map(p => p.id));
+    } catch (e) {
+      setPlans(prev); // atstatom, jei nepavyko
+      setErr(e.message || 'Reorder failed');
+    }
+  }
+
   useEffect(() => {
     load();
   }, []);
@@ -192,14 +215,24 @@ export default function CoachPlansManage() {
     }
 
     const payload = {
-      title: form.title,
-      description: form.description || null,
+      title: form.title.trim(),
+      description: form.description?.trim() || null,
       price: Math.round(parseFloat(String(form.price || "0").replace(",", ".")) * 100),
       currency: (form.currency || "EUR").toUpperCase(),
+      type: form.type || "online",
+      gym_name: form.gym_name || null,
+      gym_address: form.gym_address || null,
+      duration_weeks: form.duration_weeks !== "" ? Number(form.duration_weeks) : null,
+      sessions_per_week: form.sessions_per_week !== "" ? Number(form.sessions_per_week) : null,
+      access_days: form.access_days !== "" ? Number(form.access_days) : null,
+      includes_chat: !!form.includes_chat,
+      includes_calls: !!form.includes_calls,
+      level: form.level || null,
+      thumbnail_url: form.thumbnail_url || null,
+      sort_order: Number.isFinite(Number(form.sort_order)) ? Number(form.sort_order) : 0,
       is_active: !!form.is_active,
       metadata,
     };
-    
 
     try {
       if (editing) {
@@ -222,6 +255,17 @@ export default function CoachPlansManage() {
       description: p.description || "",
       price: (Number(p.price || 0) / 100).toFixed(2),
       currency: (p.currency || "EUR").toUpperCase(),
+      type: p.type || "online",
+      gym_name: p.gym_name || "",
+      gym_address: p.gym_address || "",
+      duration_weeks: p.duration_weeks ?? "",
+      sessions_per_week: p.sessions_per_week ?? "",
+      access_days: p.access_days ?? "",
+      includes_chat: !!p.includes_chat,
+      includes_calls: !!p.includes_calls,
+      level: p.level || "",
+      thumbnail_url: p.thumbnail_url || "",
+      sort_order: p.sort_order ?? 0,
       is_active: !!p.is_active,
       metadata: stringifyMeta(p.metadata || {}),
     });
@@ -231,7 +275,8 @@ export default function CoachPlansManage() {
     await archiveProduct(p.id);
     await load();
   }
-  
+
+  const thumb = form.thumbnail_url?.trim() ? form.thumbnail_url.trim() : "";
 
   return (
     <Container size="lg" p="md">
@@ -271,6 +316,119 @@ export default function CoachPlansManage() {
               />
             </Grid.Col>
 
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Select
+                label="Plan type"
+                data={[
+                  { value: "online", label: "Online" },
+                  { value: "in_person", label: "In person" },
+                  { value: "hybrid", label: "Hybrid" },
+                ]}
+                value={form.type}
+                onChange={(v) => onChange("type", v || "online")}
+                required
+              />
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <NumberInput
+                label="Duration (weeks)"
+                min={1}
+                max={52}
+                allowDecimal={false}
+                value={form.duration_weeks === "" ? "" : Number(form.duration_weeks)}
+                onChange={(v) => onChange("duration_weeks", v ?? "")}
+                placeholder="12"
+              />
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <NumberInput
+                label="Sessions per week"
+                min={1}
+                max={14}
+                allowDecimal={false}
+                value={form.sessions_per_week === "" ? "" : Number(form.sessions_per_week)}
+                onChange={(v) => onChange("sessions_per_week", v ?? "")}
+                placeholder="3"
+              />
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <NumberInput
+                label="Access days"
+                min={1}
+                max={365}
+                allowDecimal={false}
+                value={form.access_days === "" ? "" : Number(form.access_days)}
+                onChange={(v) => onChange("access_days", v ?? "")}
+                placeholder="90"
+              />
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <Select
+                label="Level"
+                data={[
+                  { value: "beginner", label: "Beginner" },
+                  { value: "intermediate", label: "Intermediate" },
+                  { value: "advanced", label: "Advanced" },
+                ]}
+                value={form.level || null}
+                onChange={(v) => onChange("level", v || "")}
+                clearable
+              />
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <TextInput
+                label="Thumbnail URL"
+                placeholder="https://…"
+                value={form.thumbnail_url}
+                onChange={(e) => onChange("thumbnail_url", e.currentTarget.value)}
+              />
+            </Grid.Col>
+
+            {thumb && (
+              <Grid.Col span={12}>
+                <Image src={thumb} h={140} fit="cover" radius="md" />
+              </Grid.Col>
+            )}
+
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <TextInput
+                label="Gym name"
+                placeholder="If in person"
+                value={form.gym_name}
+                onChange={(e) => onChange("gym_name", e.currentTarget.value)}
+              />
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <TextInput
+                label="Gym address"
+                placeholder="Street, city, country"
+                value={form.gym_address}
+                onChange={(e) => onChange("gym_address", e.currentTarget.value)}
+              />
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Switch
+                label="Includes chat"
+                checked={!!form.includes_chat}
+                onChange={(e) => onChange("includes_chat", e.currentTarget.checked)}
+              />
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Switch
+                label="Includes calls"
+                checked={!!form.includes_calls}
+                onChange={(e) => onChange("includes_calls", e.currentTarget.checked)}
+              />
+            </Grid.Col>
+
             <Grid.Col span={12}>
               <Textarea
                 label="Description"
@@ -285,6 +443,16 @@ export default function CoachPlansManage() {
               <MetadataEditor
                 value={form.metadata}
                 onChange={(v) => onChange("metadata", v)}
+              />
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 4 }}>
+              <NumberInput
+                label="Sort order"
+                value={Number(form.sort_order)}
+                onChange={(v) => onChange("sort_order", Number(v ?? 0))}
+                min={0}
+                step={1}
               />
             </Grid.Col>
 
@@ -326,12 +494,31 @@ export default function CoachPlansManage() {
         </Card>
       ) : (
         <Grid>
-          {plans.map((p) => (
+          {plans.map((p, i) => (
             <Grid.Col key={p.id} span={{ base: 12, sm: 6, md: 4 }}>
-              <PlanCard plan={p} onEdit={startEdit} onArchive={onArchive} />
+              <Card withBorder radius="lg" p="sm">
+                <PlanCard plan={p} onEdit={startEdit} onArchive={onArchive} />
+                <Group justify="space-between" mt="sm">
+                  <Group>
+                    <Tooltip label="Move up">
+                      <ActionIcon variant="light" disabled={i === 0} onClick={() => movePlan(p.id, 'up')}>
+                        <IconArrowUp size={18} />
+                      </ActionIcon>
+                    </Tooltip>
+                    <Tooltip label="Move down">
+                      <ActionIcon variant="light" disabled={i === plans.length - 1} onClick={() => movePlan(p.id, 'down')}>
+                        <IconArrowDown size={18} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
+                  <Text size="xs" c="dimmed">Order: {i + 1}</Text>
+                </Group>
+              </Card>
             </Grid.Col>
           ))}
         </Grid>
+
+        
       )}
     </Container>
   );

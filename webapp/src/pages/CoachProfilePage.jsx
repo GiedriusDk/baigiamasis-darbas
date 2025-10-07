@@ -1,32 +1,51 @@
 // webapp/src/pages/CoachProfilePage.jsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   Title, Grid, Stack, Textarea, NumberInput, TextInput,
   Group, Button, Avatar, FileButton, ActionIcon, Tooltip,
-  LoadingOverlay, Divider, Text
-} from '@mantine/core';
-import { IconUpload, IconTrash } from '@tabler/icons-react';
-import { getCoachProfile, saveCoachProfile, uploadCoachAvatar } from '../api/profiles';
-import { me, updateMe } from '../api/auth';
-import { notifications } from '@mantine/notifications';
+  LoadingOverlay, Divider
+} from "@mantine/core";
+import { IconUpload, IconTrash } from "@tabler/icons-react";
+import { getCoachProfile, saveCoachProfile, uploadCoachAvatar } from "../api/profiles";
+import { notifications } from "@mantine/notifications";
+
+function toCsv(arr) {
+  if (!Array.isArray(arr)) return "";
+  return arr.join(", ");
+}
+function fromCsv(s) {
+  if (!s) return [];
+  return String(s)
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
 
 export default function CoachProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Vartotojas iš AUTH (vardas, email)
-  const [user, setUser] = useState(null);
-  const [name, setName] = useState(''); // ← TRŪKO
-
-  // Trenerio profilis iš PROFILES
   const [form, setForm] = useState({
-    bio: '',
+    bio: "",
     experience_years: 0,
-    price_per_session: 0,
-    specializations: '',
-    avatar_path: '',
-    city: '',
-    availability_note: '',
+    specializations: "",
+    avatar_path: "",
+    city: "",
+    country: "",
+    availability_note: "",
+    timezone: "",
+    languages: "",
+    certifications: "",
+    phone: "",
+    website_url: "",
+    socials: {
+      instagram: "",
+      facebook: "",
+      youtube: "",
+      linkedin: "",
+      tiktok: "",
+      other: ""
+    }
   });
 
   const [avatarFile, setAvatarFile] = useState(null);
@@ -34,62 +53,104 @@ export default function CoachProfilePage() {
   useEffect(() => {
     (async () => {
       try {
-        const [u, p] = await Promise.all([me(), getCoachProfile()]);
-        if (u) { setUser(u); setName(u.name || ''); }
-        if (p) setForm((f) => ({ ...f, ...p }));
-      } catch {
-        // jei profilio nėra – bus kuriamas pirmo išsaugojimo metu
+        const p = await getCoachProfile();
+        if (p) {
+          setForm((f) => ({
+            ...f,
+            ...p,
+            specializations: toCsv(p.specializations),
+            languages: toCsv(p.languages),
+            certifications: toCsv(p.certifications),
+            socials: {
+              instagram: p?.socials?.instagram || "",
+              facebook: p?.socials?.facebook || "",
+              youtube: p?.socials?.youtube || "",
+              linkedin: p?.socials?.linkedin || "",
+              tiktok: p?.socials?.tiktok || "",
+              other: p?.socials?.other || ""
+            }
+          }));
+        }
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  function update(k, v) { setForm((f) => ({ ...f, [k]: v })); }
+  function update(k, v) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+  function updateSocial(k, v) {
+    setForm((f) => ({ ...f, socials: { ...f.socials, [k]: v } }));
+  }
 
   async function onSave() {
     setSaving(true);
     try {
-      // 1) jei pakeistas vardas – atnaujinam AUTH
-      if (user && name && name !== (user.name || '')) {
-        const u = await updateMe({ name });
-        window.dispatchEvent(new CustomEvent('auth:updated', { detail: { name } }));
-        setUser(u);
-      }
-
-      // 2) jei įkeltas avataro failas – upload į PROFILES
       if (avatarFile) {
-        const { url } = await uploadCoachAvatar(avatarFile); // grįžta { url }
-        update('avatar_path', url);
-        // pranešam header’iui, kad atsinaujintų avataras
-        window.dispatchEvent(new CustomEvent('profile:updated', { detail: { avatar: url } }));
+        const { url } = await uploadCoachAvatar(avatarFile);
+        update("avatar_path", url);
+        window.dispatchEvent(new CustomEvent("profile:updated", { detail: { avatar: url } }));
       }
 
-      // 3) išsaugom coach profilį
-      const payload = { ...form };
-      const res = await saveCoachProfile(payload); // PUT /profiles/api/coach/profile
-      setForm((f) => ({ ...f, ...res }));
-      setAvatarFile(null);
+      const payload = {
+        bio: form.bio || null,
+        city: form.city || null,
+        country: form.country || null,
+        experience_years: Number(form.experience_years || 0),
+        specializations: fromCsv(form.specializations),
+        availability_note: form.availability_note || null,
+        avatar_path: form.avatar_path || null,
+        timezone: form.timezone || null,
+        languages: fromCsv(form.languages),
+        certifications: fromCsv(form.certifications),
+        phone: form.phone || null,
+        website_url: form.website_url || null,
+        socials: {
+          instagram: form.socials?.instagram || "",
+          facebook: form.socials?.facebook || "",
+          youtube: form.socials?.youtube || "",
+          linkedin: form.socials?.linkedin || "",
+          tiktok: form.socials?.tiktok || "",
+          other: form.socials?.other || ""
+        }
+      };
 
-      notifications.show({ color: 'green', message: 'Profile saved' });
+      const saved = await saveCoachProfile(payload);
+      setForm((f) => ({
+        ...f,
+        ...saved,
+        specializations: toCsv(saved.specializations),
+        languages: toCsv(saved.languages),
+        certifications: toCsv(saved.certifications),
+        socials: {
+          instagram: saved?.socials?.instagram || "",
+          facebook: saved?.socials?.facebook || "",
+          youtube: saved?.socials?.youtube || "",
+          linkedin: saved?.socials?.linkedin || "",
+          tiktok: saved?.socials?.tiktok || "",
+          other: saved?.socials?.other || ""
+        }
+      }));
+      setAvatarFile(null);
+      notifications.show({ color: "green", message: "Profile saved" });
     } catch (e) {
-      notifications.show({ color: 'red', message: e.message || 'Save failed' });
+      notifications.show({ color: "red", message: e.message || "Save failed" });
     } finally {
       setSaving(false);
     }
-
   }
-  
+
   function clearAvatar() {
     setAvatarFile(null);
-    update('avatar_path', '');
-    window.dispatchEvent(new CustomEvent('profile:updated', { detail: { avatar: '' } }));
+    update("avatar_path", "");
+    window.dispatchEvent(new CustomEvent("profile:updated", { detail: { avatar: "" } }));
   }
 
-  const avatarPreview = avatarFile ? URL.createObjectURL(avatarFile) : (form.avatar_path || undefined);
+  const avatarPreview = avatarFile ? URL.createObjectURL(avatarFile) : form.avatar_path || undefined;
 
   return (
-    <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto', position: 'relative' }}>
+    <div style={{ width: "100%", maxWidth: 1200, margin: "0 auto", position: "relative" }}>
       <LoadingOverlay visible={loading} zIndex={10} />
       <Group justify="space-between" mb="md">
         <Title order={2}>Coach profile</Title>
@@ -97,7 +158,6 @@ export default function CoachProfilePage() {
       <Divider mb="lg" />
 
       <Grid gutter="xl" align="start">
-        {/* Kairė kolona – Avatar + asmeniniai laukai */}
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Stack gap="lg">
             <Stack gap="xs" align="center">
@@ -105,7 +165,7 @@ export default function CoachProfilePage() {
                 src={avatarPreview}
                 size={140}
                 radius={999}
-                styles={{ root: { boxShadow: '0 8px 24px rgba(0,0,0,.10)' }, image: { objectFit: 'cover' } }}
+                styles={{ root: { boxShadow: "0 8px 24px rgba(0,0,0,.10)" }, image: { objectFit: "cover" } }}
               />
               <Group gap="xs">
                 <FileButton onChange={setAvatarFile} accept="image/png,image/jpeg,image/jpg,image/webp">
@@ -119,34 +179,41 @@ export default function CoachProfilePage() {
                   </Tooltip>
                 )}
               </Group>
-              <Text c="dimmed" size="sm">Square image looks best (min ~400×400).</Text>
             </Stack>
-
-            {/* Vardas – iš AUTH */}
-            <TextInput
-              label="Name"
-              value={name}
-              onChange={(e) => setName(e.currentTarget.value)}
-            />
 
             <TextInput
               label="City"
-              placeholder="e.g. Vilnius"
+              placeholder="Vilnius"
               value={form.city}
-              onChange={(e) => update('city', e.currentTarget.value)}
+              onChange={(e) => update("city", e.currentTarget.value)}
             />
-
-            <Textarea
-              label="Availability note"
-              placeholder="e.g. Weekdays after 18:00, Saturdays 9–12"
-              minRows={3}
-              value={form.availability_note}
-              onChange={(e) => update('availability_note', e.currentTarget.value)}
+            <TextInput
+              label="Country"
+              placeholder="Lithuania"
+              value={form.country}
+              onChange={(e) => update("country", e.currentTarget.value)}
+            />
+            <TextInput
+              label="Timezone"
+              placeholder="Europe/Vilnius"
+              value={form.timezone}
+              onChange={(e) => update("timezone", e.currentTarget.value)}
+            />
+            <TextInput
+              label="Phone"
+              placeholder="+370 ..."
+              value={form.phone}
+              onChange={(e) => update("phone", e.currentTarget.value)}
+            />
+            <TextInput
+              label="Website"
+              placeholder="https://your-site.com"
+              value={form.website_url}
+              onChange={(e) => update("website_url", e.currentTarget.value)}
             />
           </Stack>
         </Grid.Col>
 
-        {/* Dešinė kolona */}
         <Grid.Col span={{ base: 12, md: 8 }}>
           <Stack gap="lg">
             <Textarea
@@ -154,7 +221,7 @@ export default function CoachProfilePage() {
               placeholder="Tell about your coaching style, certifications, achievements..."
               minRows={4}
               value={form.bio}
-              onChange={(e) => update('bio', e.currentTarget.value)}
+              onChange={(e) => update("bio", e.currentTarget.value)}
             />
 
             <Grid>
@@ -163,26 +230,97 @@ export default function CoachProfilePage() {
                   label="Experience (years)"
                   min={0}
                   value={form.experience_years}
-                  onChange={(v) => update('experience_years', Number(v || 0))}
+                  onChange={(v) => update("experience_years", Number(v || 0))}
                 />
               </Grid.Col>
               <Grid.Col span={{ base: 12, sm: 6 }}>
-                <NumberInput
-                  label="Price per session"
-                  min={0}
-                  value={form.price_per_session}
-                  onChange={(v) => update('price_per_session', Number(v || 0))}
-                  leftSection="€"
+                <TextInput
+                  label="Specializations (comma separated)"
+                  placeholder="weight loss, strength, mobility"
+                  value={form.specializations}
+                  onChange={(e) => update("specializations", e.currentTarget.value)}
                 />
               </Grid.Col>
             </Grid>
 
-            <TextInput
-              label="Specializations"
-              placeholder="e.g. weight loss, strength, mobility, post-injury"
-              value={form.specializations}
-              onChange={(e) => update('specializations', e.currentTarget.value)}
+            <Grid>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <TextInput
+                  label="Languages (comma separated)"
+                  placeholder="lt, en"
+                  value={form.languages}
+                  onChange={(e) => update("languages", e.currentTarget.value)}
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <TextInput
+                  label="Certifications (comma separated)"
+                  placeholder="NASM-CPT, FMS Lv1"
+                  value={form.certifications}
+                  onChange={(e) => update("certifications", e.currentTarget.value)}
+                />
+              </Grid.Col>
+            </Grid>
+
+            <Textarea
+              label="Availability note"
+              placeholder="Weekdays after 18:00, Saturdays 9–12"
+              minRows={3}
+              value={form.availability_note}
+              onChange={(e) => update("availability_note", e.currentTarget.value)}
             />
+
+            <Divider label="Socials" />
+            <Grid>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <TextInput
+                  label="Instagram"
+                  placeholder="https://instagram.com/username"
+                  value={form.socials.instagram}
+                  onChange={(e) => updateSocial("instagram", e.currentTarget.value)}
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <TextInput
+                  label="Facebook"
+                  placeholder="https://facebook.com/username"
+                  value={form.socials.facebook}
+                  onChange={(e) => updateSocial("facebook", e.currentTarget.value)}
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <TextInput
+                  label="YouTube"
+                  placeholder="https://youtube.com/@channel"
+                  value={form.socials.youtube}
+                  onChange={(e) => updateSocial("youtube", e.currentTarget.value)}
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <TextInput
+                  label="LinkedIn"
+                  placeholder="https://linkedin.com/in/username"
+                  value={form.socials.linkedin}
+                  onChange={(e) => updateSocial("linkedin", e.currentTarget.value)}
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <TextInput
+                  label="TikTok"
+                  placeholder="https://tiktok.com/@username"
+                  value={form.socials.tiktok}
+                  onChange={(e) => updateSocial("tiktok", e.currentTarget.value)}
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <TextInput
+                  label="Other"
+                  placeholder="Any other link"
+                  value={form.socials.other}
+                  onChange={(e) => updateSocial("other", e.currentTarget.value)}
+                />
+              </Grid.Col>
+            </Grid>
 
             <Group justify="flex-end">
               <Button onClick={onSave} loading={saving} size="md">Save</Button>
