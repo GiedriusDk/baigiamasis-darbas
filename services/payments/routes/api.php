@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\ProductExercisesController;
 
 Route::prefix('')->group(function () {
     Route::get('products', [ProductsController::class, 'index']);
@@ -11,10 +12,14 @@ Route::prefix('')->group(function () {
     Route::middleware('auth.service')->group(function () {
         Route::middleware('coach')->group(function () {
             Route::get('products/mine', [ProductsController::class, 'mine']);
-            Route::put('/products/reorder', [ProductsController::class, 'reorder']);
+            Route::put('products/reorder', [ProductsController::class, 'reorder']);
             Route::post('products', [ProductsController::class, 'store']);
             Route::patch('products/{product}', [ProductsController::class, 'update'])->whereNumber('product');
             Route::delete('products/{product}', [ProductsController::class, 'destroy'])->whereNumber('product');
+            Route::post('products/thumbnail', [ProductsController::class, 'uploadThumbnail']);
+
+            Route::get('products/{product}/exercises', [ProductExercisesController::class, 'index']);
+            Route::put('products/{product}/exercises', [ProductExercisesController::class, 'update']);
         });
 
         Route::post('orders', [OrdersController::class, 'store']);

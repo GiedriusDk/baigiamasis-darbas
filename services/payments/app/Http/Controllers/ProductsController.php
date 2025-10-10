@@ -168,4 +168,6 @@ class ProductsController extends Controller
 
         return response()->json(['message' => 'OK']);
     }
+
+
 }

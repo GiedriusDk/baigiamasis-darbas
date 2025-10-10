@@ -7,55 +7,56 @@ use Illuminate\Support\Facades\DB;
 
 class ExerciseTagsSeeder extends Seeder
 {
-    /** slug => id */
     protected array $tagIdBySlug = [];
+    protected array $labelByTagId = [];
 
     public function run(): void
     {
-        // Užtikrinam, kad turim visus reikalingus tagus
         $this->ensureTags([
-            // meta
-            'cardio'               => ['label' => 'Cardio',              'group' => 'meta'],
+            'cardio'               => ['label' => 'Cardio',               'group' => 'meta'],
 
-            // patterns
-            'horizontal_push'      => ['label' => 'Horizontal push',     'group' => 'pattern'],
-            'horizontal_pull'      => ['label' => 'Horizontal pull',     'group' => 'pattern'],
-            'vertical_push'        => ['label' => 'Vertical push',       'group' => 'pattern'],
-            'vertical_pull'        => ['label' => 'Vertical pull',       'group' => 'pattern'],
-            'squat'                => ['label' => 'Squat',               'group' => 'pattern'],
-            'hinge'                => ['label' => 'Hinge',               'group' => 'pattern'],
-            'lunge'                => ['label' => 'Lunge',               'group' => 'pattern'],
-            'carry'                => ['label' => 'Carry',               'group' => 'pattern'],
+            'horizontal_push'      => ['label' => 'Horizontal push',      'group' => 'pattern'],
+            'horizontal_pull'      => ['label' => 'Horizontal pull',      'group' => 'pattern'],
+            'vertical_push'        => ['label' => 'Vertical push',        'group' => 'pattern'],
+            'vertical_pull'        => ['label' => 'Vertical pull',        'group' => 'pattern'],
+            'squat'                => ['label' => 'Squat',                'group' => 'pattern'],
+            'hinge'                => ['label' => 'Hinge',                'group' => 'pattern'],
+            'lunge'                => ['label' => 'Lunge',                'group' => 'pattern'],
+            'carry'                => ['label' => 'Carry',                'group' => 'pattern'],
 
-            // core
             'core_anti_extension'  => ['label' => 'Core – anti-extension','group' => 'core'],
-            'core_rotation'        => ['label' => 'Core – rotation',     'group' => 'core'],
+            'core_rotation'        => ['label' => 'Core – rotation',      'group' => 'core'],
         ]);
 
-        $this->tagIdBySlug = DB::table('tags')->pluck('id', 'slug')->all();
+        $this->tagIdBySlug  = DB::table('tags')->pluck('id', 'slug')->all();
+        $this->labelByTagId = DB::table('tags')->pluck('label', 'id')->all();
 
-        // Eisim porcijomis
         DB::table('exercises')->orderBy('id')->chunk(500, function ($rows) {
             foreach ($rows as $ex) {
-                $slug = $this->pickPrimaryTag($ex);
-                if (!$slug) {
-                    // Paskutinis saugiklis – nededam „conditioning“, nes jo atsisakom.
-                    // Renkam labiausiai tikėtiną pagal raumenį / pavadinimą.
-                    $slug = $this->fallbackByHeuristics($ex);
-                }
+                $slug = $this->pickPrimaryTag($ex) ?? $this->fallbackByHeuristics($ex);
 
                 $tagId = $this->tagIdBySlug[$slug] ?? null;
-                if ($tagId) {
-                    DB::table('exercise_tag')->updateOrInsert(
-                        ['exercise_id' => $ex->id, 'tag_id' => $tagId],
-                        []
-                    );
+                if (!$tagId) {
+                    continue;
                 }
+
+                DB::table('exercise_tag')->updateOrInsert(
+                    ['exercise_id' => $ex->id, 'tag_id' => $tagId],
+                    []
+                );
+
+                $labels = [$this->labelByTagId[$tagId] ?? ucfirst(str_replace('_', ' ', $slug))];
+
+                DB::table('exercises')
+                    ->where('id', $ex->id)
+                    ->update([
+                        'tags'       => json_encode($labels),
+                        'updated_at' => now(),
+                    ]);
             }
         });
     }
 
-    /** Užtikrinam, kad tags lentelėje būtų įrašai. */
     protected function ensureTags(array $defs): void
     {
         foreach ($defs as $slug => $meta) {
@@ -72,7 +73,6 @@ class ExerciseTagsSeeder extends Seeder
         }
     }
 
-    /** Pagrindinė logika – be „conditioning“, su griežtu cardio. */
     protected function pickPrimaryTag(object $ex): ?string
     {
         $name    = mb_strtolower($ex->name ?? '');
@@ -82,12 +82,10 @@ class ExerciseTagsSeeder extends Seeder
         $bodyParts = $this->jsonToArr($ex->body_parts ?? null);
         $targets   = $this->jsonToArr($ex->target_muscles ?? null);
 
-        // 1) Tikras kardio
         if ($this->isPureCardio($bodyParts, $targets)) {
             return 'cardio';
         }
 
-        // 2) Apatinės kūno dalies pagrindiniai pattern’ai
         if ($this->hasAny($name, ['squat','front squat','back squat','goblet squat','hack squat','leg press'])) {
             return 'squat';
         }
@@ -101,21 +99,17 @@ class ExerciseTagsSeeder extends Seeder
             return 'carry';
         }
 
-        // 3) Viršutinė – push/pull (vertik./horiz.)
         if ($this->isVerticalPush($name, $pm))   return 'vertical_push';
         if ($this->isHorizontalPush($name, $pm)) return 'horizontal_push';
         if ($this->isVerticalPull($name))        return 'vertical_pull';
         if ($this->isHorizontalPull($name, $equip)) return 'horizontal_pull';
 
-        // 4) Core
         if ($this->isAntiExtensionCore($name, $pm, $targets)) return 'core_anti_extension';
         if ($this->isRotationCore($name))                    return 'core_rotation';
 
-        // 5) Heuristika pagal primary_muscle
-        return $this->fallbackByHeuristics($ex);
+        return null;
     }
 
-    /** Tikras „cardio“: body_parts turi "cardio" ARBA target_muscles turi "cardiovascular system". */
     protected function isPureCardio(array $bodyParts, array $targets): bool
     {
         foreach ($bodyParts as $bp) {
@@ -131,8 +125,7 @@ class ExerciseTagsSeeder extends Seeder
 
     protected function isVerticalPush(string $name, string $pm): bool
     {
-        if ($this->hasAny($name, ['overhead press','shoulder press','military press','push press','strict press'])) return true;
-        return false;
+        return $this->hasAny($name, ['overhead press','shoulder press','military press','push press','strict press']);
     }
 
     protected function isHorizontalPush(string $name, string $pm): bool
@@ -173,7 +166,6 @@ class ExerciseTagsSeeder extends Seeder
         return $this->hasAny($name, ['woodchop','pallof press','russian twist','landmine rotation','cable rotation']);
     }
 
-    /** Jei dar nieko nepagavom – heuristika. */
     protected function fallbackByHeuristics(object $ex): string
     {
         $name = mb_strtolower($ex->name ?? '');
@@ -185,7 +177,6 @@ class ExerciseTagsSeeder extends Seeder
         if ($this->hasAny($pm, ['chest','shoulders','triceps'])) return 'horizontal_push';
         if ($this->hasAny($pm, ['back','lats','biceps']))        return 'horizontal_pull';
 
-        // pagal pavadinimą
         if ($this->hasAny($name, ['press','push'])) return 'horizontal_push';
         if ($this->hasAny($name, ['row']))          return 'horizontal_pull';
 

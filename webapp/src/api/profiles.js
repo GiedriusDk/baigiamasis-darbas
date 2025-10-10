@@ -17,27 +17,21 @@ async function request(path, { method = 'GET', headers = {}, body } = {}) {
   const text = await res.text();
   let data;
   try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }
-  if (!res.ok) {
-    throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
-  }
+  if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
   return data;
 }
 
-/* ===================== Coach profile ===================== */
-
+/* ===== Coach profile ===== */
 export function getCoachProfile() {
   return request('/coach/profile', { headers: authHeaders() });
 }
-
 export function saveCoachProfile(payload) {
-  // PUT profiliui
   return request('/coach/profile', {
     method: 'PUT',
     headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload),
   });
 }
-
 export function uploadCoachAvatar(file) {
   const fd = new FormData();
   fd.append('file', file);
@@ -48,14 +42,11 @@ export function uploadCoachAvatar(file) {
   });
 }
 
-/* ===================== Coach exercises ===================== */
-
+/* ===== Coach exercises ===== */
 export function listCoachExercises() {
   return request('/coach/exercises', { headers: authHeaders() });
 }
-
 export function createCoachExercise(payload, file) {
-  // jei yra failas – multipart; jei ne – JSON
   if (file) {
     const fd = new FormData();
     fd.append('title', payload.title);
@@ -63,24 +54,16 @@ export function createCoachExercise(payload, file) {
     if (payload.equipment)       fd.append('equipment', payload.equipment);
     if (payload.primary_muscle)  fd.append('primary_muscle', payload.primary_muscle);
     if (payload.difficulty)      fd.append('difficulty', payload.difficulty);
-    if (Array.isArray(payload.tags)) {
-      payload.tags.forEach((t, i) => fd.append(`tags[${i}]`, t));
-    }
+    if (Array.isArray(payload.tags)) payload.tags.forEach((t, i) => fd.append(`tags[${i}]`, t));
     fd.append('media', file);
-    return request('/coach/exercises', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: fd,
-    });
+    return request('/coach/exercises', { method: 'POST', headers: authHeaders(), body: fd });
   }
-
   return request('/coach/exercises', {
     method: 'POST',
     headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload),
   });
 }
-
 export function updateCoachExercise(id, payload, file) {
   if (file) {
     const fd = new FormData();
@@ -89,32 +72,20 @@ export function updateCoachExercise(id, payload, file) {
     if (payload.equipment)       fd.append('equipment', payload.equipment);
     if (payload.primary_muscle)  fd.append('primary_muscle', payload.primary_muscle);
     if (payload.difficulty)      fd.append('difficulty', payload.difficulty);
-    if (Array.isArray(payload.tags)) {
-      payload.tags.forEach((t, i) => fd.append(`tags[${i}]`, t));
-    }
+    if (Array.isArray(payload.tags)) payload.tags.forEach((t, i) => fd.append(`tags[${i}]`, t));
     fd.append('media', file);
-    return request(`/coach/exercises/${id}`, {
-      method: 'POST', // kaip pas tave routes – update per POST
-      headers: authHeaders(),
-      body: fd,
-    });
+    return request(`/coach/exercises/${id}`, { method: 'POST', headers: authHeaders(), body: fd });
   }
-
-  // jei norim nuimti media – leisk per JSON perduot { media_url: '' }
   return request(`/coach/exercises/${id}`, {
     method: 'POST',
     headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload),
   });
 }
-
 export function deleteCoachExercise(id) {
-  return request(`/coach/exercises/${id}`, {
-    method: 'DELETE',
-    headers: authHeaders(),
-  });
+  return request(`/coach/exercises/${id}`, { method: 'DELETE', headers: authHeaders() });
 }
-export async function reorderCoachExercises(ids) {
+export function reorderCoachExercises(ids) {
   return request('/coach/exercises/reorder', {
     method: 'PUT',
     headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -122,12 +93,10 @@ export async function reorderCoachExercises(ids) {
   });
 }
 
-/* ===================== User profile (paprastas vartotojas) ===================== */
-
+/* ===== User profile ===== */
 export function getUserProfile() {
   return request('/user/profile', { headers: authHeaders() });
 }
-
 export function saveUserProfile(payload) {
   return request('/user/profile', {
     method: 'PUT',
@@ -135,21 +104,13 @@ export function saveUserProfile(payload) {
     body: JSON.stringify(payload),
   });
 }
-
 export function uploadUserAvatar(file) {
   const fd = new FormData();
   fd.append('file', file);
-  return request('/user/upload', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: fd,
-  });
+  return request('/user/upload', { method: 'POST', headers: authHeaders(), body: fd });
 }
 
-
-
-/* ============ Public coaches ============ */
-
+/* ===== Public coaches ===== */
 export function getPublicCoaches(params = {}) {
   const qs = new URLSearchParams(params).toString();
   return request(`/coach/public${qs ? `?${qs}` : ''}`, { headers: { Accept: 'application/json' } });

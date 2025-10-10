@@ -1,11 +1,30 @@
-import { useEffect, useMemo, useState } from "react";
-import { Container, Title, Card, Grid, TextInput, Textarea, Switch, Button, Group, Stack, Loader, Alert, Text, NumberInput, Select, Divider, Collapse, Image,
+import { useEffect, useState } from "react";
+import {
+  Container,
+  Title,
+  Card,
+  Grid,
+  TextInput,
+  Textarea,
+  Switch,
+  Button,
+  Group,
+  Stack,
+  Loader,
+  Alert,
+  NumberInput,
+  Select,
+  Image,
+  ActionIcon,
+  Tooltip,
+  Text,
 } from "@mantine/core";
-import { myProducts, createProduct, updateProduct, archiveProduct } from "../api/payments";
+import { myProducts, createProduct, updateProduct, archiveProduct, reorderProducts } from "../api/payments";
 import PlanCard from "../components/PlanCard";
-import { reorderProducts } from '../api/payments';
-import { ActionIcon, Tooltip } from '@mantine/core';
-import { IconArrowUp, IconArrowDown } from '@tabler/icons-react';
+import { IconArrowUp, IconArrowDown } from "@tabler/icons-react";
+import { listCoachExercises } from '../api/profiles';
+import { getProductExercises, setProductExercises } from '../api/payments';
+import { Modal, Checkbox, ScrollArea } from '@mantine/core';
 
 const empty = {
   title: "",
@@ -22,138 +41,10 @@ const empty = {
   includes_calls: false,
   level: "",
   thumbnail_url: "",
-  sort_order: 0,
   is_active: true,
-  metadata: "{}",
-};
+  };
 
-function parseMetaStr(s) {
-  try {
-    const o = s ? JSON.parse(s) : {};
-    return typeof o === "object" && o !== null ? o : {};
-  } catch {
-    return {};
-  }
-}
 
-function stringifyMeta(o) {
-  try {
-    return JSON.stringify(o ?? {}, null, 2);
-  } catch {
-    return "{}";
-  }
-}
-
-function MetadataEditor({ value, onChange }) {
-  const metaObj = useMemo(() => parseMetaStr(value), [value]);
-  const [weeks, setWeeks] = useState(Number(metaObj.weeks ?? "") || "");
-  const [level, setLevel] = useState(String(metaObj.level ?? "") || "");
-  const [video, setVideo] = useState(Boolean(metaObj.video_calls ?? false));
-  const [notes, setNotes] = useState(String(metaObj.notes ?? "") || "");
-  const [advanced, setAdvanced] = useState(false);
-  const [raw, setRaw] = useState(stringifyMeta(metaObj));
-  const [jsonErr, setJsonErr] = useState("");
-
-  useEffect(() => {
-    if (advanced) return;
-    const next = {};
-    if (weeks !== "" && !Number.isNaN(Number(weeks))) next.weeks = Number(weeks);
-    if (level) next.level = level;
-    if (video) next.video_calls = true;
-    if (notes) next.notes = notes;
-    onChange(stringifyMeta(next));
-  }, [weeks, level, video, notes, advanced]); // eslint-disable-line
-
-  useEffect(() => {
-    if (!advanced) return;
-    setRaw(value || "{}");
-  }, [advanced, value]);
-
-  function saveRaw(v) {
-    setRaw(v);
-    try {
-      JSON.parse(v || "{}");
-      setJsonErr("");
-      onChange(v || "{}");
-    } catch {
-      setJsonErr("Invalid JSON");
-    }
-  }
-
-  return (
-    <Stack gap="sm">
-      <Group justify="space-between" align="center">
-        <Text fw={600}>Metadata</Text>
-        <Group gap="xs">
-          <Text size="sm" c="dimmed">Advanced JSON</Text>
-          <Switch checked={advanced} onChange={(e) => setAdvanced(e.currentTarget.checked)} />
-        </Group>
-      </Group>
-
-      <Collapse in={!advanced}>
-        <Grid>
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <NumberInput
-              label="Weeks"
-              placeholder="12"
-              value={weeks}
-              onChange={setWeeks}
-              min={1}
-              allowDecimal={false}
-            />
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <Select
-              label="Level"
-              placeholder="Select"
-              data={[
-                { value: "beginner", label: "Beginner" },
-                { value: "intermediate", label: "Intermediate" },
-                { value: "advanced", label: "Advanced" },
-              ]}
-              value={level || null}
-              onChange={(v) => setLevel(v || "")}
-              clearable
-            />
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 4 }}>
-            <Switch
-              label="Includes video calls"
-              checked={video}
-              onChange={(e) => setVideo(e.currentTarget.checked)}
-            />
-          </Grid.Col>
-          <Grid.Col span={12}>
-            <TextInput
-              label="Notes"
-              placeholder="Extra details"
-              value={notes}
-              onChange={(e) => setNotes(e.currentTarget.value)}
-            />
-          </Grid.Col>
-        </Grid>
-      </Collapse>
-
-      <Collapse in={advanced}>
-        <Stack gap="xs">
-          <Textarea
-            autosize
-            minRows={6}
-            value={raw}
-            onChange={(e) => saveRaw(e.currentTarget.value)}
-            placeholder='{"weeks": 12, "level": "beginner", "video_calls": true}'
-          />
-          {jsonErr && <Alert color="red">{jsonErr}</Alert>}
-        </Stack>
-      </Collapse>
-
-      <Divider />
-      <Text size="xs" c="dimmed">
-        Šie metaduomenys bus saugomi JSON formatu ir gali būti naudojami planų rodymui.
-      </Text>
-    </Stack>
-  );
-}
 
 export default function CoachPlansManage() {
   const [plans, setPlans] = useState([]);
@@ -161,6 +52,13 @@ export default function CoachPlansManage() {
   const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+
+  const [manageOpen, setManageOpen] = useState(false);
+  const [manageProduct, setManageProduct] = useState(null);
+  const [allExercises, setAllExercises] = useState([]);
+  const [selIds, setSelIds] = useState([]);                
+  const [loadingManage, setLoadingManage] = useState(false);
+  const [savingManage, setSavingManage] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -175,28 +73,66 @@ export default function CoachPlansManage() {
     }
   }
 
-  async function movePlan(id, dir) {
-    const prev = plans;
-    const idx = prev.findIndex(p => p.id === id);
-    if (idx < 0) return;
-    const arr = [...prev];
-    const swapWith = dir === 'up' ? idx - 1 : idx + 1;
-    if (swapWith < 0 || swapWith >= arr.length) return;
-
-    [arr[idx], arr[swapWith]] = [arr[swapWith], arr[idx]];
-    setPlans(arr);
-
-    try {
-      await reorderProducts(arr.map(p => p.id));
-    } catch (e) {
-      setPlans(prev); // atstatom, jei nepavyko
-      setErr(e.message || 'Reorder failed');
-    }
-  }
-
   useEffect(() => {
     load();
   }, []);
+
+  async function openManageExercises(product) {
+    setManageProduct(product);
+    setManageOpen(true);
+    setLoadingManage(true);
+    try {
+      // 1) parsinešam VISUS trenerio pratimus iš profiles serviso
+      const exList = await listCoachExercises();
+      setAllExercises(Array.isArray(exList) ? exList : []);
+
+      // 2) parsinešam plano priskirtus pratimų ID iš payments serviso
+      const assigned = await getProductExercises(product.id); // tikimės [{id: number, ...}, ...] arba [ids]
+      // palaikyk abu atvejus:
+      const assignedIds = Array.isArray(assigned)
+        ? assigned.map(x => (typeof x === 'number' ? x : x.id))
+        : [];
+      setSelIds(assignedIds);
+    } catch (e) {
+      setErr(e.message || 'Failed to load exercises for product');
+    } finally {
+      setLoadingManage(false);
+    }
+  }
+
+  async function saveManageExercises() {
+    if (!manageProduct) return;
+    setSavingManage(true);
+    try {
+      await setProductExercises(manageProduct.id, selIds);
+      // neprivaloma: persikraunam planų sąrašą, jei rodai kokį skaičių ar pan.
+      await load();
+      setManageOpen(false);
+      setManageProduct(null);
+      setSelIds([]);
+    } catch (e) {
+      setErr(e.message || 'Failed to update product exercises');
+    } finally {
+      setSavingManage(false);
+    }
+  }
+
+  async function movePlan(id, dir) {
+    const prev = plans;
+    const idx = prev.findIndex((p) => p.id === id);
+    if (idx < 0) return;
+    const arr = [...prev];
+    const swapWith = dir === "up" ? idx - 1 : idx + 1;
+    if (swapWith < 0 || swapWith >= arr.length) return;
+    [arr[idx], arr[swapWith]] = [arr[swapWith], arr[idx]];
+    setPlans(arr);
+    try {
+      await reorderProducts(arr.map((p) => p.id));
+    } catch (e) {
+      setPlans(prev);
+      setErr(e.message || "Reorder failed");
+    }
+  }
 
   function onChange(name, value) {
     setForm((f) => ({ ...f, [name]: value }));
@@ -205,14 +141,6 @@ export default function CoachPlansManage() {
   async function onSubmit(e) {
     e.preventDefault();
     setErr("");
-
-    let metadata = {};
-    try {
-      metadata = form.metadata ? JSON.parse(form.metadata) : {};
-    } catch {
-      setErr("Metadata must be valid JSON");
-      return;
-    }
 
     const payload = {
       title: form.title.trim(),
@@ -229,9 +157,7 @@ export default function CoachPlansManage() {
       includes_calls: !!form.includes_calls,
       level: form.level || null,
       thumbnail_url: form.thumbnail_url || null,
-      sort_order: Number.isFinite(Number(form.sort_order)) ? Number(form.sort_order) : 0,
       is_active: !!form.is_active,
-      metadata,
     };
 
     try {
@@ -265,9 +191,7 @@ export default function CoachPlansManage() {
       includes_calls: !!p.includes_calls,
       level: p.level || "",
       thumbnail_url: p.thumbnail_url || "",
-      sort_order: p.sort_order ?? 0,
       is_active: !!p.is_active,
-      metadata: stringifyMeta(p.metadata || {}),
     });
   }
 
@@ -380,14 +304,6 @@ export default function CoachPlansManage() {
               />
             </Grid.Col>
 
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <TextInput
-                label="Thumbnail URL"
-                placeholder="https://…"
-                value={form.thumbnail_url}
-                onChange={(e) => onChange("thumbnail_url", e.currentTarget.value)}
-              />
-            </Grid.Col>
 
             {thumb && (
               <Grid.Col span={12}>
@@ -440,23 +356,6 @@ export default function CoachPlansManage() {
             </Grid.Col>
 
             <Grid.Col span={12}>
-              <MetadataEditor
-                value={form.metadata}
-                onChange={(v) => onChange("metadata", v)}
-              />
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, md: 4 }}>
-              <NumberInput
-                label="Sort order"
-                value={Number(form.sort_order)}
-                onChange={(v) => onChange("sort_order", Number(v ?? 0))}
-                min={0}
-                step={1}
-              />
-            </Grid.Col>
-
-            <Grid.Col span={12}>
               <Group justify="space-between">
                 <Switch
                   checked={!!form.is_active}
@@ -499,14 +398,17 @@ export default function CoachPlansManage() {
               <Card withBorder radius="lg" p="sm">
                 <PlanCard plan={p} onEdit={startEdit} onArchive={onArchive} />
                 <Group justify="space-between" mt="sm">
+                  <Button variant="light" onClick={() => openManageExercises(p)}>
+                    Manage exercises
+                  </Button>
                   <Group>
                     <Tooltip label="Move up">
-                      <ActionIcon variant="light" disabled={i === 0} onClick={() => movePlan(p.id, 'up')}>
+                      <ActionIcon variant="light" disabled={i === 0} onClick={() => movePlan(p.id, "up")}>
                         <IconArrowUp size={18} />
                       </ActionIcon>
                     </Tooltip>
                     <Tooltip label="Move down">
-                      <ActionIcon variant="light" disabled={i === plans.length - 1} onClick={() => movePlan(p.id, 'down')}>
+                      <ActionIcon variant="light" disabled={i === plans.length - 1} onClick={() => movePlan(p.id, "down")}>
                         <IconArrowDown size={18} />
                       </ActionIcon>
                     </Tooltip>
@@ -517,9 +419,107 @@ export default function CoachPlansManage() {
             </Grid.Col>
           ))}
         </Grid>
-
-        
       )}
+      <Modal
+          opened={manageOpen}
+          onClose={() => { setManageOpen(false); setManageProduct(null); }}
+          title={manageProduct ? `Exercises for: ${manageProduct.title}` : "Exercises"}
+          size="lg"
+          centered
+        >
+          {loadingManage ? (
+            <Group justify="center" p="lg"><Loader /></Group>
+          ) : (
+            <Stack gap="md">
+              <Text size="sm" c="dimmed">Pažymėk pratimus, kurie turi būti įtraukti į šį planą.</Text>
+              <ScrollArea h={360} type="auto">
+                <Stack gap="xs">
+                  {allExercises.length === 0 ? (
+                    <Text c="dimmed">No exercises yet.</Text>
+                  ) : allExercises.map(ex => {
+                      // Paimam thumbnail ar fallback
+                      const thumb = ex.media_url || ex.thumbnail_url || ex.image_url || null;
+                      return (
+                        <Card
+                          key={ex.id}
+                          withBorder
+                          radius="md"
+                          p="sm"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            setSelIds(prev =>
+                              prev.includes(ex.id)
+                                ? prev.filter(id => id !== ex.id)
+                                : [...prev, ex.id]
+                            );
+                          }}
+                        >
+                          <Group align="center" gap="md" wrap="nowrap">
+                            {/* jei turi thumbnail, rodome mažą paveiksliuką */}
+                            {thumb ? (
+                              <Image
+                                src={thumb}
+                                alt={ex.title}
+                                height={160}
+                                radius="md"
+                                fit="contain"
+                                style={{ cursor: 'zoom-in' }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: 60,
+                                  height: 60,
+                                  borderRadius: 8,
+                                  background: 'var(--mantine-color-gray-2)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'var(--mantine-color-dimmed)',
+                                  fontSize: 12,
+                                }}
+                              >
+                                No img
+                              </div>
+                            )}
+
+                            {/* checkbox ir pavadinimas */}
+                            <Stack gap={2} style={{ flex: 1 }}>
+                              <Checkbox
+                                label={
+                                  <div style={{ fontWeight: 500 }}>
+                                    {ex.title}
+                                  </div>
+                                }
+                                checked={selIds.includes(ex.id)}
+                                onChange={(e) => {
+                                  const checked = e.currentTarget.checked;
+                                  setSelIds(prev =>
+                                    checked
+                                      ? [...prev, ex.id]
+                                      : prev.filter(id => id !== ex.id)
+                                  );
+                                }}
+                              />
+                              {ex.primary_muscle && (
+                                <Text size="xs" c="dimmed">
+                                  {ex.primary_muscle}
+                                </Text>
+                              )}
+                            </Stack>
+                          </Group>
+                        </Card>
+                      );
+                    })}
+                </Stack>
+              </ScrollArea>
+              <Group justify="flex-end">
+                <Button variant="default" onClick={() => setManageOpen(false)}>Cancel</Button>
+                <Button loading={savingManage} onClick={saveManageExercises}>Save</Button>
+              </Group>
+            </Stack>
+          )}
+        </Modal>
     </Container>
   );
 }
