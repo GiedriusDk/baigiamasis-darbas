@@ -85,3 +85,17 @@ export function setProductExercises(productId, ids) {
     body: JSON.stringify({ ids }),
   });
 }
+
+export function getProductExerciseIdsPublic(productId) {
+  return fetch(`/api/payments/public/products/${productId}/exercises`, {
+    headers: { Accept: 'application/json' },
+    credentials: 'include',
+  })
+    .then(async (r) => {
+      const t = await r.text();
+      const d = t ? JSON.parse(t) : null;
+      if (!r.ok) throw new Error(d?.message || `HTTP ${r.status}`);
+      // d = { data: [ids...] }
+      return Array.isArray(d?.data) ? d.data.map(Number) : [];
+    });
+}

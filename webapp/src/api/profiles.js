@@ -121,3 +121,10 @@ export function getPublicCoach(id) {
 export function getPublicCoachExercises(id) {
   return request(`/coach/public/${id}/exercises`, { headers: { Accept: 'application/json' } });
 }
+
+export async function getPublicCoachExercisesByIds(coachId, ids = []) {
+  const all = await getPublicCoachExercises(coachId);
+  if (!Array.isArray(all) || ids.length === 0) return [];
+  const set = new Set(ids);
+  return all.filter(x => set.has(x.id));
+}

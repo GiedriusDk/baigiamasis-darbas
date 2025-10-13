@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\DB;
 
 class ProductExercisesController extends Controller
 {
-    // Grąžina priskirtų pratimų ID sąrašą (pagal sort_order)
     public function index(Request $r, Product $product)
     {
         $u = (array) ($r->attributes->get('auth_user') ?? []);
@@ -24,7 +23,6 @@ class ProductExercisesController extends Controller
         return response()->json(['data' => array_map('intval', $ids->all())]);
     }
 
-    // Perrašo visą sąrašą ir eiliškumą
     public function update(Request $r, Product $product)
     {
         $u = (array) ($r->attributes->get('auth_user') ?? []);
@@ -57,4 +55,17 @@ class ProductExercisesController extends Controller
 
         return response()->json(['data' => $ids]);
     }
+
+public function publicIndex(Product $product)
+{
+    // Jokio auth, jokio JOIN į coach_exercises – tik ID sąrašas iš product_exercise
+    $ids = \DB::table('product_exercise')
+        ->where('product_id', $product->id)
+        ->orderBy('sort_order')
+        ->pluck('exercise_id')
+        ->map(fn ($v) => (int) $v)
+        ->all();
+
+    return response()->json(['data' => $ids]);
+}
 }

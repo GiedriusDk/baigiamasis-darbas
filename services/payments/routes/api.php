@@ -8,6 +8,8 @@ use App\Http\Controllers\ProductExercisesController;
 
 Route::prefix('')->group(function () {
     Route::get('products', [ProductsController::class, 'index']);
+    Route::get('public/products/{product}/exercises', [ProductExercisesController::class, 'publicIndex'])
+    ->whereNumber('product');
 
     Route::middleware('auth.service')->group(function () {
         Route::middleware('coach')->group(function () {

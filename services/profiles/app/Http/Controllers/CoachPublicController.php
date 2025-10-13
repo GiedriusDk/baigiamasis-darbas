@@ -87,40 +87,49 @@ class CoachPublicController extends Controller
 
     public function show($id)
     {
-        $p = CoachProfile::findOrFail((int)$id);
+        // bandome rasti pagal profile.id arba user_id
+        $profile = \App\Models\CoachProfile::where('id', (int)$id)
+            ->orWhere('user_id', (int)$id)
+            ->firstOrFail();
 
-        $name = null; $authAvatar = null;
         $authBase = rtrim(config('services.auth.base'), '/');
+        $name = null; $authAvatar = null;
         try {
-            $resp = Http::acceptJson()->get($authBase.'/public/users/'.$p->user_id);
+            $resp = \Illuminate\Support\Facades\Http::acceptJson()
+                ->get($authBase.'/public/users/'.$profile->user_id);
             if ($resp->ok()) {
                 $name       = $resp->json('name');
                 $authAvatar = $resp->json('avatar_url');
             }
-        } catch (\Throwable $e) { /* ignore */ }
+        } catch (\Throwable $e) {}
 
         return response()->json([
-            'id'                 => $p->id,
-            'user_id'            => $p->user_id,
+            'id'                 => $profile->id,
+            'user_id'            => $profile->user_id,
             'name'               => $name,
-            'city'               => $p->city,
-            'bio'                => $p->bio,
-            'avatar_path'        => $p->avatar_path ?: $authAvatar,
-            'experience_years'   => $p->experience_years,
-            'price_per_session'  => $p->price_per_session,
-            'specializations'    => $p->specializations,
-            'availability_note'  => $p->availability_note,
+            'city'               => $profile->city,
+            'bio'                => $profile->bio,
+            'avatar_path'        => $profile->avatar_path ?: $authAvatar,
+            'experience_years'   => $profile->experience_years,
+            'price_per_session'  => $profile->price_per_session,
+            'specializations'    => $profile->specializations,
+            'availability_note'  => $profile->availability_note,
         ]);
     }
 
     public function exercises($id)
     {
-        $p = CoachProfile::findOrFail((int)$id);
+        // tas pats – leidžiam tiek profile.id, tiek user_id
+        $profile = \App\Models\CoachProfile::where('id', (int)$id)
+            ->orWhere('user_id', (int)$id)
+            ->firstOrFail();
 
-        $items = CoachExercise::where('user_id', $p->user_id)
-            ->orderBy('position')->orderByDesc('id')->get();
+        $items = \App\Models\CoachExercise::where('user_id', $profile->user_id)
+            ->orderBy('position')
+            ->orderByDesc('id')
+            ->get();
 
-        return response()->json($items->map(function (CoachExercise $e) {
+        return response()->json($items->map(function (\App\Models\CoachExercise $e) {
             return [
                 'id'             => $e->id,
                 'title'          => $e->title,

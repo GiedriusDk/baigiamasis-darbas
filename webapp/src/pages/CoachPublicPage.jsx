@@ -5,7 +5,7 @@ import {
   Loader, Alert, Divider, Button
 } from "@mantine/core";
 import { getPublicCoach, getPublicCoachExercises } from "../api/profiles";
-import { listProducts, createOrder, checkout } from "../api/payments";
+import { listProducts, createOrder, checkout, getProductExerciseIdsPublic } from "../api/payments"; // 👈 pridėta funkcija
 import { getPublicUser } from "../api/auth";
 import { useAuth } from "../auth/useAuth";
 import PlanCard from "../components/PlanCard";
@@ -54,11 +54,13 @@ export default function CoachPublicPage() {
   const [coachUser, setCoachUser] = useState(null);
   const [exercises, setExercises] = useState([]);
   const [plans, setPlans] = useState([]);
+  const [exercisePlanMap, setExercisePlanMap] = useState({}); // 👈 naujas state
   const [loading, setLoading] = useState(true);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [err, setErr] = useState(null);
   const [buyingId, setBuyingId] = useState(null);
 
+  // === 1. Užkraunam trenerį ir pratimus ===
   useEffect(() => {
     (async () => {
       setLoading(true); setErr(null);
@@ -82,6 +84,7 @@ export default function CoachPublicPage() {
     })();
   }, [id]);
 
+  // === 2. Užkraunam planus ===
   useEffect(() => {
     if (!coach) return;
     (async () => {
@@ -96,6 +99,27 @@ export default function CoachPublicPage() {
         ].filter(Boolean);
         const filtered = list.filter(p => coachIds.includes(Number(p.coach_id)) && p.is_active !== false);
         setPlans(filtered);
+
+        // === 3. Sukuriam exercise_id -> planų sąrašą ===
+        const pairs = await Promise.all(
+          filtered.map(async (p) => {
+            try {
+              const ids = await getProductExerciseIdsPublic(p.id);
+              return { plan: { id: p.id, title: p.title }, ids };
+            } catch {
+              return { plan: { id: p.id, title: p.title }, ids: [] };
+            }
+          })
+        );
+
+        const map = {};
+        for (const { plan, ids } of pairs) {
+          for (const eid of ids) {
+            if (!map[eid]) map[eid] = [];
+            map[eid].push(plan.title);
+          }
+        }
+        setExercisePlanMap(map);
       } catch {
         setPlans([]);
       } finally {
@@ -134,6 +158,7 @@ export default function CoachPublicPage() {
 
   return (
     <Stack gap="md">
+      {/* === COACH INFO === */}
       <Group gap="lg" align="start">
         <Image src={coach.avatar_path || undefined} alt="" radius="xl" w={120} h={120} />
         <Stack gap={2}>
@@ -151,6 +176,7 @@ export default function CoachPublicPage() {
         </Stack>
       </Group>
 
+      {/* === BIO === */}
       {coach.bio && (
         <>
           <Divider />
@@ -158,6 +184,7 @@ export default function CoachPublicPage() {
         </>
       )}
 
+      {/* === PLANS === */}
       <Divider label="Plans" />
       {loadingPlans ? (
         <Group justify="center"><Loader /></Group>
@@ -175,6 +202,7 @@ export default function CoachPublicPage() {
         </Grid>
       )}
 
+      {/* === EXERCISES === */}
       <Divider label="Exercises" />
       <Grid gutter="lg">
         {exercises.map(e => (
@@ -191,6 +219,17 @@ export default function CoachPublicPage() {
                   {e.primary_muscle && <Badge variant="light">{e.primary_muscle}</Badge>}
                   {e.difficulty && <Badge variant="dot">{e.difficulty}</Badge>}
                 </Group>
+
+                {/* === čia pridėjom planų badge'us === */}
+                {exercisePlanMap[e.id] && exercisePlanMap[e.id].length > 0 && (
+                  <Group gap={6} mt={4}>
+                    {exercisePlanMap[e.id].map((planTitle, i) => (
+                      <Badge key={i} color="blue" variant="outline" size="xs">
+                        {planTitle}
+                      </Badge>
+                    ))}
+                  </Group>
+                )}
               </Stack>
             </Card>
           </Grid.Col>

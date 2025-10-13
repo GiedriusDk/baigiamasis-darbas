@@ -22,8 +22,8 @@ Route::middleware('auth.proxy')->prefix('coach')->group(function () {
 });
 
 Route::middleware('auth.proxy')->group(function () {
-    Route::get('user/profile',  [UserProfileController::class, 'show']);   // GET /api/user/profile
-    Route::put('user/profile',  [UserProfileController::class, 'update']); // PUT /api/user/profile
+    Route::get('user/profile',  [UserProfileController::class, 'show']);
+    Route::put('user/profile',  [UserProfileController::class, 'update']);
     Route::post('user/upload',  [UserProfileController::class, 'upload']);
 });
 
@@ -31,4 +31,6 @@ Route::prefix('coach/public')->group(function () {
     Route::get('/',        [CoachPublicController::class, 'index']);
     Route::get('{id}',     [CoachPublicController::class, 'show']);
     Route::get('{id}/exercises', [CoachPublicController::class, 'exercises']);
+    Route::get('{coach}/exercises', [PublicCoachController::class, 'exercises'])
+        ->whereNumber('coach');
 });
