@@ -18,6 +18,8 @@ import {
   deleteCoachExercise,
   reorderCoachExercises,
 } from '../api/profiles';
+import { MultiSelect } from "@mantine/core";
+import { myProducts, getProductExercises, setProductExercises } from "../api/payments";
 
 /* ----------------------- Helpers ----------------------- */
 const difficulties = [
@@ -77,7 +79,6 @@ function MediaThumb({ url, blurred = false }) {
     );
   }
   if (url.includes('youtube.com') || url.includes('youtu.be')) {
-    // Fallback jei regex nepagauna
     return (
       <Group h={160} justify="center" align="center" style={{ ...commonStyle, background: 'rgba(0,0,0,.05)' }}>
         <IconMovie />
@@ -191,6 +192,10 @@ export default function CoachExercisesPage() {
   const [items, setItems] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [errList, setErrList] = useState(null);
+  const [plansForAssign, setPlansForAssign] = useState([]);
+  const [selectedPlanIds, setSelectedPlanIds] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [assigning, setAssigning] = useState(false);
 
   // Kūrimo forma
   const [form, setForm] = useState({
@@ -227,12 +232,52 @@ export default function CoachExercisesPage() {
     })();
   }, []);
 
+  useEffect(() => {
+  let active = true;
+  (async () => {
+    try {
+      setLoadingPlans(true);
+      const res = await myProducts();
+      const list = Array.isArray(res?.data) ? res.data : [];
+      if (active) {
+        setPlansForAssign(list.map(p => ({ value: String(p.id), label: p.title })));
+      }
+    } finally {
+      setLoadingPlans(false);
+    }
+  })();
+  return () => { active = false; };
+}, []);
+
   /* ---------------- Create ---------------- */
   async function handleCreate(e) {
     e.preventDefault();
     if (!form.title.trim()) {
       notifications.show({ color: 'red', message: 'Title is required' });
       return;
+    }
+    if (selectedPlanIds.length > 0) {
+      try {
+        setAssigning(true);
+        for (const pidStr of selectedPlanIds) {
+          const productId = Number(pidStr);
+
+          const got = await getProductExercises(productId);
+          const raw = Array.isArray(got?.data) ? got.data : Array.isArray(got) ? got : [];
+          const currentIds = raw
+            .map(x => {
+              if (typeof x === "number" || typeof x === "string") return Number(x);
+              if (x && typeof x === "object") return Number(x.exercise_id ?? x.id);
+              return NaN;
+            })
+            .filter(Number.isFinite);
+
+          const next = Array.from(new Set([...currentIds, Number(newExerciseId)]));
+          await setProductExercises(productId, next);
+        }
+      } finally {
+        setAssigning(false);
+      }
     }
     setCreating(true);
     try {
@@ -433,6 +478,7 @@ export default function CoachExercisesPage() {
                           </Button>
                         )}
                       </FileButton>
+ 
                       {mediaFile && (
                         <Button ml="xs" variant="subtle" color="red" onClick={() => setMediaFile(null)}>
                           Clear selected
@@ -440,6 +486,8 @@ export default function CoachExercisesPage() {
                       )}
                     </div>
                   </Group>
+
+                  
 
                   {(mediaFile || form.media_url) && (
                     <Paper mt="md" p="sm" withBorder radius="md">
@@ -449,6 +497,16 @@ export default function CoachExercisesPage() {
                       </Group>
                     </Paper>
                   )}
+                    <MultiSelect
+                        label="Priskirti planams (nebūtina)"
+                        placeholder="Pasirink planus"
+                        data={plansForAssign}
+                        value={selectedPlanIds}
+                        onChange={setSelectedPlanIds}
+                        searchable
+                        clearable
+                        rightSection={loadingPlans ? <Loader size="xs" /> : null}
+                      />
                 </Grid.Col>
 
                 <Grid.Col span={{ base: 12, md: 6 }}>

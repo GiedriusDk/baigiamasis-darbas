@@ -8,6 +8,7 @@ use App\Http\Controllers\ProductExercisesController;
 
 Route::prefix('')->group(function () {
     Route::get('products', [ProductsController::class, 'index']);
+    
     Route::get('public/products/{product}/exercises', [ProductExercisesController::class, 'publicIndex'])
     ->whereNumber('product');
 
@@ -30,6 +31,7 @@ Route::prefix('')->group(function () {
 
         Route::post('checkout/{order}', [CheckoutController::class, 'create'])->whereNumber('order');
         Route::get('confirm', [CheckoutController::class, 'confirm']);
+        Route::get('me/access', [OrdersController::class, 'meAccess']);
     });
 
     Route::get('products/{product}', [ProductsController::class, 'show'])->whereNumber('product');

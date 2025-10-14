@@ -5,18 +5,13 @@ const BASE = '/api/payments';
 
 function authHeaders(extra = {}) {
   const t = getToken ? getToken() : localStorage.getItem('auth_token');
-  return {
-    Accept: 'application/json',
-    ...(t ? { Authorization: `Bearer ${t}` } : {}),
-    ...extra,
-  };
+  return { Accept: 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}), ...extra };
 }
 
 async function request(path, { method = 'GET', headers = {}, body } = {}) {
   const res = await fetch(`${BASE}${path}`, { method, headers, body, credentials: 'include' });
   const text = await res.text();
-  let data;
-  try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }
+  let data; try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }
   if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
   return data;
 }
@@ -98,4 +93,25 @@ export function getProductExerciseIdsPublic(productId) {
       // d = { data: [ids...] }
       return Array.isArray(d?.data) ? d.data.map(Number) : [];
     });
+}
+export async function getMyAccess() {
+  const res = await fetch(`${BASE}/me/access`, {
+    method: 'GET',
+    headers: authHeaders(),
+    credentials: 'include',
+  });
+
+  if (res.status === 401) {
+    // neprisijungęs – grąžinam tuščias prieigas, kad UI nestrigtų
+    return { product_ids: [], exercise_ids: [] };
+  }
+
+  const text = await res.text();
+  let data; try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }
+  if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+
+  return {
+    product_ids: Array.isArray(data?.product_ids) ? data.product_ids.map(Number) : [],
+    exercise_ids: Array.isArray(data?.exercise_ids) ? data.exercise_ids.map(Number) : [],
+  };
 }

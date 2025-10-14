@@ -22,20 +22,9 @@ class StripeService
     {
         $currency = strtolower(config('services.stripe.currency', 'eur'));
 
-        $success = rtrim(config('services.stripe.success_url') ?: '', '/');
-        $cancel  = rtrim(config('services.stripe.cancel_url')  ?: '', '/');
-
-        if ($success === '') {
-            $success = rtrim(env('FRONTEND_URL', env('APP_URL', 'http://localhost:8080')), '/')
-                     . '/payments/success';
-        }
-        if ($cancel === '') {
-            $cancel = rtrim(env('FRONTEND_URL', env('APP_URL', 'http://localhost:8080')), '/')
-                    . '/payments/cancel';
-        }
-
-        $success .= '?order=' . $order->public_id;
-        $cancel  .= '?order=' . $order->public_id;
+        $frontend = rtrim(env('FRONTEND_URL', env('APP_URL', 'http://localhost:5173')), '/');
+        $success  = $frontend . '/payments/success?order=' . $order->id . '&session_id={CHECKOUT_SESSION_ID}';
+        $cancel   = $frontend . '/payments/cancelled?order=' . $order->id;
 
         $amount = (int) $order->amount;
 

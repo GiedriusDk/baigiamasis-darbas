@@ -59,4 +59,27 @@ class OrdersController extends Controller
             ]
         ]);
     }
+
+    public function meAccess(Request $r)
+    {
+        $u = (array) ($r->attributes->get('auth_user') ?? []);
+        $uid = (int)($u['id'] ?? 0);
+        if (!$uid) {
+            return response()->json(['product_ids' => [], 'exercise_ids' => []]);
+        }
+
+        $productIds = \DB::table('orders')
+            ->where('user_id', $uid)
+            ->where('status', 'paid') // 👈 svarbu!
+            ->pluck('product_id');
+
+        $exerciseIds = \DB::table('product_exercise')
+            ->whereIn('product_id', $productIds)
+            ->pluck('exercise_id');
+
+        return response()->json([
+            'product_ids'  => array_map('intval', $productIds->all()),
+            'exercise_ids' => array_map('intval', $exerciseIds->all()),
+        ]);
+    }
 }
