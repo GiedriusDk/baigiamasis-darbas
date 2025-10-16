@@ -130,6 +130,26 @@ services:
     depends_on: [db]
     networks: [backend]
 
+  coach-plans:
+    build: ./services/coach-plans
+    working_dir: /var/www/html
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8080/coach-plans
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: coach_plans_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
+      JWT_SECRET: 10zFI1SZnvOExwt3CpzUO99ZweKgrL4GipKSnLZqN7IMPnY3VBN7Tdoez1FoPbON
+    volumes:
+      - ./services/coach-plans:/var/www/html
+    command: sh -lc "php artisan key:generate --force && php -S 0.0.0.0:9000 -t public"
+    depends_on: [db]
+    networks: [backend]
+
   db:
     image: postgres:16
     restart: always
