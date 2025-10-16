@@ -2,78 +2,76 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Plan;
-use App\Models\PlanWeek;
-use App\Models\PlanDay;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PlanDayController extends Controller
 {
-    protected function ensureOwner(Request $r, Plan $plan)
+    protected function getOwnedPlanOrFail(Request $r, int $planId)
     {
         $u = (array)($r->attributes->get('auth_user') ?? []);
-        abort_if((int)($u['id'] ?? 0) !== (int)$plan->coach_id, 403, 'Forbidden');
+        $plan = DB::table('plans')->where('id', $planId)->first();
+        if (!$plan) abort(404, 'Plan not found');
+        if ((int)$plan->coach_id !== (int)($u['id'] ?? 0)) abort(403, 'Forbidden');
+        return $plan;
     }
 
-    public function index(Request $r, PlanWeek $week)
-    {
-        $plan = Plan::findOrFail($week->plan_id);
-        $this->ensureOwner($r, $plan);
-
-        $days = PlanDay::where('plan_week_id', $week->id)
-            ->orderBy('day_number')
-            ->get(['id','plan_week_id','day_number','title']);
-
-        return response()->json(['data' => $days]);
+    
+public function store(Request $r, Plan $plan)
+{
+    $u = (array) ($r->attributes->get('auth_user') ?? []);
+    if ((int)$plan->coach_id !== (int)($u['id'] ?? 0)) {
+        return response()->json(['message' => 'Forbidden'], 403);
     }
 
-    public function store(Request $r, PlanWeek $week)
-    {
-        $plan = Plan::findOrFail($week->plan_id);
-        $this->ensureOwner($r, $plan);
+    $data = $r->validate([
+        'week_number' => 'required|integer|min:1',
+        'day_number'  => 'nullable|integer|min:1',
+        'title'       => 'nullable|string|max:255',
+        'notes'       => 'nullable|string',
+    ]);
 
-        $data = $r->validate([
-            'title'      => 'nullable|string|max:255',
-            'day_number' => 'nullable|integer|min:1',
-        ]);
+    $week = \App\Models\PlanWeek::where('plan_id', $plan->id)
+        ->where('week_number', $data['week_number'])
+        ->firstOrFail();
 
-        $next = $data['day_number'] ?? ((int)PlanDay::where('plan_week_id', $week->id)->max('day_number') + 1);
-
-        $day = PlanDay::create([
-            'plan_week_id' => $week->id,
-            'day_number'   => $next,
-            'title'        => $data['title'] ?? 'Day '.$next,
-        ]);
-
-        return response()->json(['data' => $day], 201);
+    if (empty($data['day_number'])) {
+        $max = \App\Models\PlanDay::where('plan_week_id', $week->id)->max('day_number');
+        $data['day_number'] = (int)$max + 1;
     }
 
-    public function reorder(Request $r, PlanWeek $week)
+    $exists = \App\Models\PlanDay::where('plan_week_id', $week->id)
+        ->where('day_number', $data['day_number'])
+        ->exists();
+
+    if ($exists) {
+        return response()->json(['message' => 'Day already exists'], 422);
+    }
+
+    $day = \App\Models\PlanDay::create([
+        'plan_id'      => $plan->id,
+        'plan_week_id' => $week->id,
+        'day_number'   => $data['day_number'],
+        'title'        => $data['title'] ?? 'Day '.$data['day_number'],
+        'notes'        => $data['notes'] ?? null,
+    ]);
+
+    return response()->json(['data' => $day]);
+}
+
+    public function destroy(Request $r, int $day)
     {
-        $plan = Plan::findOrFail($week->plan_id);
-        $this->ensureOwner($r, $plan);
+        $d = DB::table('plan_days')->where('id', $day)->first();
+        if (!$d) abort(404, 'Day not found');
+        $plan = DB::table('plans')->where('id', $d->plan_id)->first();
+        $u = (array)($r->attributes->get('auth_user') ?? []);
+        if ((int)$plan->coach_id !== (int)($u['id'] ?? 0)) abort(403, 'Forbidden');
 
-        $data = $r->validate([
-            'ids'   => 'required|array|min:1',
-            'ids.*' => 'integer|min:1',
-        ]);
-
-        DB::transaction(function () use ($week, $data) {
-            foreach (array_values($data['ids']) as $i => $id) {
-                PlanDay::where('id', $id)->where('plan_week_id', $week->id)->update(['day_number' => $i + 1]);
-            }
+        DB::transaction(function () use ($d) {
+            DB::table('plan_day_exercises')->where('plan_day_id', $d->id)->delete();
+            DB::table('plan_days')->where('id', $d->id)->delete();
         });
 
-        return response()->json(['data' => true]);
-    }
-
-    public function destroy(Request $r, PlanWeek $week, PlanDay $day)
-    {
-        $plan = Plan::findOrFail($week->plan_id);
-        $this->ensureOwner($r, $plan);
-        abort_if($day->plan_week_id !== $week->id, 404);
-        $day->delete();
-        return response()->json(['data' => true]);
+        return response()->noContent();
     }
 }

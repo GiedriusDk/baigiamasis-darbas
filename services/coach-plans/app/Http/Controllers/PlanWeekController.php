@@ -2,73 +2,53 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Request;
 use App\Models\Plan;
 use App\Models\PlanWeek;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class PlanWeekController extends Controller
 {
-    protected function ensureOwner(Request $r, Plan $plan)
-    {
-        $u = (array)($r->attributes->get('auth_user') ?? []);
-        abort_if((int)($u['id'] ?? 0) !== (int)$plan->coach_id, 403, 'Forbidden');
-    }
-
-    public function index(Request $r, Plan $plan)
-    {
-        $this->ensureOwner($r, $plan);
-
-        $weeks = PlanWeek::where('plan_id', $plan->id)
-            ->orderBy('week_number')
-            ->get(['id','plan_id','week_number','title']);
-
-        return response()->json(['data' => $weeks]);
-    }
-
     public function store(Request $r, Plan $plan)
     {
-        $this->ensureOwner($r, $plan);
+        $u = (array) ($r->attributes->get('auth_user') ?? []);
+        if ((int)$plan->coach_id !== (int)($u['id'] ?? 0)) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
 
         $data = $r->validate([
-            'title'       => 'nullable|string|max:255',
             'week_number' => 'nullable|integer|min:1',
+            'title' => 'nullable|string|max:255',
         ]);
 
-        $next = $data['week_number'] ?? ((int)PlanWeek::where('plan_id', $plan->id)->max('week_number') + 1);
+        if (empty($data['week_number'])) {
+            $max = PlanWeek::where('plan_id', $plan->id)->max('week_number');
+            $data['week_number'] = (int)$max + 1;
+        }
+
+        $exists = PlanWeek::where('plan_id', $plan->id)
+            ->where('week_number', $data['week_number'])
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['message' => 'Week already exists'], 422);
+        }
 
         $week = PlanWeek::create([
-            'plan_id'     => $plan->id,
-            'week_number' => $next,
-            'title'       => $data['title'] ?? 'Week '.$next,
+            'plan_id' => $plan->id,
+            'week_number' => $data['week_number'],
+            'title' => $data['title'] ?? 'Week '.$data['week_number'],
         ]);
 
         return response()->json(['data' => $week], 201);
     }
 
-    public function reorder(Request $r, Plan $plan)
+    public function destroy(Request $r, PlanWeek $week)
     {
-        $this->ensureOwner($r, $plan);
-
-        $data = $r->validate([
-            'ids'   => 'required|array|min:1',
-            'ids.*' => 'integer|min:1',
-        ]);
-
-        DB::transaction(function () use ($plan, $data) {
-            foreach (array_values($data['ids']) as $i => $id) {
-                PlanWeek::where('id', $id)->where('plan_id', $plan->id)->update(['week_number' => $i + 1]);
-            }
-        });
-
-        return response()->json(['data' => true]);
-    }
-
-    public function destroy(Request $r, Plan $plan, PlanWeek $week)
-    {
-        $this->ensureOwner($r, $plan);
-        abort_if($week->plan_id !== $plan->id, 404);
+        $u = (array) ($r->attributes->get('auth_user') ?? []);
+        if ((int)$week->plan->coach_id !== (int)($u['id'] ?? 0)) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
         $week->delete();
-        return response()->json(['data' => true]);
+        return response()->json(['ok' => true]);
     }
 }

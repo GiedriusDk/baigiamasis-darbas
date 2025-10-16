@@ -2,17 +2,14 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class PlanWeek extends Model
 {
-    use HasFactory;
-
-    protected $fillable = [
-        'plan_id',
-        'week_number',
-        'title',
+    protected $fillable = ['plan_id', 'week_number', 'title'];
+    protected $casts = [
+        'plan_id'     => 'integer',
+        'week_number' => 'integer',
     ];
 
     public function plan()
@@ -22,6 +19,6 @@ class PlanWeek extends Model
 
     public function days()
     {
-        return $this->hasMany(PlanDay::class);
+        return $this->hasMany(PlanDay::class)->orderBy('day_number');
     }
 }

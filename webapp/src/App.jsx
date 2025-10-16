@@ -28,7 +28,8 @@ import CoachPlansPublic from "./pages/CoachPlansPublic";
 import CoachPlansManage from "./pages/CoachPlansManage";
 import PaymentsSuccess from "./pages/PaymentsSuccess";
 import PaymentsCancel from "./pages/PaymentsCancel";
-
+import CoachPlanEditor from "./pages/CoachPlanEditor";
+import PublicPlanViewer from './pages/PlanPreview';
 
 function Home() {
   return <Title order={3}>Home</Title>;
@@ -171,6 +172,9 @@ function AppInner() {
           <Route path="/coach/plans/manage" element={<CoachPlansManage />} />
           <Route path="/payments/success" element={<PaymentsSuccess />} />
           <Route path="/payments/cancel" element={<PaymentsCancel />} />
+
+          <Route path="/coach/plans/:productId/builder" element={<CoachPlanEditor />} />
+          <Route path="/plans/:productId/preview" element={<PublicPlanViewer />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

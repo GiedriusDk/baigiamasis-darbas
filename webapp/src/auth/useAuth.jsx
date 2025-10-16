@@ -1,6 +1,6 @@
-// webapp/src/auth/useAuth.jsx
+
 import { createContext, useContext, useEffect, useState } from 'react';
-import * as api from '../api/auth'; // turi turėti login, logout, me ir t.t.
+import * as api from '../api/auth';
 
 const AuthCtx = createContext(null);
 
@@ -8,11 +8,10 @@ export function AuthProvider({ children }) {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState(null);
 
-  // Paleidžiant app – užkraunam esamą user
   useEffect(() => {
     (async () => {
       try {
-        const u = await api.me(); // GET /api/auth/me
+        const u = await api.me();
         setUser(u);
       } catch (_) {
         setUser(null);
@@ -24,7 +23,7 @@ export function AuthProvider({ children }) {
 
   async function doLogin({ email, password }) {
     const res = await api.login({ email, password });
-    setUser(res.user); // login grąžina { token, user }
+    setUser(res.user);
     return res;
   }
 

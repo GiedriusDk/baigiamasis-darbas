@@ -3,84 +3,60 @@
 namespace App\Http\Controllers;
 
 use App\Models\Plan;
+use App\Models\Product;
 use Illuminate\Http\Request;
 
 class PlanController extends Controller
 {
-    protected function ensureOwner(Request $r, Plan $plan)
+    public function showByProduct(Request $request, $productId)
     {
-        $u = (array)($r->attributes->get('auth_user') ?? []);
-        abort_if((int)($u['id'] ?? 0) !== (int)$plan->coach_id, 403, 'Forbidden');
-    }
+        $user = $request->user();
+        $plan = Plan::query()
+            ->where('product_id', $productId)
+            ->where('coach_id', $user->id)
+            ->first();
 
-    public function index(Request $r)
-    {
-        $u = (array)($r->attributes->get('auth_user') ?? []);
-        $coachId = (int)($u['id'] ?? 0);
+        if (!$plan) {
+
+            $plan = Plan::create([
+                'product_id' => $productId,
+                'coach_id'   => $user->id,
+                'title'      => 'Plan',
+            ]);
+        }
+
+        $weeks = $plan->weeks()->orderBy('week_number')->get();
+        $days  = $plan->days()->orderBy('week_number')->orderBy('day_number')->get();
 
         return response()->json([
-            'data' => Plan::query()
-                ->where('coach_id', $coachId)
-                ->orderByDesc('id')
-                ->get(['id','product_id','coach_id','title','is_active','created_at','updated_at']),
+            'plan'  => $plan,
+            'weeks' => $weeks,
+            'days'  => $days,
         ]);
     }
 
-    public function show(Request $r, Plan $plan)
+    public function publicShow($productId)
     {
-        $this->ensureOwner($r, $plan);
+        $plan = Plan::query()->where('product_id', $productId)->first();
 
-        $plan->load([
-            'weeks' => function ($q) {
-                $q->orderBy('week_number')
-                  ->with(['days' => function ($q2) {
-                      $q2->orderBy('day_number');
-                  }]);
-            },
+        if (!$plan) {
+            return response()->json(['message' => 'Plan not found'], 404);
+        }
+
+        $weeks = $plan->weeks()->orderBy('week_number')->get(['id','plan_id','week_number','title']);
+        $days  = $plan->days()
+            ->orderBy('week_number')->orderBy('day_number')
+            ->get(['id','plan_id','plan_week_id','week_number','day_number','title','notes']);
+
+        return response()->json([
+            'plan'  => [
+                'id'         => $plan->id,
+                'product_id' => $plan->product_id,
+                'coach_id'   => $plan->coach_id,
+                'title'      => $plan->title,
+            ],
+            'weeks' => $weeks,
+            'days'  => $days,
         ]);
-
-        return response()->json(['data' => $plan]);
-    }
-
-    public function store(Request $r)
-    {
-        $u = (array)($r->attributes->get('auth_user') ?? []);
-        $coachId = (int)($u['id'] ?? 0);
-
-        $data = $r->validate([
-            'product_id' => 'required|integer|min:1',
-            'title'      => 'nullable|string|max:255',
-            'is_active'  => 'boolean',
-        ]);
-
-        $plan = Plan::create([
-            'product_id' => $data['product_id'],
-            'coach_id'   => $coachId,
-            'title'      => $data['title'] ?? 'Plan',
-            'is_active'  => $data['is_active'] ?? true,
-        ]);
-
-        return response()->json(['data' => $plan], 201);
-    }
-
-    public function update(Request $r, Plan $plan)
-    {
-        $this->ensureOwner($r, $plan);
-
-        $data = $r->validate([
-            'title'     => 'nullable|string|max:255',
-            'is_active' => 'boolean',
-        ]);
-
-        $plan->fill($data)->save();
-
-        return response()->json(['data' => $plan]);
-    }
-
-    public function destroy(Request $r, Plan $plan)
-    {
-        $this->ensureOwner($r, $plan);
-        $plan->delete();
-        return response()->json(['data' => true]);
     }
 }

@@ -2,28 +2,29 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class PlanDayExercise extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'plan_id',
-        'plan_day_id',
-        'exercise_id',
-        'custom_title',
-        'custom_notes',
-        'order',
-        'sets',
-        'reps',
-        'rest_seconds',
+        'plan_id','plan_day_id','exercise_id',
+        'custom_title','custom_notes',
+        'order','sets','reps','rest_seconds'
+    ];
+
+    protected $casts = [
+        'plan_id'      => 'integer',
+        'plan_day_id'  => 'integer',
+        'exercise_id'  => 'integer',
+        'order'        => 'integer',
+        'sets'         => 'integer',
+        'reps'         => 'integer',
+        'rest_seconds' => 'integer',
     ];
 
     public function day()
     {
-        return $this->belongsTo(PlanDay::class);
+        return $this->belongsTo(PlanDay::class, 'plan_day_id');
     }
 
     public function plan()

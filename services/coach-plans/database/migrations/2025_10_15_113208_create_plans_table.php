@@ -7,15 +7,13 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        Schema::dropIfExists('plans');
+
         Schema::create('plans', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('product_id')->index();
+            $table->unsignedBigInteger('product_id')->unique();
             $table->unsignedBigInteger('coach_id')->index();
-            $table->string('title')->nullable();
-            $table->text('description')->nullable();
-            $table->boolean('is_active')->default(true);
             $table->timestamps();
-            $table->unique(['product_id']);
         });
     }
 

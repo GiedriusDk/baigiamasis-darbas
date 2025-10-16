@@ -9,7 +9,9 @@ return new class extends Migration {
     {
         Schema::create('plan_days', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('plan_id')->constrained('plans')->onDelete('cascade');
             $table->foreignId('plan_week_id')->constrained('plan_weeks')->onDelete('cascade');
+            $table->integer('week_number')->default(1);
             $table->integer('day_number');
             $table->string('title')->nullable();
             $table->text('notes')->nullable();

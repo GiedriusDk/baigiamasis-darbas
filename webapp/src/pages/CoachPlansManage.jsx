@@ -18,18 +18,10 @@ import {
   ActionIcon,
   Tooltip,
   Text,
-  Divider,
-  Modal,
-  Checkbox,
-  ScrollArea,
-  Badge,
-  AspectRatio,
 } from "@mantine/core";
 import { IconArrowUp, IconArrowDown } from "@tabler/icons-react";
 import PlanCard from "../components/PlanCard";
 import { myProducts, createProduct, updateProduct, archiveProduct, reorderProducts } from "../api/payments";
-import { listCoachExercises } from "../api/profiles";
-import { getProductExercises, setProductExercises } from "../api/payments";
 
 const empty = {
   title: "",
@@ -49,110 +41,12 @@ const empty = {
   is_active: true,
 };
 
-function getYoutubeId(url = "") {
-  try {
-    const regExp = /(?:youtube\.com\/(?:.*v=|v\/|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,12})/;
-    const match = url.match(regExp);
-    return match ? match[1] : null;
-  } catch {
-    return null;
-  }
-}
-
-function isVideoUrl(url = "") {
-  const lower = (url || "").toLowerCase();
-  return lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.includes("vimeo.com");
-}
-
-function MediaThumb({ url, onOpen }) {
-  if (!url) return null;
-  const ytId = getYoutubeId(url);
-  const commonStyle = {
-    borderRadius: 12,
-    width: "100%",
-    height: 140,
-    objectFit: "cover",
-    cursor: "pointer",
-  };
-  if (ytId) {
-    const thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-    return (
-      <div style={{ position: "relative" }} onClick={onOpen}>
-        <img src={thumb} alt="YouTube" style={commonStyle} />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            fontWeight: 700,
-            fontSize: 22,
-            textShadow: "0 2px 6px rgba(0,0,0,.6)",
-          }}
-        >
-          ▶
-        </div>
-      </div>
-    );
-  }
-  if (isVideoUrl(url)) {
-    return (
-      <div onClick={onOpen}>
-        <div
-          style={{
-            borderRadius: 12,
-            height: 140,
-            width: "100%",
-            background: "rgba(0,0,0,0.06)",
-          }}
-        />
-      </div>
-    );
-  }
-  return <img src={url} alt="Preview" style={commonStyle} onClick={onOpen} />;
-}
-
-function MediaViewer({ url, opened, onClose }) {
-  const ytId = getYoutubeId(url || "");
-  const isFile = isVideoUrl(url || "");
-  return (
-    <Modal opened={opened} onClose={onClose} size="lg" radius="md" withCloseButton>
-      <AspectRatio ratio={16 / 9}>
-        {ytId ? (
-          <iframe
-            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`}
-            title="YouTube"
-            allow="autoplay; encrypted-media; picture-in-picture"
-            allowFullScreen
-            style={{ border: 0, width: "100%", height: "100%" }}
-          />
-        ) : isFile ? (
-          <video src={url} controls style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 12 }} />
-        ) : (
-          <img src={url || ""} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 12 }} />
-        )}
-      </AspectRatio>
-    </Modal>
-  );
-}
-
 export default function CoachPlansManage() {
   const [plans, setPlans] = useState([]);
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-
-  const [manageOpen, setManageOpen] = useState(false);
-  const [manageProduct, setManageProduct] = useState(null);
-  const [allExercises, setAllExercises] = useState([]);
-  const [selIds, setSelIds] = useState([]);
-  const [loadingManage, setLoadingManage] = useState(false);
-  const [savingManage, setSavingManage] = useState(false);
-  const [viewerUrl, setViewerUrl] = useState(null);
-  const [search, setSearch] = useState("");
 
   async function load() {
     setLoading(true);
@@ -166,58 +60,7 @@ export default function CoachPlansManage() {
       setLoading(false);
     }
   }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function openManageExercises(product) {
-    setManageProduct(product);
-    setManageOpen(true);
-    setLoadingManage(true);
-    setErr("");
-    try {
-      const exList = await listCoachExercises();
-      const list = Array.isArray(exList) ? exList : [];
-      setAllExercises(list);
-      const assignedResp = await getProductExercises(product.id);
-      const assignedRaw =
-        Array.isArray(assignedResp) ? assignedResp :
-        Array.isArray(assignedResp?.data) ? assignedResp.data :
-        [];
-      const assignedIds = assignedRaw
-        .map((x) => {
-          if (typeof x === "number" || typeof x === "string") return Number(x);
-          if (x && typeof x === "object") return Number(x.exercise_id ?? x.id);
-          return NaN;
-        })
-        .filter(Number.isFinite);
-      const uniqueIds = Array.from(new Set(assignedIds));
-
-      setSelIds(uniqueIds);
-    } catch (e) {
-      setErr(e.message || "Failed to load exercises for product");
-    } finally {
-      setLoadingManage(false);
-    }
-  }
-
-  async function saveManageExercises() {
-    if (!manageProduct) return;
-    setSavingManage(true);
-    setErr("");
-    try {
-      await setProductExercises(manageProduct.id, selIds);
-      await load();
-      setManageOpen(false);
-      setManageProduct(null);
-      setSelIds([]);
-    } catch (e) {
-      setErr(e.message || "Failed to update product exercises");
-    } finally {
-      setSavingManage(false);
-    }
-  }
+  useEffect(() => { load(); }, []);
 
   async function movePlan(id, dir) {
     const prev = plans;
@@ -261,11 +104,8 @@ export default function CoachPlansManage() {
       is_active: !!form.is_active,
     };
     try {
-      if (editing) {
-        await updateProduct(editing.id, payload);
-      } else {
-        await createProduct(payload);
-      }
+      if (editing) await updateProduct(editing.id, payload);
+      else await createProduct(payload);
       setForm(empty);
       setEditing(null);
       await load();
@@ -301,16 +141,6 @@ export default function CoachPlansManage() {
   }
 
   const thumb = form.thumbnail_url?.trim() ? form.thumbnail_url.trim() : "";
-  const filteredExercises = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return allExercises;
-    return allExercises.filter((i) => {
-      const t = (i?.title || "").toLowerCase();
-      const pm = (i?.primary_muscle || "").toLowerCase();
-      const df = (i?.difficulty || "").toLowerCase();
-      return t.includes(q) || pm.includes(q) || df.includes(q);
-    });
-  }, [allExercises, search]);
 
   return (
     <Container size="lg" p="md">
@@ -343,11 +173,7 @@ export default function CoachPlansManage() {
             <Grid.Col span={{ base: 12, md: 4 }}>
               <Select label="Level" data={[{ value: "beginner", label: "Beginner" }, { value: "intermediate", label: "Intermediate" }, { value: "advanced", label: "Advanced" }]} value={form.level || null} onChange={(v) => onChange("level", v || "")} clearable />
             </Grid.Col>
-            {thumb && (
-              <Grid.Col span={12}>
-                <Image src={thumb} h={140} fit="cover" radius="md" />
-              </Grid.Col>
-            )}
+            {thumb && <Grid.Col span={12}><Image src={thumb} h={140} fit="cover" radius="md" /></Grid.Col>}
             <Grid.Col span={{ base: 12, md: 6 }}>
               <TextInput label="Gym name" placeholder="If in person" value={form.gym_name} onChange={(e) => onChange("gym_name", e.currentTarget.value)} />
             </Grid.Col>
@@ -367,11 +193,7 @@ export default function CoachPlansManage() {
               <Group justify="space-between">
                 <Switch checked={!!form.is_active} onChange={(e) => onChange("is_active", e.currentTarget.checked)} label="Active" />
                 <Group>
-                  {editing && (
-                    <Button variant="default" onClick={() => { setEditing(null); setForm(empty); }}>
-                      Cancel
-                    </Button>
-                  )}
+                  {editing && <Button variant="default" onClick={() => { setEditing(null); setForm(empty); }}>Cancel</Button>}
                   <Button type="submit">{editing ? "Save" : "Create"}</Button>
                 </Group>
               </Group>
@@ -382,13 +204,9 @@ export default function CoachPlansManage() {
 
       <Title order={4} mb="sm">My plans</Title>
       {loading ? (
-        <Group justify="center" p="lg">
-          <Loader />
-        </Group>
+        <Group justify="center" p="lg"><Loader /></Group>
       ) : plans.length === 0 ? (
-        <Card withBorder radius="lg" p="lg">
-          <Text c="dimmed" ta="center">No plans yet. Create your first plan above.</Text>
-        </Card>
+        <Card withBorder radius="lg" p="lg"><Text c="dimmed" ta="center">No plans yet. Create your first plan above.</Text></Card>
       ) : (
         <Grid>
           {plans.map((p, i) => (
@@ -396,9 +214,6 @@ export default function CoachPlansManage() {
               <Card withBorder radius="lg" p="sm">
                 <PlanCard plan={p} onEdit={startEdit} onArchive={onArchive} />
                 <Group justify="space-between" mt="sm">
-                  <Button variant="light" onClick={() => openManageExercises(p)}>
-                    Manage exercises
-                  </Button>
                   <Group>
                     <Tooltip label="Move up">
                       <ActionIcon variant="light" disabled={i === 0} onClick={() => movePlan(p.id, "up")}>
@@ -418,84 +233,6 @@ export default function CoachPlansManage() {
           ))}
         </Grid>
       )}
-
-      <Modal
-        opened={manageOpen}
-        onClose={() => {
-          setManageOpen(false);
-          setManageProduct(null);
-          setViewerUrl(null);
-          setSearch("");
-        }}
-        title={manageProduct ? `Exercises for: ${manageProduct.title}` : "Exercises"}
-        size="lg"
-        centered
-      >
-        {loadingManage ? (
-          <Group justify="center" p="lg"><Loader /></Group>
-        ) : (
-          <Stack gap="md">
-            <Text size="sm" c="dimmed">Pažymėk pratimus, kurie turi būti įtraukti į šį planą.</Text>
-            <TextInput placeholder="Search by title, muscle, difficulty" value={search} onChange={(e) => setSearch(e.currentTarget.value)} />
-            <ScrollArea h={420} type="auto">
-              <Stack gap="xs">
-                {filteredExercises.length === 0 ? (
-                  <Text c="dimmed">No exercises yet.</Text>
-                ) : filteredExercises.map((ex) => {
-                  const checked = selIds.includes(Number(ex.id));
-                  const thumb = ex.media_url || ex.thumbnail_url || ex.image_url || null;
-                  return (
-                    <Card
-                      key={ex.id}
-                      withBorder
-                      radius="md"
-                      p="sm"
-                    >
-                      <Grid align="center" gutter="md">
-                        <Grid.Col span={{ base: 12, sm: 5 }}>
-                          {thumb ? (
-                            <MediaThumb url={thumb} onOpen={() => setViewerUrl(thumb)} />
-                          ) : (
-                            <div style={{ width: "100%", height: 140, borderRadius: 12, background: "var(--mantine-color-gray-2)" }} />
-                          )}
-                        </Grid.Col>
-                        <Grid.Col span={{ base: 12, sm: 7 }}>
-                          <Stack gap={6}>
-                            <Group justify="space-between" wrap="nowrap">
-                              <Text fw={600} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ex.title}</Text>
-                              <Checkbox
-                                checked={checked}
-                                onChange={(e) => {
-                                  const isOn = e.currentTarget.checked;
-                                  const exId = Number(ex.id);
-                                  setSelIds((prev) =>
-                                    isOn ? [...prev, exId] : prev.filter((id) => id !== exId)
-                                  );
-                                }}
-                              />
-                            </Group>
-                            <Group gap={6}>
-                              {ex.primary_muscle && <Badge variant="light">{ex.primary_muscle}</Badge>}
-                              {ex.difficulty && <Badge variant="dot">{ex.difficulty}</Badge>}
-                            </Group>
-                          </Stack>
-                        </Grid.Col>
-                      </Grid>
-                    </Card>
-                  );
-                })}
-              </Stack>
-            </ScrollArea>
-            <Group justify="flex-end">
-              <Button variant="default" onClick={() => setManageOpen(false)}>Cancel</Button>
-              <Button loading={savingManage} onClick={saveManageExercises}>Save</Button>
-            </Group>
-          </Stack>
-        )}
-      </Modal>
-
-      <MediaViewer url={viewerUrl} opened={!!viewerUrl} onClose={() => setViewerUrl(null)} />
-      <Divider mt="xl" />
     </Container>
   );
 }
