@@ -17,47 +17,56 @@ class PlanDayController extends Controller
     }
 
     
-public function store(Request $r, Plan $plan)
-{
-    $u = (array) ($r->attributes->get('auth_user') ?? []);
-    if ((int)$plan->coach_id !== (int)($u['id'] ?? 0)) {
-        return response()->json(['message' => 'Forbidden'], 403);
+    public function store(Request $r, int $planId)
+    {
+        $data = $r->validate([
+            'week_number' => 'required|integer|min:1',
+            'day_number'  => 'nullable|integer|min:1',
+            'title'       => 'nullable|string|max:255',
+            'notes'       => 'nullable|string',
+        ]);
+
+        $plan = \App\Models\Plan::findOrFail($planId);
+
+        $week = \DB::table('plan_weeks')
+            ->where('plan_id', $plan->id)
+            ->where('week_number', $data['week_number'])
+            ->first();
+
+        if (!$week) {
+            $weekId = \DB::table('plan_weeks')->insertGetId([
+                'plan_id'     => $plan->id,
+                'week_number' => $data['week_number'],
+                'title'       => $data['title'] ?? 'Week '.$data['week_number'],
+                'created_at'  => now(),
+                'updated_at'  => now(),
+            ]);
+        } else {
+            $weekId = $week->id;
+        }
+
+        if (empty($data['day_number'])) {
+            $max = (int) \DB::table('plan_days')
+                ->where('plan_week_id', $weekId)
+                ->max('day_number');
+            $data['day_number'] = $max + 1;  // <— serveris pats paskiria sekantį
+        }
+
+        $id = \DB::table('plan_days')->insertGetId([
+            'plan_id'      => $plan->id,
+            'plan_week_id' => $weekId,
+            'week_number'  => $data['week_number'],
+            'day_number'   => $data['day_number'],
+            'title'        => $data['title'] ?? ('Day '.$data['day_number']),
+            'notes'        => $data['notes'] ?? null,
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ]);
+
+        $day = \DB::table('plan_days')->where('id', $id)->first();
+
+        return response()->json(['data' => $day]);
     }
-
-    $data = $r->validate([
-        'week_number' => 'required|integer|min:1',
-        'day_number'  => 'nullable|integer|min:1',
-        'title'       => 'nullable|string|max:255',
-        'notes'       => 'nullable|string',
-    ]);
-
-    $week = \App\Models\PlanWeek::where('plan_id', $plan->id)
-        ->where('week_number', $data['week_number'])
-        ->firstOrFail();
-
-    if (empty($data['day_number'])) {
-        $max = \App\Models\PlanDay::where('plan_week_id', $week->id)->max('day_number');
-        $data['day_number'] = (int)$max + 1;
-    }
-
-    $exists = \App\Models\PlanDay::where('plan_week_id', $week->id)
-        ->where('day_number', $data['day_number'])
-        ->exists();
-
-    if ($exists) {
-        return response()->json(['message' => 'Day already exists'], 422);
-    }
-
-    $day = \App\Models\PlanDay::create([
-        'plan_id'      => $plan->id,
-        'plan_week_id' => $week->id,
-        'day_number'   => $data['day_number'],
-        'title'        => $data['title'] ?? 'Day '.$data['day_number'],
-        'notes'        => $data['notes'] ?? null,
-    ]);
-
-    return response()->json(['data' => $day]);
-}
 
     public function destroy(Request $r, int $day)
     {

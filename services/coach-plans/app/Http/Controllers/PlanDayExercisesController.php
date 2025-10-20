@@ -68,8 +68,8 @@ class PlanDayExercisesController extends Controller
             return response()->json(['message' => 'Not found'], 404);
         }
 
-        $data = $r->validate([
-            'items'                    => 'required|array',
+        $validated = $r->validate([
+            'items'                    => 'nullable|array',
             'items.*.exercise_id'      => 'nullable|integer|min:1',
             'items.*.custom_title'     => 'nullable|string|max:255',
             'items.*.custom_notes'     => 'nullable|string',
@@ -79,52 +79,42 @@ class PlanDayExercisesController extends Controller
             'items.*.rest_seconds'     => 'nullable|integer|min:0',
         ]);
 
-        $items = array_values($data['items'] ?? []);
+        $items = array_values($validated['items'] ?? []);  // <— tuščias, jei nesiųsta
 
-        DB::transaction(function () use ($plan, $dayId, $items) {
-            DB::table('plan_day_exercises')
+        \DB::transaction(function () use ($plan, $dayId, $items) {
+            \DB::table('plan_day_exercises')
                 ->where('plan_id', $plan->id)
                 ->where('plan_day_id', $dayId)
                 ->delete();
 
-            if (!$items) {
-                return;
-            }
+            if (!$items) return;
 
             $now = now();
             $rows = [];
             foreach ($items as $i => $it) {
                 $rows[] = [
-                    'plan_id'       => $plan->id,
-                    'plan_day_id'   => $dayId,
-                    'exercise_id'   => isset($it['exercise_id']) ? (int)$it['exercise_id'] : null,
-                    'custom_title'  => $it['custom_title'] ?? null,
-                    'custom_notes'  => $it['custom_notes'] ?? null,
-                    'order'         => isset($it['order']) ? (int)$it['order'] : $i,
-                    'sets'          => isset($it['sets']) ? (int)$it['sets'] : null,
-                    'reps'          => isset($it['reps']) ? (int)$it['reps'] : null,
-                    'rest_seconds'  => isset($it['rest_seconds']) ? (int)$it['rest_seconds'] : null,
-                    'created_at'    => $now,
-                    'updated_at'    => $now,
+                    'plan_id'      => $plan->id,
+                    'plan_day_id'  => $dayId,
+                    'exercise_id'  => isset($it['exercise_id']) ? (int)$it['exercise_id'] : null,
+                    'custom_title' => $it['custom_title'] ?? null,
+                    'custom_notes' => $it['custom_notes'] ?? null,
+                    'order'        => isset($it['order']) ? (int)$it['order'] : $i,
+                    'sets'         => isset($it['sets']) ? (int)$it['sets'] : null,
+                    'reps'         => isset($it['reps']) ? (int)$it['reps'] : null,
+                    'rest_seconds' => isset($it['rest_seconds']) ? (int)$it['rest_seconds'] : null,
+                    'created_at'   => $now,
+                    'updated_at'   => $now,
                 ];
             }
-
-            DB::table('plan_day_exercises')->insert($rows);
+            \DB::table('plan_day_exercises')->insert($rows);
         });
 
-        $out = DB::table('plan_day_exercises')
+        $out = \DB::table('plan_day_exercises')
             ->where('plan_id', $plan->id)
             ->where('plan_day_id', $dayId)
             ->orderBy('order')
             ->get([
-                'id',
-                'exercise_id',
-                'custom_title',
-                'custom_notes',
-                'order',
-                'sets',
-                'reps',
-                'rest_seconds',
+                'id','exercise_id','custom_title','custom_notes','order','sets','reps','rest_seconds',
             ]);
 
         return response()->json(['data' => $out]);

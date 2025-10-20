@@ -2,25 +2,26 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Container, Group, Stack, Title, Text, Button, Card, Grid, Badge, Modal,
-  TextInput, ScrollArea, Checkbox, Loader, Alert, Divider, Avatar, ActionIcon
+  TextInput, ScrollArea, Checkbox, Loader, Alert, Divider, Avatar, ActionIcon, Tabs, Pagination
 } from "@mantine/core";
 import { IconPlayerPlayFilled, IconArrowUp, IconArrowDown, IconTrash } from "@tabler/icons-react";
-import { getPublicCoachExercises } from "../api/profiles";
+import { listCoachExercises, importExerciseFromCatalog } from "../api/profiles";
 import {
   getPlanByProduct, createWeek, createDay, deleteWeek, deleteDay,
   getDayExercises, setDayExercises
 } from "../api/plans";
 import { useAuth } from "../auth/useAuth";
+import { searchCatalogExercises } from "../api/catalog";
 
 function ytId(url = "") {
   const m = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|v\/|embed\/|shorts\/))([A-Za-z0-9_-]{6,12})/);
   return m ? m[1] : null;
 }
 function pickThumb(ex) {
-  const url = ex?.media_url || ex?.image_url || ex?.thumbnail_url || ex?.gif_url || ex?.video_url || ex?.youtube_url || "";
+  const url = ex?.media_path || ex?.external_url || ex?.media_url || ex?.image_url || ex?.thumbnail_url || ex?.gif_url || ex?.video_url || ex?.youtube_url || "";
   const id = ytId(url);
   if (id) return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
-  return (ex?.thumbnail_url || ex?.image_url || ex?.media_url || ex?.gif_url) || null;
+  return (ex?.thumbnail_url || ex?.image_url || ex?.media_url || ex?.gif_url || ex?.media_path || ex?.external_url || null );
 }
 function Thumb({ ex }) {
   const src = pickThumb(ex);
@@ -31,25 +32,37 @@ function Thumb({ ex }) {
   );
 }
 
-function DayExercisesPicker({ opened, onClose, productId, day, coachId, onSaved }) {
-  const [items, setItems] = useState([]);
+function DayExercisesPicker({ opened, onClose, productId, day, onSaved }) {
+  const [tab, setTab] = useState("my");
+
+  const [myItems, setMyItems] = useState([]);
   const [sel, setSel] = useState(new Set());
   const [search, setSearch] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
+  const [shared, setShared] = useState([]);
+  const [sharedMeta, setSharedMeta] = useState({ page: 1, lastPage: 1, total: 0 });
+  const [sharedQ, setSharedQ] = useState("");
+  const [sharedPage, setSharedPage] = useState(1);
+  const [sharedSel, setSharedSel] = useState(new Set());
+
+  const perPage = 24;
+
   useEffect(() => {
-    const valid = opened && productId && day?.id && Number(coachId) > 0;
-    if (!valid) return;
+    if (!opened || !productId || !day?.id) return;
     setLoading(true);
     setErr("");
     (async () => {
       try {
-        const all = await getPublicCoachExercises(Number(coachId));
+        const all = await listCoachExercises({ only_custom: 1 });
         const have = await getDayExercises(Number(productId), Number(day.id));
-        setItems(Array.isArray(all) ? all : []);
-        const ids = Array.isArray(have?.data) ? have.data.map((x) => Number(x.exercise_id ?? x.id)) : [];
+        setMyItems(Array.isArray(all) ? all : []);
+        const ids = Array.isArray(have?.data)
+          ? have.data.map((x) => Number(x.exercise_id ?? x.id))
+          : [];
         setSel(new Set(ids));
       } catch (e) {
         setErr(e.message || "Failed to load");
@@ -57,34 +70,101 @@ function DayExercisesPicker({ opened, onClose, productId, day, coachId, onSaved 
         setLoading(false);
       }
     })();
-  }, [opened, productId, day?.id, coachId]);
+  }, [opened, productId, day?.id]);
 
-  const filtered = useMemo(() => {
+  useEffect(() => {
+    if (!opened || tab !== "shared") return;
+    (async () => {
+      try {
+        const { data, meta } = await searchCatalogExercises({
+          q: sharedQ,
+          page: sharedPage,
+          per_page: perPage,
+        });
+        setShared(data || []);
+        setSharedMeta({
+          page: meta?.page ?? 1,
+          lastPage: meta?.lastPage ?? 1,
+          total: meta?.total ?? 0,
+        });
+      } catch {
+        setShared([]);
+        setSharedMeta({ page: 1, lastPage: 1, total: 0 });
+      }
+    })();
+  }, [opened, tab, sharedQ, sharedPage]);
+
+  const filteredMy = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) => {
-      const t = (i.title || "").toLowerCase();
-      const m = (i.primary_muscle || "").toLowerCase();
-      const d = (i.difficulty || "").toLowerCase();
-      return t.includes(q) || m.includes(q) || d.includes(q);
-    });
-  }, [items, search]);
+    const base = q
+      ? (myItems || []).filter((i) => {
+          const t = (i.title || "").toLowerCase();
+          const m = (i.primary_muscle || "").toLowerCase();
+          const d = (i.difficulty || "").toLowerCase();
+          return t.includes(q) || m.includes(q) || d.includes(q);
+        })
+      : myItems || [];
+    return [...base].sort(
+      (a, b) => Number(sel.has(Number(b.id))) - Number(sel.has(Number(a.id)))
+    );
+  }, [myItems, search, sel]);
 
-  const toggle = (id) => {
+  const filteredShared = useMemo(() => {
+    return [...(shared || [])].sort(
+      (a, b) => Number(sharedSel.has(Number(b.id))) - Number(sharedSel.has(Number(a.id)))
+    );
+  }, [shared, sharedSel]);
+
+  const toggleMy = (id) => {
     const n = Number(id);
     setSel((prev) => {
       const s = new Set(prev);
-      if (s.has(n)) s.delete(n); else s.add(n);
+      if (s.has(n)) s.delete(n);
+      else s.add(n);
       return s;
     });
+  };
+
+  const toggleShared = async (catalogId) => {
+    const n = Number(catalogId);
+    if (sharedSel.has(n)) {
+      setSharedSel((prev) => {
+        const s = new Set(prev);
+        s.delete(n);
+        return s;
+      });
+      return;
+    }
+    setSharedSel((prev) => new Set([...prev, n]));
+    try {
+      const ex = await importExerciseFromCatalog(n);
+      const newId = Number(ex?.id ?? ex?.data?.id);
+      if (newId) {
+        // add to the day's selection right away
+        setSel((prev) => new Set([...prev, newId]));
+        // also refresh "my" list so the just-imported item appears there (optional)
+        const all = await listCoachExercises({ only_custom: 1 });
+        setMyItems(Array.isArray(all) ? all : []);
+      }
+    } catch (e) {
+      setErr(e.message || "Import failed");
+      setSharedSel((prev) => {
+        const s = new Set(prev);
+        s.delete(n);
+        return s;
+      });
+    }
   };
 
   const save = async () => {
     setSaving(true);
     setErr("");
     try {
-      const data = Array.from(sel).map((eid, i) => ({ exercise_id: eid, order: i }));
-      await setDayExercises(Number(productId), Number(day.id), data);
+      const ordered = Array.from(sel).map((eid, i) => ({
+        exercise_id: eid,
+        order: i,
+      }));
+      await setDayExercises(Number(productId), Number(day.id), ordered);
       onSaved?.(Array.from(sel));
       onClose();
     } catch (e) {
@@ -98,36 +178,111 @@ function DayExercisesPicker({ opened, onClose, productId, day, coachId, onSaved 
     <Modal opened={opened} onClose={onClose} size="lg" title={`Exercises: ${day?.title || ""}`}>
       <Stack gap="sm">
         {err && <Alert color="red">{err}</Alert>}
-        <TextInput placeholder="Search..." value={search} onChange={(e) => setSearch(e.currentTarget.value)} />
-        {loading ? (
-          <Group justify="center" py="lg"><Loader /></Group>
-        ) : (
-          <ScrollArea h={460}>
-            <Stack gap="xs">
-              {filtered.map((e) => (
-                <Card key={e.id} withBorder radius="md" p="sm">
-                  <Group justify="space-between" wrap="nowrap">
-                    <Group gap="sm" wrap="nowrap">
-                      <Thumb ex={e} />
-                      <div>
-                        <Text fw={600}>{e.title}</Text>
-                        <Group gap={6} mt={4}>
-                          {e.primary_muscle && <Badge variant="light">{e.primary_muscle}</Badge>}
-                          {e.difficulty && <Badge variant="dot">{e.difficulty}</Badge>}
-                          {(e.youtube_url || ytId(e.media_url)) && <Badge variant="outline" leftSection={<IconPlayerPlayFilled size={12} />}>YouTube</Badge>}
+
+        <Tabs value={tab} onChange={setTab}>
+          <Tabs.List>
+            <Tabs.Tab value="my">My exercises</Tabs.Tab>
+            <Tabs.Tab value="shared">Shared catalog</Tabs.Tab>
+          </Tabs.List>
+
+          <Tabs.Panel value="my" pt="sm">
+            <TextInput
+              placeholder="Search my exercises..."
+              value={search}
+              onChange={(e) => setSearch(e.currentTarget.value)}
+              mb="sm"
+            />
+            {loading ? (
+              <Group justify="center" py="lg">
+                <Loader />
+              </Group>
+            ) : (
+              <ScrollArea h={460}>
+                <Stack gap="xs">
+                  {filteredMy.map((e) => (
+                    <Card key={e.id} withBorder radius="md" p="sm">
+                      <Group justify="space-between" wrap="nowrap">
+                        <Group gap="sm" wrap="nowrap">
+                          <Thumb ex={e} />
+                          <div>
+                            <Text fw={600}>{e.title}</Text>
+                            <Group gap={6} mt={4}>
+                              {e.primary_muscle && (
+                                <Badge variant="light">{e.primary_muscle}</Badge>
+                              )}
+                              {e.difficulty && <Badge variant="dot">{e.difficulty}</Badge>}
+                            </Group>
+                          </div>
                         </Group>
-                      </div>
+                        <Checkbox
+                          checked={sel.has(Number(e.id))}
+                          onChange={() => toggleMy(e.id)}
+                        />
+                      </Group>
+                    </Card>
+                  ))}
+                  {filteredMy.length === 0 && <Text c="dimmed">No exercises.</Text>}
+                </Stack>
+              </ScrollArea>
+            )}
+          </Tabs.Panel>
+
+          <Tabs.Panel value="shared" pt="sm">
+            <Group align="end" mb="sm" grow>
+              <TextInput
+                label="Search in catalog"
+                placeholder="Search…"
+                value={sharedQ}
+                onChange={(e) => {
+                  setSharedQ(e.currentTarget.value);
+                  setSharedPage(1);
+                }}
+              />
+            </Group>
+            <ScrollArea h={420}>
+              <Stack gap="xs">
+                {filteredShared.map((e) => (
+                  <Card key={e.id} withBorder radius="md" p="sm">
+                    <Group justify="space-between" wrap="nowrap">
+                      <Group gap="sm" wrap="nowrap">
+                        <Avatar src={e.image_url || undefined} radius="sm" size={42} />
+                        <div>
+                          <Text fw={600}>{e.name}</Text>
+                          <Group gap={6} mt={4}>
+                            {e.primary_muscle && (
+                              <Badge variant="light">{e.primary_muscle}</Badge>
+                            )}
+                            {e.equipment && <Badge variant="outline">{e.equipment}</Badge>}
+                          </Group>
+                        </div>
+                      </Group>
+                      <Checkbox
+                        checked={sharedSel.has(Number(e.id))}
+                        onChange={() => toggleShared(e.id)}
+                      />
                     </Group>
-                    <Checkbox checked={sel.has(Number(e.id))} onChange={() => toggle(e.id)} />
-                  </Group>
-                </Card>
-              ))}
-            </Stack>
-          </ScrollArea>
-        )}
+                  </Card>
+                ))}
+                {filteredShared.length === 0 && <Text c="dimmed">No results.</Text>}
+              </Stack>
+            </ScrollArea>
+            <Group justify="center" mt="sm">
+              <Pagination
+                total={sharedMeta.lastPage || 1}
+                value={sharedPage}
+                onChange={setSharedPage}
+              />
+            </Group>
+          </Tabs.Panel>
+        </Tabs>
+
         <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} loading={saving}>Save</Button>
+          <Button variant="default" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={save} loading={saving}>
+            Save
+          </Button>
         </Group>
       </Stack>
     </Modal>
@@ -202,7 +357,7 @@ export default function CoachPlanEditor() {
     if (!ownerCoachId) return;
     (async () => {
       try {
-        const ex = await getPublicCoachExercises(ownerCoachId);
+        const ex = await listCoachExercises({ only_custom: 0 });
         if (!cancelled) setCoachEx(Array.isArray(ex) ? ex : []);
       } catch {
         if (!cancelled) setCoachEx([]);

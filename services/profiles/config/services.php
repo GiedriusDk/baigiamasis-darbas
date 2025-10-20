@@ -40,4 +40,8 @@ return [
         'timeout' => 5,
     ],
 
+    'catalog' => [
+        'base' => env('CATALOG_BASE', 'http://gateway/catalog'),
+    ],
+
 ];

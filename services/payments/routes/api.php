@@ -4,13 +4,11 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\CheckoutController;
-use App\Http\Controllers\ProductExercisesController;
+
 
 Route::prefix('')->group(function () {
     Route::get('products', [ProductsController::class, 'index']);
     
-    Route::get('public/products/{product}/exercises', [ProductExercisesController::class, 'publicIndex'])
-    ->whereNumber('product');
 
     Route::middleware('auth.service')->group(function () {
         Route::middleware('coach')->group(function () {
@@ -21,8 +19,6 @@ Route::prefix('')->group(function () {
             Route::delete('products/{product}', [ProductsController::class, 'destroy'])->whereNumber('product');
             Route::post('products/thumbnail', [ProductsController::class, 'uploadThumbnail']);
 
-            Route::get('products/{product}/exercises', [ProductExercisesController::class, 'index']);
-            Route::put('products/{product}/exercises', [ProductExercisesController::class, 'update']);
         });
 
         Route::post('orders', [OrdersController::class, 'store']);

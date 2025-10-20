@@ -6,31 +6,32 @@ use App\Http\Controllers\CoachExerciseController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\CoachPublicController;
 
-Route::middleware('auth.proxy')->prefix('coach')->group(function () {
-    // Profile (jau turi)
+Route::middleware('auth.service')->prefix('coach')->group(function () {
     Route::get('profile', [CoachProfileController::class, 'show']);
     Route::put('profile', [CoachProfileController::class, 'update']);
     Route::post('upload', [CoachProfileController::class, 'upload']);
 
-    // Exercises
+    Route::get('exercises/shared', [CoachExerciseController::class, 'shared']);
+    Route::get('exercises/shared/{id}', [CoachExerciseController::class, 'sharedShow']);
+    Route::post('exercises/import', [CoachExerciseController::class, 'importFromCatalog']);
+
     Route::get('exercises', [CoachExerciseController::class, 'index']);
     Route::post('exercises', [CoachExerciseController::class, 'store']);
-    Route::post('exercises/reorder', [CoachExerciseController::class, 'reorder']);
     Route::post('exercises/{coachExercise}', [CoachExerciseController::class, 'update']);
     Route::delete('exercises/{coachExercise}', [CoachExerciseController::class, 'destroy']);
-    Route::put   ('/exercises/reorder',         [CoachExerciseController::class, 'reorder']);
+    Route::put('exercises/reorder', [CoachExerciseController::class, 'reorder']);
+
+
 });
 
-Route::middleware('auth.proxy')->group(function () {
+Route::middleware('auth.service')->group(function () {
     Route::get('user/profile',  [UserProfileController::class, 'show']);
     Route::put('user/profile',  [UserProfileController::class, 'update']);
     Route::post('user/upload',  [UserProfileController::class, 'upload']);
 });
 
 Route::prefix('coach/public')->group(function () {
-    Route::get('/',        [CoachPublicController::class, 'index']);
-    Route::get('{id}',     [CoachPublicController::class, 'show']);
+    Route::get('/', [CoachPublicController::class, 'index']);
+    Route::get('{id}', [CoachPublicController::class, 'show']);
     Route::get('{id}/exercises', [CoachPublicController::class, 'exercises']);
-    Route::get('{coach}/exercises', [PublicCoachController::class, 'exercises'])
-        ->whereNumber('coach');
 });

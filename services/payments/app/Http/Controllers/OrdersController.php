@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\Product;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class OrdersController extends Controller
 {
@@ -20,9 +22,8 @@ class OrdersController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $userId = (int)$authUser['id'];
-
-        $qty = $data['quantity'] ?? 1;
+        $userId  = (int) $authUser['id'];
+        $qty     = $data['quantity'] ?? 1;
         $product = Product::findOrFail($data['product_id']);
         if (!$product->is_active) {
             return response()->json(['message' => 'Product inactive'], 422);
@@ -31,7 +32,7 @@ class OrdersController extends Controller
         $order = Order::create([
             'user_id'    => $userId,
             'product_id' => $product->id,
-            'public_id'  => (string) \Illuminate\Support\Str::uuid(),
+            'public_id'  => (string) Str::uuid(),
             'amount'     => $product->price,
             'currency'   => $product->currency,
             'status'     => 'pending',
@@ -68,18 +69,20 @@ class OrdersController extends Controller
             return response()->json(['product_ids' => [], 'exercise_ids' => []]);
         }
 
-        $productIds = \DB::table('orders')
-            ->where('user_id', $uid)
-            ->where('status', 'paid') // 👈 svarbu!
-            ->pluck('product_id');
+        $paidOrderIds = DB::table('payments')
+            ->where('status', 'succeeded')
+            ->pluck('order_id');
 
-        $exerciseIds = \DB::table('product_exercise')
-            ->whereIn('product_id', $productIds)
-            ->pluck('exercise_id');
+        $productIds = DB::table('orders')
+            ->where('user_id', $uid)
+            ->whereIn('id', $paidOrderIds)
+            ->pluck('product_id')
+            ->map(fn($v) => (int) $v)
+            ->all();
 
         return response()->json([
-            'product_ids'  => array_map('intval', $productIds->all()),
-            'exercise_ids' => array_map('intval', $exerciseIds->all()),
+            'product_ids'  => $productIds,
+            'exercise_ids' => [], 
         ]);
     }
 }

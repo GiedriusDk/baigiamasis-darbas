@@ -1,8 +1,8 @@
-// webapp/src/api/plans.js
+
 import { getToken } from './auth';
 
-const COACH_BASE = '/api/coach-plans';   // privata (builder)
-const PUBLIC_BASE = '/api/coach-plans/public'; // vieša (viewer)
+const COACH_BASE = '/api/coach-plans';
+const PUBLIC_BASE = '/api/coach-plans/public';
 
 function authHeaders(extra = {}) {
   const t = getToken ? getToken() : localStorage.getItem('auth_token');
@@ -17,7 +17,6 @@ async function request(url, { method = 'GET', headers = {}, body } = {}) {
   return data;
 }
 
-// === Coach-side (auth) ===
 export function getPlanByProduct(productId) {
   return request(`${COACH_BASE}/products/${productId}/plan`, { headers: authHeaders() });
 }
@@ -45,14 +44,24 @@ export function getDayExercises(productId, dayId) {
   return request(`${COACH_BASE}/products/${productId}/days/${dayId}/exercises`, { headers: authHeaders() });
 }
 export function setDayExercises(productId, dayId, items) {
-  return request(`${COACH_BASE}/products/${productId}/days/${dayId}/exercises`, {
+  return fetch(`/api/coach-plans/products/${productId}/days/${dayId}/exercises`, {
     method: 'PUT',
-    headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ data: items }),
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${getToken()}`,
+    },
+    body: JSON.stringify({ items }),
+    credentials: 'include',
+  }).then(async (res) => {
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
+    if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+    return data;
   });
 }
 
-// === Public-side (no auth) ===
+
 export function getPublicPlan(productId) {
   return request(`${PUBLIC_BASE}/products/${productId}/plan`, { headers: { Accept: 'application/json' } });
 }

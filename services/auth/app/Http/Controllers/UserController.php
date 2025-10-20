@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    /** Update first/last name (and optional avatar) */
     public function updateMe(Request $r)
     {
         $u = $r->user();
@@ -40,7 +39,7 @@ class UserController extends Controller
 
         $data = $r->validate([
             'email'    => ['required','email', Rule::unique('users','email')->ignore($u->id)],
-            'password' => ['required'], // current password to confirm identity
+            'password' => ['required'],
         ]);
 
         if (!Hash::check($data['password'], $u->password)) {

@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from 'react';
 import * as api from '../api/auth';
 
@@ -23,7 +22,21 @@ export function AuthProvider({ children }) {
 
   async function doLogin({ email, password }) {
     const res = await api.login({ email, password });
-    setUser(res.user);
+    setUser(res.user ?? null);
+    return res;
+  }
+
+  async function doRegister(payload) {
+    const res = await api.register(payload);
+    if (res?.user) setUser(res.user);
+    else {
+      try {
+        const u = await api.me();
+        setUser(u ?? null);
+      } catch {
+        setUser(null);
+      }
+    }
     return res;
   }
 
@@ -42,7 +55,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthCtx.Provider value={{ ready, user, setUser, doLogin, doLogout, refreshMe }}>
+    <AuthCtx.Provider value={{ ready, user, setUser, doLogin, doRegister, doLogout, refreshMe }}>
       {children}
     </AuthCtx.Provider>
   );

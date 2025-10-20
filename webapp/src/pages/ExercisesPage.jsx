@@ -4,8 +4,7 @@ import {
   MultiSelect, TextInput, Button, Pagination, Stack, Badge
 } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-// Svarbu: naudok tą patį wrapperį, kuris kreipiasi į /api/catalog/**
-import { getExercises, getFilters } from '../api' // arba '../api/catalog' jei čia pas tave atskiras failas
+import { getExercises, getFilters } from '../api'
 import ExerciseDetailsModal from '../components/ExerciseDetailsModal.jsx'
 
 const PER_PAGE = 24
@@ -38,7 +37,6 @@ export default function ExercisesPage() {
     })()
   }, [])
 
-  // gaunam sąrašą
   useEffect(() => {
     let ignore = false
     setLoading(true); setError(null)
@@ -148,7 +146,6 @@ export default function ExercisesPage() {
                 shadow="sm"
                 style={{ cursor: "pointer" }}
                 onClick={() => {
-                  // perduodam PILNĄ objektą – modalas, jei trūks instructions, atsisiųs pagal id
                   setDetailsEx(ex);
                   setDetailsOpen(true);
                 }}

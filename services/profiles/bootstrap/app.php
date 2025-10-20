@@ -13,7 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'auth.proxy' => \App\Http\Middleware\AuthViaAuthService::class,
+            'auth.service' => \App\Http\Middleware\AuthViaAuthService::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

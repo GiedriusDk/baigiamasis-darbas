@@ -1,8 +1,7 @@
-// webapp/src/pages/RegisterPage.jsx
 import { useState } from 'react';
 import {
   Button, Card, PasswordInput, TextInput, Title, Alert, Anchor, Group, SegmentedControl
-} from '@mantine/core'; // ← pridėjome SegmentedControl
+} from '@mantine/core';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 
@@ -11,26 +10,29 @@ export default function RegisterPage() {
   const nav = useNavigate();
 
   const [form, setForm] = useState({
-    name: '',
+    first_name: '',
+    last_name: '',
     email: '',
     password: '',
     password_confirmation: '',
-    role: 'user', // ← numatytoji rolė
+    role: 'user',
   });
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e) {
     e.preventDefault();
-    setErr(null); setLoading(true);
+    setErr(null);
+    setLoading(true);
     try {
-      await doRegister(
-        form.name,
-        form.email,
-        form.password,
-        form.password_confirmation,
-        form.role,              // ← perduodame rolę
-      );
+      await doRegister({
+        first_name: form.first_name,
+        last_name: form.last_name,
+        email: form.email,
+        password: form.password,
+        password_confirmation: form.password_confirmation,
+        role: form.role,
+      });
       nav('/');
     } catch (e) {
       setErr(e.message || 'Registration failed');
@@ -46,8 +48,13 @@ export default function RegisterPage() {
 
       <form onSubmit={onSubmit}>
         <TextInput
-          label="Name" required value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.currentTarget.value })}
+          label="First name" required value={form.first_name}
+          onChange={(e) => setForm({ ...form, first_name: e.currentTarget.value })}
+          mb="sm"
+        />
+        <TextInput
+          label="Last name" required value={form.last_name}
+          onChange={(e) => setForm({ ...form, last_name: e.currentTarget.value })}
           mb="sm"
         />
         <TextInput
@@ -66,7 +73,6 @@ export default function RegisterPage() {
           mb="md"
         />
 
-        {/* Role selector */}
         <SegmentedControl
           fullWidth
           value={form.role}

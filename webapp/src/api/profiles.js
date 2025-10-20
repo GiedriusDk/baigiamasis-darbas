@@ -21,10 +21,10 @@ async function request(path, { method = 'GET', headers = {}, body } = {}) {
   return data;
 }
 
-/* ===== Coach profile ===== */
 export function getCoachProfile() {
   return request('/coach/profile', { headers: authHeaders() });
 }
+
 export function saveCoachProfile(payload) {
   return request('/coach/profile', {
     method: 'PUT',
@@ -32,20 +32,18 @@ export function saveCoachProfile(payload) {
     body: JSON.stringify(payload),
   });
 }
+
 export function uploadCoachAvatar(file) {
   const fd = new FormData();
   fd.append('file', file);
-  return request('/coach/upload', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: fd,
-  });
+  return request('/coach/upload', { method: 'POST', headers: authHeaders(), body: fd });
 }
 
-/* ===== Coach exercises ===== */
-export function listCoachExercises() {
-  return request('/coach/exercises', { headers: authHeaders() });
+export function listCoachExercises(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return request(`/coach/exercises${qs ? `?${qs}` : ''}`, { headers: authHeaders() });
 }
+
 export function createCoachExercise(payload, file) {
   if (file) {
     const fd = new FormData();
@@ -64,6 +62,7 @@ export function createCoachExercise(payload, file) {
     body: JSON.stringify(payload),
   });
 }
+
 export function updateCoachExercise(id, payload, file) {
   if (file) {
     const fd = new FormData();
@@ -82,9 +81,11 @@ export function updateCoachExercise(id, payload, file) {
     body: JSON.stringify(payload),
   });
 }
+
 export function deleteCoachExercise(id) {
   return request(`/coach/exercises/${id}`, { method: 'DELETE', headers: authHeaders() });
 }
+
 export function reorderCoachExercises(ids) {
   return request('/coach/exercises/reorder', {
     method: 'PUT',
@@ -93,10 +94,10 @@ export function reorderCoachExercises(ids) {
   });
 }
 
-/* ===== User profile ===== */
 export function getUserProfile() {
   return request('/user/profile', { headers: authHeaders() });
 }
+
 export function saveUserProfile(payload) {
   return request('/user/profile', {
     method: 'PUT',
@@ -104,20 +105,39 @@ export function saveUserProfile(payload) {
     body: JSON.stringify(payload),
   });
 }
+
 export function uploadUserAvatar(file) {
   const fd = new FormData();
   fd.append('file', file);
   return request('/user/upload', { method: 'POST', headers: authHeaders(), body: fd });
 }
 
-/* ===== Public coaches ===== */
 export function getPublicCoaches(params = {}) {
   const qs = new URLSearchParams(params).toString();
   return request(`/coach/public${qs ? `?${qs}` : ''}`, { headers: { Accept: 'application/json' } });
 }
+
 export function getPublicCoach(id) {
   return request(`/coach/public/${id}`, { headers: { Accept: 'application/json' } });
 }
+
 export function getPublicCoachExercises(id) {
   return request(`/coach/public/${id}/exercises`, { headers: { Accept: 'application/json' } });
+}
+
+export function listSharedExercises(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return request(`/coach/exercises/shared${qs ? `?${qs}` : ''}`, { headers: authHeaders() });
+}
+
+export function getSharedExerciseById(id) {
+  return request(`/coach/exercises/shared/${id}`, { headers: authHeaders() });
+}
+
+export function importExerciseFromCatalog(catalog_id) {
+  return request('/coach/exercises/import', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ catalog_id }),
+  }).then(d => d?.data ?? d);
 }

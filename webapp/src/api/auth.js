@@ -1,4 +1,4 @@
-// webapp/src/api/auth.js
+
 const BASE = 'http://localhost:8080/api/auth';
 
 const LS_KEY = 'auth_token';

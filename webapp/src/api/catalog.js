@@ -1,4 +1,4 @@
-// webapp/src/api.js
+
 const BASE = '/catalog/api';
 
 async function request(url) {
@@ -42,4 +42,7 @@ export async function getExercises(params = {}) {
 
 export async function getExerciseById(id) {
   return request(`${BASE}/exercises/${id}`);
+}
+export async function searchCatalogExercises(params = {}) {
+  return getExercises(params);
 }

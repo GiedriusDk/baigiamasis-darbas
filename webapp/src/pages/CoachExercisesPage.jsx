@@ -178,7 +178,6 @@ if (isGifUrl(url) || isImageUrl(url)) {
   );
 }
 
-  // Nežinomas tipas – neutralus placeholderis
   return (
     <Group h={160} justify="center" align="center" style={{ ...commonStyle, background: 'rgba(0,0,0,.05)' }}>
       <IconPhoto />
@@ -186,9 +185,8 @@ if (isGifUrl(url) || isImageUrl(url)) {
   );
 }
 
-/* ------------------ Main component --------------------- */
 export default function CoachExercisesPage() {
-  // Sąrašas
+
   const [items, setItems] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [errList, setErrList] = useState(null);
@@ -197,7 +195,6 @@ export default function CoachExercisesPage() {
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [assigning, setAssigning] = useState(false);
 
-  // Kūrimo forma
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -211,13 +208,11 @@ export default function CoachExercisesPage() {
   const [mediaFile, setMediaFile] = useState(null);
   const [creating, setCreating] = useState(false);
 
-  // Redagavimo modalas
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [editFile, setEditFile] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Load list
   useEffect(() => {
     (async () => {
       setLoadingList(true); setErrList(null);

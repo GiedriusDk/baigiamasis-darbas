@@ -6,6 +6,8 @@ use App\Models\CoachExercise;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class CoachExerciseController extends Controller
 {
@@ -14,11 +16,12 @@ class CoachExerciseController extends Controller
         $uid = $r->user()?->id;
         if (!$uid) return response()->json(['message' => 'Unauthenticated.'], 401);
 
-        $list = CoachExercise::where('user_id', $uid)
-            ->orderBy('position')
-            ->orderByDesc('id')
-            ->get();
+        $q = \App\Models\CoachExercise::where('user_id', $uid);
 
+        if ($r->boolean('only_custom'))   $q->whereNull('catalog_id');
+        if ($r->boolean('only_imported')) $q->whereNotNull('catalog_id');
+
+        $list = $q->orderBy('position')->orderByDesc('id')->get();
         return response()->json($list);
     }
 
@@ -36,8 +39,6 @@ class CoachExerciseController extends Controller
             'is_paid'        => 'nullable|boolean',
             'tags'           => 'nullable|array',
             'tags.*'         => 'string|max:40',
-
-            // vienas iš dviejų: failas ARBA media_url
             'media'          => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,webm|max:30720',
             'media_url'      => 'nullable|string|max:2048',
         ]);
@@ -49,29 +50,31 @@ class CoachExerciseController extends Controller
             $m = $f->getMimeType();
             $mediaType = str_starts_with($m, 'video') ? 'video' : ($m === 'image/gif' ? 'gif' : 'image');
             $stored    = $f->store('public/coach_media');
-            $mediaPath = Storage::url($stored); // /storage/...
+            $mediaPath = Storage::url($stored);
         } elseif (!empty($data['media_url'])) {
             $externalUrl = $data['media_url'];
             $u = strtolower($externalUrl);
             $mediaType = str_ends_with($u, '.gif') ? 'gif'
-                      : ((str_ends_with($u, '.mp4') || str_contains($u, 'youtube') || str_contains($u, 'vimeo')) ? 'video' : 'external');
+                : ((str_ends_with($u, '.mp4') || str_contains($u, 'youtube') || str_contains($u, 'vimeo')) ? 'video' : 'external');
         }
 
         $nextPos = (int) CoachExercise::where('user_id', $uid)->max('position') + 1;
 
         $ex = CoachExercise::create([
-            'user_id'        => $uid,
-            'title'          => $data['title'],
-            'description'    => $data['description'] ?? null,
-            'equipment'      => $data['equipment'] ?? null,
-            'primary_muscle' => $data['primary_muscle'] ?? null,
-            'difficulty'     => $data['difficulty'] ?? null,
-            'is_paid'        => $data['is_paid'] ?? false,
-            'tags'           => $data['tags'] ?? null,
-            'media_path'     => $mediaPath,
-            'media_type'     => $mediaType,
-            'external_url'   => $externalUrl,
-            'position'       => $nextPos,
+            'user_id'            => $uid,
+            'source'             => 'custom',
+            'source_catalog_id'  => null,
+            'title'              => $data['title'],
+            'description'        => $data['description'] ?? null,
+            'equipment'          => $data['equipment'] ?? null,
+            'primary_muscle'     => $data['primary_muscle'] ?? null,
+            'difficulty'         => $data['difficulty'] ?? null,
+            'is_paid'            => $data['is_paid'] ?? false,
+            'tags'               => $data['tags'] ?? null,
+            'media_path'         => $mediaPath,
+            'media_type'         => $mediaType,
+            'external_url'       => $externalUrl,
+            'position'           => $nextPos,
         ]);
 
         return response()->json($ex, 201);
@@ -92,13 +95,10 @@ class CoachExerciseController extends Controller
             'is_paid'        => 'nullable|boolean',
             'tags'           => 'nullable|array',
             'tags.*'         => 'string|max:40',
-
             'media'          => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,webm|max:30720',
             'media_url'      => 'nullable|string|max:2048',
-            
         ]);
 
-        // Media pakeitimas
         if ($r->hasFile('media')) {
             if ($coachExercise->media_path) {
                 Storage::delete(str_replace('/storage/', 'public/', $coachExercise->media_path));
@@ -114,7 +114,6 @@ class CoachExerciseController extends Controller
         } elseif ($r->exists('media_url')) {
             $url = trim((string)($data['media_url'] ?? ''));
             if ($url === '') {
-                // išvalom viską
                 if ($coachExercise->media_path) {
                     Storage::delete(str_replace('/storage/', 'public/', $coachExercise->media_path));
                 }
@@ -133,7 +132,6 @@ class CoachExerciseController extends Controller
             }
         }
 
-        // nepersistum media_url į DB — modelyje **nėra** tokio stulpelio
         $coachExercise->fill([
             'title'          => $data['title']          ?? $coachExercise->title,
             'description'    => $data['description']    ?? $coachExercise->description,
@@ -171,7 +169,7 @@ class CoachExerciseController extends Controller
             'order.*' => ['integer'],
         ]);
 
-        $exIds = \App\Models\CoachExercise::where('user_id', $uid)->pluck('id')->toArray();
+        $exIds = CoachExercise::where('user_id', $uid)->pluck('id')->toArray();
 
         foreach ($data['order'] as $id) {
             if (!in_array($id, $exIds, true)) {
@@ -179,14 +177,87 @@ class CoachExerciseController extends Controller
             }
         }
 
-        \DB::transaction(function () use ($data, $uid) {
+        DB::transaction(function () use ($data, $uid) {
             foreach ($data['order'] as $pos => $id) {
-                \App\Models\CoachExercise::where('id', $id)
+                CoachExercise::where('id', $id)
                     ->where('user_id', $uid)
                     ->update(['position' => $pos + 1]);
             }
         });
 
         return response()->json(['status' => 'ok']);
+    }
+
+    public function shared(Request $r)
+    {
+        $base = rtrim(env('CATALOG_BASE'), '/');
+        $allowed = ['page','per_page','q','equipment','muscles','tag'];
+        $qs = [];
+        foreach ($allowed as $k) {
+            $v = $r->query($k);
+            if ($v !== null && $v !== '') $qs[$k] = $v;
+        }
+        $url = $base.'/exercises'.(empty($qs) ? '' : ('?'.http_build_query($qs)));
+        $res = Http::acceptJson()->get($url);
+        if (!$res->ok()) {
+            return response()->json(['message' => $res->json('message') ?? 'Catalog error'], $res->status());
+        }
+        return response()->json($res->json());
+    }
+
+    public function sharedShow(int $id)
+    {
+        $base = rtrim(env('CATALOG_BASE'), '/');
+        $url = $base.'/exercises/'.$id;
+        $res = Http::acceptJson()->get($url);
+        if ($res->status() === 404) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+        if (!$res->ok()) {
+            return response()->json(['message' => 'Catalog error'], 422);
+        }
+        return response()->json($res->json());
+    }
+
+    public function importFromCatalog(Request $r)
+    {
+        $uid = $r->user()?->id;
+        if (!$uid) return response()->json(['message' => 'Unauthenticated.'], 401);
+
+        $data = $r->validate(['catalog_id' => ['required','integer','min:1']]);
+
+        $base = rtrim(env('CATALOG_BASE'), '/');
+        $res  = \Illuminate\Support\Facades\Http::acceptJson()->get($base.'/exercises/'.$data['catalog_id']);
+        if ($res->status() === 404) return response()->json(['message' => 'Not found'], 404);
+        if (!$res->ok())           return response()->json(['message' => 'Catalog error'], 422);
+
+        $src = $res->json('data') ?? [];
+
+        $title = $src['name'] ?? ($src['title'] ?? 'Exercise');
+        $desc  = !empty($src['instructions']) ? json_encode($src['instructions']) : ($src['description'] ?? null);
+        $media = $src['image_url'] ?? ($src['media_url'] ?? null);
+        $u = strtolower((string)$media);
+        $mediaType = $media
+            ? (\Illuminate\Support\Str::endsWith($u, '.gif') ? 'gif'
+                : ((\Illuminate\Support\Str::endsWith($u, '.mp4') || str_contains($u, 'youtube') || str_contains($u, 'vimeo')) ? 'video' : 'external'))
+            : null;
+
+        $ex = \App\Models\CoachExercise::create([
+            'user_id'        => $uid,
+            'catalog_id'     => (int)$data['catalog_id'],
+            'imported_at'    => now(),
+            'title'          => $title,
+            'description'    => $desc,
+            'primary_muscle' => $src['primary_muscle'] ?? null,
+            'difficulty'     => $src['difficulty'] ?? null,
+            'equipment'      => $src['equipment'] ?? null,
+            'tags'           => $src['tags'] ?? [],
+            'media_path'     => null,
+            'media_type'     => $mediaType,
+            'external_url'   => $media,
+            'position'       => ((int)\App\Models\CoachExercise::where('user_id',$uid)->max('position')) + 1,
+        ]);
+
+        return response()->json(['data' => $ex], 201);
     }
 }

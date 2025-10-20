@@ -122,7 +122,8 @@ export default function CoachPublicPage() {
   const [coachUser, setCoachUser] = useState(null);
   const [exercises, setExercises] = useState([]);
   const [plans, setPlans] = useState([]);
-  const [exercisePlanMap, setExercisePlanMap] = useState({});
+  const [exercisePlanTitles, setExercisePlanTitles] = useState({});
+  const [exerciseToProductIds, setExerciseToProductIds] = useState({});
   const [access, setAccess] = useState({ product_ids: [], exercise_ids: [] });
   const [loading, setLoading] = useState(true);
   const [loadingPlans, setLoadingPlans] = useState(false);
@@ -166,20 +167,25 @@ export default function CoachPublicPage() {
         const pairs = await Promise.all(filtered.map(async (p) => {
           try {
             const ids = await getProductExerciseIdsPublic(p.id);
-            return { plan: { id: p.id, title: p.title }, ids };
+            return { productId: p.id, title: p.title, ids };
           } catch {
-            return { plan: { id: p.id, title: p.title }, ids: [] };
+            return { productId: p.id, title: p.title, ids: [] };
           }
         }));
 
-        const map = {};
-        for (const { plan, ids } of pairs) {
+        const titlesMap = {};
+        const exToProd = {};
+        for (const { productId, title, ids } of pairs) {
           for (const eid of ids) {
-            if (!map[eid]) map[eid] = [];
-            map[eid].push(plan.title);
+            if (!titlesMap[eid]) titlesMap[eid] = [];
+            titlesMap[eid].push(title);
+
+            if (!exToProd[eid]) exToProd[eid] = [];
+            exToProd[eid].push(Number(productId));
           }
         }
-        setExercisePlanMap(map);
+        setExercisePlanTitles(titlesMap);
+        setExerciseToProductIds(exToProd);
       } finally {
         setLoadingPlans(false);
       }
@@ -195,6 +201,19 @@ export default function CoachPublicPage() {
       }))
       .catch(() => setAccess({ product_ids: [], exercise_ids: [] }));
   }, [ready, user?.id]);
+
+  useEffect(() => {
+    function onFocus() {
+      getMyAccess()
+        .then((a) => setAccess({
+          product_ids: (a.product_ids || []).map(Number),
+          exercise_ids: (a.exercise_ids || []).map(Number),
+        }))
+        .catch(() => {});
+    }
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   async function handleBuy(productId) {
     if (!ready || !user?.id) {
@@ -220,28 +239,10 @@ export default function CoachPublicPage() {
     return `${fn}${ln ? " " + ln : ""}`.trim();
   }, [coachUser, coach]);
 
-  const openImage = (url) => {
-    setViewerVideo(null);
-    setViewerImage(url);
-    setViewerOpen(true);
-  };
-
-  const openVideo = (url) => {
-    setViewerImage(null);
-    setViewerVideo(url);
-    setViewerOpen(true);
-  };
-
-  const openYouTubeNewTab = (ytId) => {
-    const href = `https://www.youtube.com/watch?v=${ytId}`;
-    window.open(href, "_blank", "noopener,noreferrer");
-  };
-
-  const closeViewer = () => {
-    setViewerOpen(false);
-    setViewerImage(null);
-    setViewerVideo(null);
-  };
+  const ownedProducts = useMemo(
+    () => new Set((access.product_ids || []).map(Number)),
+    [access.product_ids]
+  );
 
   if (loading) return <Group justify="center"><Loader /></Group>;
   if (err) return <Alert color="red">{err}</Alert>;
@@ -263,7 +264,7 @@ export default function CoachPublicPage() {
       ) : (
         <Grid gutter="lg">
           {plans.map(p => {
-            const owned = Array.isArray(access.product_ids) && access.product_ids.includes(Number(p.id));
+            const owned = ownedProducts.has(Number(p.id));
             return (
               <Grid.Col key={p.id} span={{ base: 12, sm: 6, md: 4 }}>
                 <PlanCard plan={p} owned={owned} onBuy={() => handleBuy(p.id)} />
@@ -280,17 +281,19 @@ export default function CoachPublicPage() {
       <Divider label="Exercises" />
       <Grid gutter="lg">
         {exercises.map(e => {
-          const unlocked = Array.isArray(access.exercise_ids) && access.exercise_ids.includes(Number(e.id));
-          const canOpen = !!e.media_url && (!e.is_paid || unlocked);
+          const prodIds = (exerciseToProductIds[e.id] || []).map(Number);
+          const unlocked = !e.is_paid || prodIds.some(pid => ownedProducts.has(pid));
+          const canOpen = !!e.media_url && unlocked;
+
           return (
             <Grid.Col key={e.id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
               <Card withBorder radius="lg" padding="sm">
                 <MediaThumb
                   url={e.media_url}
                   blurred={!!e.is_paid && !unlocked}
-                  onOpenImage={canOpen ? openImage : undefined}
-                  onOpenVideo={canOpen ? openVideo : undefined}
-                  onOpenYouTube={canOpen ? openYouTubeNewTab : undefined}
+                  onOpenImage={canOpen ? (u => { setViewerVideo(null); setViewerImage(u); setViewerOpen(true); }) : undefined}
+                  onOpenVideo={canOpen ? (u => { setViewerImage(null); setViewerVideo(u); setViewerOpen(true); }) : undefined}
+                  onOpenYouTube={canOpen ? (yt => window.open(`https://www.youtube.com/watch?v=${yt}`, "_blank", "noopener,noreferrer")) : undefined}
                 />
                 <Stack gap={4} mt="sm">
                   <Text fw={600}>{e.title} {e.is_paid && !unlocked ? "🔒" : ""}</Text>
@@ -298,9 +301,9 @@ export default function CoachPublicPage() {
                     {e.primary_muscle && <Badge variant="light">{e.primary_muscle}</Badge>}
                     {e.difficulty && <Badge variant="dot">{e.difficulty}</Badge>}
                   </Group>
-                  {exercisePlanMap[e.id]?.length > 0 && (
+                  {(exercisePlanTitles[e.id]?.length ?? 0) > 0 && (
                     <Group gap={4} mt={4}>
-                      {exercisePlanMap[e.id].map((t, i) => (
+                      {exercisePlanTitles[e.id].map((t, i) => (
                         <Badge key={i} color="blue" variant="outline" size="xs">{t}</Badge>
                       ))}
                     </Group>
@@ -319,7 +322,7 @@ export default function CoachPublicPage() {
         imageUrl={viewerImage}
         videoUrl={viewerVideo}
         opened={viewerOpen}
-        onClose={closeViewer}
+        onClose={() => { setViewerOpen(false); setViewerImage(null); setViewerVideo(null); }}
       />
     </Stack>
   );
