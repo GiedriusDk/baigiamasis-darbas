@@ -68,6 +68,31 @@ class PlanDayController extends Controller
         return response()->json(['data' => $day]);
     }
 
+    public function update(Request $r, int $id)
+    {
+        $day = \DB::table('plan_days')->where('id', $id)->first();
+        if (!$day) abort(404, 'Day not found');
+
+        $plan = \DB::table('plans')->where('id', $day->plan_id)->first();
+        $u = (array)($r->attributes->get('auth_user') ?? []);
+        if ((int)$plan->coach_id !== (int)($u['id'] ?? 0)) abort(403, 'Forbidden');
+
+        $data = $r->validate([
+            'title' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
+        ]);
+
+        \DB::table('plan_days')->where('id', $id)->update([
+            'title'      => array_key_exists('title', $data) ? $data['title'] : $day->title,
+            'notes'      => array_key_exists('notes', $data) ? $data['notes'] : $day->notes,
+            
+            'updated_at' => now(),
+        ]);
+
+        $updated = \DB::table('plan_days')->where('id', $id)->first();
+        return response()->json($updated);
+    }
+
     public function destroy(Request $r, int $day)
     {
         $d = DB::table('plan_days')->where('id', $day)->first();

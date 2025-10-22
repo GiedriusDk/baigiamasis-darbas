@@ -17,7 +17,6 @@ class UserProfileController extends Controller
         return response()->json($p);
     }
 
-    // gali vadinti update() arba upsert(); čia palieku upsert, kaip pas tave
     public function update(Request $r)
     {
         $uid = $r->user()?->id;
@@ -47,25 +46,23 @@ class UserProfileController extends Controller
         return response()->json($profile);
     }
 
-    // ⬇️ Avatar upload – ANALOGIŠKAI kaip coach
     public function upload(Request $r)
     {
         $uid = $r->user()?->id;
         if (!$uid) return response()->json(['message' => 'Unauthenticated.'], 401);
 
         $r->validate([
-            'file' => 'required|file|mimes:jpg,jpeg,png,webp,gif|max:5120', // ~5 MB
+            'file' => 'required|file|mimes:jpg,jpeg,png,webp,gif|max:5120',
         ]);
 
         $profile = UserProfile::firstOrCreate(['user_id' => $uid], []);
 
-        // seną failą (jei buvo) ištrinam
         if ($profile->avatar_path) {
             Storage::delete(str_replace('/storage/', 'public/', $profile->avatar_path));
         }
 
         $stored = $r->file('file')->store('public/user_avatars');
-        $url = Storage::url($stored); // /storage/...
+        $url = Storage::url($stored);
 
         $profile->avatar_path = $url;
         $profile->save();

@@ -30,17 +30,49 @@ function isVideoUrl(url = "") {
 
 function MediaThumb({ url, blurred, onOpenImage, onOpenVideo, onOpenYouTube }) {
   if (!url) return null;
+
   const ytId = getYoutubeId(url);
   const clickable = !blurred;
-  const commonStyle = {
+
+  const wrapperStyle = {
+    position: "relative",
     borderRadius: 12,
     width: "100%",
     height: 160,
-    objectFit: "cover",
-    filter: blurred ? "blur(8px) brightness(0.7)" : "none",
-    pointerEvents: blurred ? "none" : "auto",
+    overflow: "hidden",
     cursor: clickable ? "pointer" : "default",
   };
+
+  const mediaStyle = {
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    filter: blurred ? "blur(8px) brightness(0.7)" : "none",
+    pointerEvents: blurred ? "none" : "auto",
+    userSelect: "none",
+    display: "block",
+  };
+
+  const Overlay = ({ children }) => (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "#fff",
+        fontWeight: 800,
+        letterSpacing: 0.3,
+        textShadow: "0 2px 8px rgba(0,0,0,.45)",
+        fontSize: 22,
+        pointerEvents: "none",
+      }}
+    >
+      {children}
+    </div>
+  );
+
   const handleClick = () => {
     if (!clickable) return;
     if (ytId && onOpenYouTube) return onOpenYouTube(ytId);
@@ -51,43 +83,30 @@ function MediaThumb({ url, blurred, onOpenImage, onOpenVideo, onOpenYouTube }) {
   if (ytId) {
     const thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
     return (
-      <div style={{ position: "relative" }} onClick={handleClick}>
-        <img src={thumb} alt="YouTube preview" style={commonStyle} />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            fontWeight: 700,
-            fontSize: 22,
-            textShadow: "0 2px 6px rgba(0,0,0,.6)",
-          }}
-        >
-          {blurred ? "Locked 🔒" : "▶"}
-        </div>
+      <div style={wrapperStyle} onClick={handleClick}>
+        <img src={thumb} alt="YouTube preview" style={mediaStyle} />
+        <Overlay>{blurred ? "Locked" : "▶"}</Overlay>
       </div>
     );
   }
 
   if (isVideoUrl(url)) {
     return (
-      <div onClick={handleClick}>
-        <div
-          style={{
-            borderRadius: 12,
-            height: 160,
-            background: "rgba(0,0,0,0.05)",
-            filter: blurred ? "blur(8px) brightness(0.6)" : "none",
-          }}
-        />
+      <div style={wrapperStyle} onClick={handleClick}>
+        {/* mini video frame (be autoplay) — tik preview */}
+        <video src={url} style={mediaStyle} controls={false} />
+        <Overlay>{blurred ? "Locked" : "▶"}</Overlay>
       </div>
     );
   }
 
-  return <img src={url} alt="Preview" style={commonStyle} onClick={handleClick} />;
+  // Image / GIF
+  return (
+    <div style={wrapperStyle} onClick={handleClick}>
+      <img src={url} alt="Preview" style={mediaStyle} />
+      {blurred && <Overlay>Locked</Overlay>}
+    </div>
+  );
 }
 
 function MediaViewer({ imageUrl, videoUrl, opened, onClose }) {
@@ -282,22 +301,25 @@ export default function CoachPublicPage() {
       <Grid gutter="lg">
         {exercises.map(e => {
           const prodIds = (exerciseToProductIds[e.id] || []).map(Number);
-          const unlocked = !e.is_paid || prodIds.some(pid => ownedProducts.has(pid));
-          const canOpen = !!e.media_url && unlocked;
+          const isCatalog = Boolean(e.catalog_id ?? e.is_catalog);
+          const ownsAnyPlanWithThis = prodIds.some(pid => ownedProducts.has(pid));
+          const blurred = isCatalog ? !ownsAnyPlanWithThis : (!!e.is_paid && !ownsAnyPlanWithThis);
+          const canOpen = Boolean(e.media_url) && !blurred;
 
           return (
             <Grid.Col key={e.id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
               <Card withBorder radius="lg" padding="sm">
                 <MediaThumb
                   url={e.media_url}
-                  blurred={!!e.is_paid && !unlocked}
+                  blurred={blurred}
                   onOpenImage={canOpen ? (u => { setViewerVideo(null); setViewerImage(u); setViewerOpen(true); }) : undefined}
                   onOpenVideo={canOpen ? (u => { setViewerImage(null); setViewerVideo(u); setViewerOpen(true); }) : undefined}
                   onOpenYouTube={canOpen ? (yt => window.open(`https://www.youtube.com/watch?v=${yt}`, "_blank", "noopener,noreferrer")) : undefined}
                 />
                 <Stack gap={4} mt="sm">
-                  <Text fw={600}>{e.title} {e.is_paid && !unlocked ? "🔒" : ""}</Text>
+                  <Text fw={600}>{e.title} {blurred ? "🔒" : ""}</Text>
                   <Group gap={6}>
+                    {isCatalog && <Badge size="xs" variant="outline" color="gray">From catalog</Badge>}
                     {e.primary_muscle && <Badge variant="light">{e.primary_muscle}</Badge>}
                     {e.difficulty && <Badge variant="dot">{e.difficulty}</Badge>}
                   </Group>

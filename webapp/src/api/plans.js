@@ -61,6 +61,39 @@ export function setDayExercises(productId, dayId, items) {
   });
 }
 
+export async function updateWeek(weekId, payload) {
+  const token = localStorage.getItem("auth_token") || "";
+  const res = await fetch(`${COACH_BASE}/plans/weeks/${weekId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload || {}),
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.message || "Failed to update week");
+  return data;
+}
+
+export function updateDay(dayId, payload) {
+  return fetch(`/api/coach-plans/plans/days/${dayId}`, {
+    method: 'PUT',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}`,
+    },
+    body: JSON.stringify(payload || {}),
+    credentials: 'include',
+  }).then(async (res) => {
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
+    if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+    return data;
+  });
+}
 
 export function getPublicPlan(productId) {
   return request(`${PUBLIC_BASE}/products/${productId}/plan`, { headers: { Accept: 'application/json' } });

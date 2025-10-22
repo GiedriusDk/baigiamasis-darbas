@@ -48,11 +48,9 @@ class CoachPublicController extends Controller
         $query->orderByDesc('updated_at')->orderBy('id');
         $paginator = $query->paginate($perPage, ['*'], 'page', $page);
 
-        // Pasiimam AUTH bazę (pvz. http://gateway/auth/api)
         $authBase = rtrim(config('services.auth.base'), '/');
 
         $data = $paginator->getCollection()->map(function (CoachProfile $p) use ($authBase) {
-            // Pabandom parsinešti vardą iš AUTH /public/users/{id}
             $name = null;
             $authAvatar = null;
             try {
@@ -62,13 +60,12 @@ class CoachPublicController extends Controller
                     $authAvatar = $resp->json('avatar_url');
                 }
             } catch (\Throwable $e) {
-                // tyliai praleidžiam
             }
 
             return [
                 'id'                 => $p->id,
                 'user_id'            => $p->user_id,
-                'name'               => $name, // ← pridėta
+                'name'               => $name,
                 'city'               => $p->city,
                 'avatar_path'        => $p->avatar_path ?: $authAvatar,
                 'experience_years'   => $p->experience_years,
@@ -87,7 +84,6 @@ class CoachPublicController extends Controller
 
     public function show($id)
     {
-        // bandome rasti pagal profile.id arba user_id
         $profile = \App\Models\CoachProfile::where('id', (int)$id)
             ->orWhere('user_id', (int)$id)
             ->firstOrFail();
@@ -119,7 +115,6 @@ class CoachPublicController extends Controller
 
     public function exercises($id)
     {
-        // tas pats – leidžiam tiek profile.id, tiek user_id
         $profile = \App\Models\CoachProfile::where('id', (int)$id)
             ->orWhere('user_id', (int)$id)
             ->firstOrFail();
@@ -139,6 +134,8 @@ class CoachPublicController extends Controller
                 'media_url'      => $e->external_url ?: $e->media_path,
                 'is_paid'        => (bool)$e->is_paid,
                 'position'       => $e->position,
+                'catalog_id'     => $e->catalog_id,
+                'is_catalog'     => $e->catalog_id !== null,
             ];
         }));
     }

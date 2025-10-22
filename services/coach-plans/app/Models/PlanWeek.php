@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class PlanWeek extends Model
 {
-    protected $fillable = ['plan_id', 'week_number', 'title'];
+    protected $fillable = ['plan_id','week_number','title','notes'];
     protected $casts = [
         'plan_id'     => 'integer',
         'week_number' => 'integer',

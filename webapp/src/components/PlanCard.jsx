@@ -1,4 +1,3 @@
-// webapp/src/components/PlanCard.jsx
 import { Card, Stack, Text, Group, Button, Badge } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
@@ -9,14 +8,15 @@ export default function PlanCard({ plan, onEdit, onArchive, owned, onBuy }) {
 
   const price = typeof plan.price === "number" ? (plan.price / 100).toFixed(2) : "";
   const productId = plan.product_id ?? plan.id;
+
   const isCoachOwner = user && Number(user.id) === Number(plan.coach_id);
+  const isOwned = typeof owned === "boolean" ? owned : !!plan.owned;
+  const canView = isCoachOwner || isOwned;
 
   const handleView = () => {
-    if (isCoachOwner) {
-      navigate(`/coach/plans/${productId}/builder`);
-    } else {
-      navigate(`/plans/${productId}/preview`);
-    }
+    if (!canView) return;
+    if (isCoachOwner) navigate(`/coach/plans/${productId}/builder`);
+    else navigate(`/plans/${productId}`);
   };
 
   return (
@@ -32,22 +32,41 @@ export default function PlanCard({ plan, onEdit, onArchive, owned, onBuy }) {
         )}
 
         <Group justify="space-between" mt="xs">
-          {typeof owned === "boolean"
-            ? (owned ? <Badge color="green" variant="light">Owned</Badge> : <Badge>Not owned</Badge>)
-            : (plan.is_active ? <Badge color="green" variant="light">Active</Badge> : <Badge color="gray" variant="outline">Inactive</Badge>)
-          }
+          {isOwned ? (
+            <Badge color="green" variant="light">Owned</Badge>
+          ) : (
+            <Badge color="gray" variant="outline">Not owned</Badge>
+          )}
 
           <Group gap="xs">
-            {onBuy && !owned && <Button size="xs" onClick={onBuy}>Buy</Button>}
+            {onBuy && !canView && (
+              <Button size="xs" onClick={onBuy}>
+                Buy
+              </Button>
+            )}
+
             {onEdit && isCoachOwner && (
-              <Button size="xs" variant="light" onClick={() => onEdit(plan)}>Edit</Button>
+              <Button size="xs" variant="light" onClick={() => onEdit(plan)}>
+                Edit
+              </Button>
             )}
+
             {onArchive && isCoachOwner && (
-              <Button size="xs" variant="subtle" color="red" onClick={() => onArchive(plan)}>Archive</Button>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="red"
+                onClick={() => onArchive(plan)}
+              >
+                Archive
+              </Button>
             )}
-            <Button size="xs" variant="default" onClick={handleView}>
-              View contents
-            </Button>
+
+            {canView && (
+              <Button size="xs" variant="default" onClick={handleView}>
+                View contents
+              </Button>
+            )}
           </Group>
         </Group>
       </Stack>

@@ -1,4 +1,3 @@
-// webapp/src/pages/CoachExercisesPage.jsx
 import { useEffect, useState } from 'react';
 import {
   Title, Text, Grid, Paper, Group, Stack, TextInput, Textarea, Select,
@@ -18,15 +17,16 @@ import {
   deleteCoachExercise,
   reorderCoachExercises,
 } from '../api/profiles';
-import { MultiSelect } from "@mantine/core";
 import { myProducts, getProductExercises, setProductExercises } from "../api/payments";
+import { useAuth } from "../auth/useAuth";
 
-/* ----------------------- Helpers ----------------------- */
+
 const difficulties = [
   { value: 'easy',   label: 'Easy' },
   { value: 'medium', label: 'Medium' },
   { value: 'hard',   label: 'Hard' },
 ];
+
 
 // Palaiko watch?v=, youtu.be/, embed/, shorts/ + papildomus query
 function getYoutubeId(url = '') {
@@ -115,8 +115,8 @@ if (isGifUrl(url) || isImageUrl(url)) {
           fit="contain"
           radius="md"
           style={{
-            filter: 'blur(10px) brightness(0.6)', // stipresnis blur + patamsinimas
-            pointerEvents: 'none', // kad nebūtų klikų
+            filter: 'blur(10px) brightness(0.6)',
+            pointerEvents: 'none',
             objectFit: 'cover',
             width: '100%',
             height: '100%',
@@ -187,11 +187,13 @@ if (isGifUrl(url) || isImageUrl(url)) {
 
 export default function CoachExercisesPage() {
 
+  const { user } = useAuth();
+  const isCoachOwner = true;
   const [items, setItems] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [errList, setErrList] = useState(null);
   const [plansForAssign, setPlansForAssign] = useState([]);
-  const [selectedPlanIds, setSelectedPlanIds] = useState([]);
+  
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [assigning, setAssigning] = useState(false);
 
@@ -251,29 +253,7 @@ export default function CoachExercisesPage() {
       notifications.show({ color: 'red', message: 'Title is required' });
       return;
     }
-    if (selectedPlanIds.length > 0) {
-      try {
-        setAssigning(true);
-        for (const pidStr of selectedPlanIds) {
-          const productId = Number(pidStr);
 
-          const got = await getProductExercises(productId);
-          const raw = Array.isArray(got?.data) ? got.data : Array.isArray(got) ? got : [];
-          const currentIds = raw
-            .map(x => {
-              if (typeof x === "number" || typeof x === "string") return Number(x);
-              if (x && typeof x === "object") return Number(x.exercise_id ?? x.id);
-              return NaN;
-            })
-            .filter(Number.isFinite);
-
-          const next = Array.from(new Set([...currentIds, Number(newExerciseId)]));
-          await setProductExercises(productId, next);
-        }
-      } finally {
-        setAssigning(false);
-      }
-    }
     setCreating(true);
     try {
       const payload = {
@@ -288,11 +268,19 @@ export default function CoachExercisesPage() {
           : undefined,
         media_url: mediaFile ? undefined : (form.media_url.trim() || undefined),
       };
+
       const created = await createCoachExercise(payload, mediaFile || undefined);
+
       setItems(prev => [...prev, created]);
       setForm({
-        title: '', description: '', equipment: '', primary_muscle: '',
-        difficulty: 'easy', tagsLine: '', media_url: '', is_paid: false,
+        title: '',
+        description: '',
+        equipment: '',
+        primary_muscle: '',
+        difficulty: 'easy',
+        tagsLine: '',
+        media_url: '',
+        is_paid: false,
       });
       setMediaFile(null);
       notifications.show({ color: 'green', message: 'Exercise created' });
@@ -492,16 +480,7 @@ export default function CoachExercisesPage() {
                       </Group>
                     </Paper>
                   )}
-                    <MultiSelect
-                        label="Priskirti planams (nebūtina)"
-                        placeholder="Pasirink planus"
-                        data={plansForAssign}
-                        value={selectedPlanIds}
-                        onChange={setSelectedPlanIds}
-                        searchable
-                        clearable
-                        rightSection={loadingPlans ? <Loader size="xs" /> : null}
-                      />
+                    
                 </Grid.Col>
 
                 <Grid.Col span={{ base: 12, md: 6 }}>
@@ -536,6 +515,8 @@ export default function CoachExercisesPage() {
             {items.map((ex, i) => {
               const mediaUrl = ex.media_path || ex.external_url || ex.media_url || '';
               const isPaid = !!ex.is_paid;
+              const blurred = isPaid && !isCoachOwner; // ← svarbiausia eilutė
+
               return (
                 <Grid.Col key={ex.id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
                   <Card withBorder radius="lg" shadow="sm" padding="sm">
@@ -551,7 +532,7 @@ export default function CoachExercisesPage() {
                         position: 'relative',
                       }}
                     >
-                      <MediaThumb url={mediaUrl} blurred={isPaid} />
+                      <MediaThumb url={mediaUrl} blurred={blurred} /> {/* ← buvo blurred={isPaid} */}
                       {isPaid && (
                         <Badge
                           leftSection={<IconLock size={14} />}
@@ -568,6 +549,7 @@ export default function CoachExercisesPage() {
                         </Badge>
                       )}
                     </div>
+                    
 
                     <Group justify="space-between" mt="sm" align="start">
                       <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>

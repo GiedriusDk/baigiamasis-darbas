@@ -11,9 +11,11 @@ Route::middleware(['auth.service', 'coach'])->group(function () {
     Route::get('/products/{productId}/plan', [PlanController::class, 'showByProduct']);
 
     Route::post('/plans/{plan}/weeks', [PlanWeekController::class, 'store']);
+    Route::put('/plans/weeks/{id}', [\App\Http\Controllers\PlanWeekController::class, 'update']);
     Route::delete('/weeks/{week}', [PlanWeekController::class, 'destroy']);
 
     Route::post('/plans/{plan}/days', [PlanDayController::class, 'store']);
+    Route::put('/plans/days/{id}', [PlanDayController::class, 'update']); 
     Route::delete('/days/{day}', [PlanDayController::class, 'destroy']);
 
     Route::get('/products/{productId}/days/{day}/exercises', [PlanDayExercisesController::class, 'index']);

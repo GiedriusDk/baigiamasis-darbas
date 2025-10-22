@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\CheckoutController;
-
+use App\Http\Controllers\PublicProductsController;
 
 Route::prefix('')->group(function () {
     Route::get('products', [ProductsController::class, 'index']);
@@ -31,4 +31,8 @@ Route::prefix('')->group(function () {
     });
 
     Route::get('products/{product}', [ProductsController::class, 'show'])->whereNumber('product');
+});
+
+Route::prefix('public')->group(function () {
+    Route::get('/products/{id}', [PublicProductsController::class, 'show']);
 });

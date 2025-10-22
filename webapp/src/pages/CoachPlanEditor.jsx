@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Container, Group, Stack, Title, Text, Button, Card, Grid, Badge, Modal,
-  TextInput, ScrollArea, Checkbox, Loader, Alert, Divider, Avatar, ActionIcon, Tabs, Pagination
+  TextInput, Textarea, ScrollArea, Checkbox, Loader, Alert, Divider, Avatar, ActionIcon, Tabs, Pagination
 } from "@mantine/core";
 import { IconPlayerPlayFilled, IconArrowUp, IconArrowDown, IconTrash } from "@tabler/icons-react";
 import { listCoachExercises, importExerciseFromCatalog } from "../api/profiles";
 import {
   getPlanByProduct, createWeek, createDay, deleteWeek, deleteDay,
-  getDayExercises, setDayExercises
+  getDayExercises, setDayExercises, updateWeek, updateDay
 } from "../api/plans";
 import { useAuth } from "../auth/useAuth";
 import { searchCatalogExercises } from "../api/catalog";
@@ -34,21 +34,17 @@ function Thumb({ ex }) {
 
 function DayExercisesPicker({ opened, onClose, productId, day, onSaved }) {
   const [tab, setTab] = useState("my");
-
   const [myItems, setMyItems] = useState([]);
   const [sel, setSel] = useState(new Set());
   const [search, setSearch] = useState("");
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
-
   const [shared, setShared] = useState([]);
   const [sharedMeta, setSharedMeta] = useState({ page: 1, lastPage: 1, total: 0 });
   const [sharedQ, setSharedQ] = useState("");
   const [sharedPage, setSharedPage] = useState(1);
   const [sharedSel, setSharedSel] = useState(new Set());
-
   const perPage = 24;
 
   useEffect(() => {
@@ -140,9 +136,7 @@ function DayExercisesPicker({ opened, onClose, productId, day, onSaved }) {
       const ex = await importExerciseFromCatalog(n);
       const newId = Number(ex?.id ?? ex?.data?.id);
       if (newId) {
-        // add to the day's selection right away
         setSel((prev) => new Set([...prev, newId]));
-        // also refresh "my" list so the just-imported item appears there (optional)
         const all = await listCoachExercises({ only_custom: 1 });
         setMyItems(Array.isArray(all) ? all : []);
       }
@@ -185,95 +179,95 @@ function DayExercisesPicker({ opened, onClose, productId, day, onSaved }) {
             <Tabs.Tab value="shared">Shared catalog</Tabs.Tab>
           </Tabs.List>
 
-          <Tabs.Panel value="my" pt="sm">
-            <TextInput
-              placeholder="Search my exercises..."
-              value={search}
-              onChange={(e) => setSearch(e.currentTarget.value)}
-              mb="sm"
-            />
-            {loading ? (
-              <Group justify="center" py="lg">
-                <Loader />
-              </Group>
-            ) : (
-              <ScrollArea h={460}>
-                <Stack gap="xs">
-                  {filteredMy.map((e) => (
-                    <Card key={e.id} withBorder radius="md" p="sm">
-                      <Group justify="space-between" wrap="nowrap">
-                        <Group gap="sm" wrap="nowrap">
-                          <Thumb ex={e} />
-                          <div>
-                            <Text fw={600}>{e.title}</Text>
-                            <Group gap={6} mt={4}>
-                              {e.primary_muscle && (
-                                <Badge variant="light">{e.primary_muscle}</Badge>
-                              )}
-                              {e.difficulty && <Badge variant="dot">{e.difficulty}</Badge>}
-                            </Group>
-                          </div>
-                        </Group>
-                        <Checkbox
-                          checked={sel.has(Number(e.id))}
-                          onChange={() => toggleMy(e.id)}
-                        />
-                      </Group>
-                    </Card>
-                  ))}
-                  {filteredMy.length === 0 && <Text c="dimmed">No exercises.</Text>}
-                </Stack>
-              </ScrollArea>
-            )}
-          </Tabs.Panel>
-
-          <Tabs.Panel value="shared" pt="sm">
-            <Group align="end" mb="sm" grow>
-              <TextInput
-                label="Search in catalog"
-                placeholder="Search…"
-                value={sharedQ}
-                onChange={(e) => {
-                  setSharedQ(e.currentTarget.value);
-                  setSharedPage(1);
-                }}
-              />
+        <Tabs.Panel value="my" pt="sm">
+          <TextInput
+            placeholder="Search my exercises..."
+            value={search}
+            onChange={(e) => setSearch(e.currentTarget.value)}
+            mb="sm"
+          />
+          {loading ? (
+            <Group justify="center" py="lg">
+              <Loader />
             </Group>
-            <ScrollArea h={420}>
+          ) : (
+            <ScrollArea h={460}>
               <Stack gap="xs">
-                {filteredShared.map((e) => (
+                {filteredMy.map((e) => (
                   <Card key={e.id} withBorder radius="md" p="sm">
                     <Group justify="space-between" wrap="nowrap">
                       <Group gap="sm" wrap="nowrap">
-                        <Avatar src={e.image_url || undefined} radius="sm" size={42} />
+                        <Thumb ex={e} />
                         <div>
-                          <Text fw={600}>{e.name}</Text>
+                          <Text fw={600}>{e.title}</Text>
                           <Group gap={6} mt={4}>
                             {e.primary_muscle && (
                               <Badge variant="light">{e.primary_muscle}</Badge>
                             )}
-                            {e.equipment && <Badge variant="outline">{e.equipment}</Badge>}
+                            {e.difficulty && <Badge variant="dot">{e.difficulty}</Badge>}
                           </Group>
                         </div>
                       </Group>
                       <Checkbox
-                        checked={sharedSel.has(Number(e.id))}
-                        onChange={() => toggleShared(e.id)}
+                        checked={sel.has(Number(e.id))}
+                        onChange={() => toggleMy(e.id)}
                       />
                     </Group>
                   </Card>
                 ))}
-                {filteredShared.length === 0 && <Text c="dimmed">No results.</Text>}
+                {filteredMy.length === 0 && <Text c="dimmed">No exercises.</Text>}
               </Stack>
             </ScrollArea>
-            <Group justify="center" mt="sm">
-              <Pagination
-                total={sharedMeta.lastPage || 1}
-                value={sharedPage}
-                onChange={setSharedPage}
-              />
-            </Group>
-          </Tabs.Panel>
+          )}
+        </Tabs.Panel>
+
+        <Tabs.Panel value="shared" pt="sm">
+          <Group align="end" mb="sm" grow>
+            <TextInput
+              label="Search in catalog"
+              placeholder="Search…"
+              value={sharedQ}
+              onChange={(e) => {
+                setSharedQ(e.currentTarget.value);
+                setSharedPage(1);
+              }}
+            />
+          </Group>
+          <ScrollArea h={420}>
+            <Stack gap="xs">
+              {filteredShared.map((e) => (
+                <Card key={e.id} withBorder radius="md" p="sm">
+                  <Group justify="space-between" wrap="nowrap">
+                    <Group gap="sm" wrap="nowrap">
+                      <Avatar src={e.image_url || undefined} radius="sm" size={42} />
+                      <div>
+                        <Text fw={600}>{e.name}</Text>
+                        <Group gap={6} mt={4}>
+                          {e.primary_muscle && (
+                            <Badge variant="light">{e.primary_muscle}</Badge>
+                          )}
+                          {e.equipment && <Badge variant="outline">{e.equipment}</Badge>}
+                        </Group>
+                      </div>
+                    </Group>
+                    <Checkbox
+                      checked={sharedSel.has(Number(e.id))}
+                      onChange={() => toggleShared(e.id)}
+                    />
+                  </Group>
+                </Card>
+              ))}
+              {filteredShared.length === 0 && <Text c="dimmed">No results.</Text>}
+            </Stack>
+          </ScrollArea>
+          <Group justify="center" mt="sm">
+            <Pagination
+              total={sharedMeta.lastPage || 1}
+              value={sharedPage}
+              onChange={setSharedPage}
+            />
+          </Group>
+        </Tabs.Panel>
         </Tabs>
 
         <Group justify="flex-end">
@@ -305,6 +299,15 @@ export default function CoachPlanEditor() {
   const [dayItems, setDayItems] = useState({});
 
   const ownerCoachId = Number(plan?.coach_id || 0);
+
+  const [weekEditOpen, setWeekEditOpen] = useState(false);
+  const [weekEdit, setWeekEdit] = useState(null);
+  const [weekForm, setWeekForm] = useState({ title: "", notes: "" });
+  const [savingWeek, setSavingWeek] = useState(false);
+  const [dayEditOpen, setDayEditOpen] = useState(false);
+  const [dayEdit, setDayEdit] = useState(null);
+  const [dayForm, setDayForm] = useState({ title: "", notes: "" });
+  const [savingDay, setSavingDay] = useState(false);
 
   const exById = useMemo(() => {
     const m = new Map();
@@ -414,6 +417,68 @@ export default function CoachPlanEditor() {
     await setDayExercises(Number(productId), dayId, payload);
   };
 
+  function openWeekEdit(w) {
+    setWeekEdit(w);
+    setWeekForm({
+      title: w.title || `Week ${w.week_number}`,
+      notes: w.notes || "",
+    });
+    setWeekEditOpen(true);
+  }
+
+  async function saveWeekEdit() {
+    if (!weekEdit) return;
+    try {
+      setSavingWeek(true);
+      const res = await updateWeek(Number(weekEdit.id), {
+        title: weekForm.title?.trim() || null,
+        notes: weekForm.notes?.trim() || "",
+      });
+      const updated = res?.data || res;
+      setWeeks(prev => prev.map(x => x.id === updated.id ? { ...x, ...updated } : x));
+      setWeekEditOpen(false);
+      setWeekEdit(null);
+    } catch (e) {
+      alert(e.message || "Failed to save week");
+    } finally {
+      setSavingWeek(false);
+    }
+  }
+
+  function openDayEdit(day) {
+    setDayEdit(day);
+    setDayForm({
+        title: day.title || `Day ${day.day_number}`,
+        notes: day.notes || "",
+    });
+    setDayEditOpen(true);
+    }
+
+  async function saveDayEdit() {
+    if (!dayEdit) return;
+    try {
+        setSavingDay(true);
+        const res = await updateDay(Number(dayEdit.id), {
+        title: dayForm.title?.trim() || null,
+        notes: dayForm.notes?.trim() || "",
+        });
+        const updated = res?.data || res;
+        setDaysByWeek(prev => {
+        const copy = { ...prev };
+        const wk = Number(updated.week_number);
+        copy[wk] = (copy[wk] || []).map(d => d.id === updated.id ? { ...d, ...updated } : d);
+        return copy;
+        });
+
+        setDayEditOpen(false);
+        setDayEdit(null);
+    } catch (e) {
+        alert(e.message || "Failed to save day");
+    } finally {
+        setSavingDay(false);
+    }
+    }
+
   if (loading) return <Group justify="center" py="xl"><Loader /></Group>;
   if (err) return <Container p="md"><Alert color="red">{err}</Alert></Container>;
   if (!plan) return <Container p="md"><Alert color="yellow">Plan not found</Alert></Container>;
@@ -441,10 +506,13 @@ export default function CoachPlanEditor() {
                   <Text fw={600}>{w.title}</Text>
                 </Group>
                 <Group gap="xs">
+                  <Button size="xs" variant="default" onClick={() => openWeekEdit(w)}>Edit</Button>
                   <Button size="xs" variant="light" onClick={() => addDay(w)}>Add day</Button>
                   <Button size="xs" color="red" variant="subtle" onClick={() => removeWeek(w)}>Delete week</Button>
                 </Group>
               </Group>
+
+              <Text c="dimmed" size="sm" mb="sm">{w.notes?.trim() ? w.notes : "No week notes"}</Text>
 
               <Grid>
                 {(daysByWeek[w.week_number] || []).map((d) => (
@@ -452,11 +520,14 @@ export default function CoachPlanEditor() {
                     <Card withBorder radius="md" p="md">
                       <Stack gap="xs">
                         <Group justify="space-between">
-                          <Group gap="sm">
+                        <Group gap="sm">
                             <Badge variant="outline">Day {d.day_number}</Badge>
                             <Text fw={600}>{d.title}</Text>
-                          </Group>
-                          <Button size="xs" color="red" variant="subtle" onClick={() => removeDay(w, d)}>Delete</Button>
+                        </Group>
+                        <Group gap="xs">
+                            <Button size="xs" variant="default" onClick={() => openDayEdit(d)}>Edit</Button>
+                            <Button size="xs" color="red" variant="subtle" onClick={() => removeDay(w, d)}>Delete</Button>
+                        </Group>
                         </Group>
 
                         <Text c="dimmed" size="sm">{d.notes || "No notes"}</Text>
@@ -536,6 +607,51 @@ export default function CoachPlanEditor() {
           if (pickerDay?.id) await loadDayItems(Number(productId), pickerDay.id);
         }}
       />
+
+      <Modal opened={weekEditOpen} onClose={() => setWeekEditOpen(false)} title="Edit week" size="md">
+        <Stack>
+          <TextInput
+            label="Week title"
+            placeholder="Week 1, Upper Body, Deload week…"
+            value={weekForm.title}
+            onChange={(e) => setWeekForm({ ...weekForm, title: e.currentTarget.value })}
+          />
+          <Textarea
+            label="Week notes"
+            minRows={4}
+            placeholder="General guidance for this week..."
+            value={weekForm.notes}
+            onChange={(e) => setWeekForm({ ...weekForm, notes: e.currentTarget.value })}
+          />
+          <Group justify="flex-end" mt="sm">
+            <Button variant="default" onClick={() => setWeekEditOpen(false)}>Cancel</Button>
+            <Button onClick={saveWeekEdit} loading={savingWeek}>Save</Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+
+      <Modal opened={dayEditOpen} onClose={() => setDayEditOpen(false)} title="Edit day" size="md">
+        <Stack>
+            <TextInput
+            label="Day title"
+            placeholder="Day 1, Push, Cardio…"
+            value={dayForm.title}
+            onChange={(e) => setDayForm({ ...dayForm, title: e.currentTarget.value })}
+            />
+            <Textarea
+            label="Day notes"
+            minRows={4}
+            placeholder="Notes for this day…"
+            value={dayForm.notes}
+            onChange={(e) => setDayForm({ ...dayForm, notes: e.currentTarget.value })}
+            />
+            <Group justify="flex-end" mt="sm">
+            <Button variant="default" onClick={() => setDayEditOpen(false)}>Cancel</Button>
+            <Button onClick={saveDayEdit} loading={savingDay}>Save</Button>
+            </Group>
+        </Stack>
+        </Modal>
     </Container>
   );
 }
