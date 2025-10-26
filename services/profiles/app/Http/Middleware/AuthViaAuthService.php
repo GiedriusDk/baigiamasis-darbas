@@ -8,39 +8,55 @@ use Illuminate\Support\Facades\Http;
 
 class AuthViaAuthService
 {
-    public function handle(Request $request, Closure $next)
+    public function handle(Request $request, Closure $next, ...$requiredRoles)
     {
-        \Log::info('AUTH H', ['auth' => $request->header('Authorization')]);
-
-        $auth = $request->header('Authorization');
+        $auth = $request->headers->get('Authorization');
         if (!$auth || !str_starts_with($auth, 'Bearer ')) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
-        $token = substr($auth, 7);
-
         $base = rtrim(config('services.auth.base'), '/');
-        $url  = $base.'/me';
+        $url  = $base . '/me';
 
-        $resp = Http::withToken($token)->acceptJson()->get($url);
-        if ($resp->failed()) {
-            return response()->json([
-                'message' => $resp->json('message') ?? 'Unauthenticated.',
-            ], 401);
+        try {
+            $res = Http::withHeaders(['Authorization' => $auth])
+                ->acceptJson()
+                ->timeout((int) config('services.auth.timeout', 5))
+                ->get($url);
+
+            if (!$res->ok()) {
+                return response()->json(['message' => $res->json('message') ?? 'Unauthenticated.'], 401);
+            }
+
+            $payload = $res->json();
+            $user    = $payload['user'] ?? $payload;
+
+            $request->attributes->set('auth_user', $user);
+            $request->setUserResolver(fn () => (object) $user);
+
+            if (!empty($requiredRoles)) {
+                $names = collect($user['roles'] ?? [])
+                    ->map(function ($r) {
+                        if (is_array($r))  return strtolower((string)($r['name'] ?? ''));
+                        if (is_object($r)) return strtolower((string)($r->name ?? ''));
+                        return strtolower((string)$r);
+                    })
+                    ->filter()
+                    ->values()
+                    ->all();
+
+                $required = collect($requiredRoles)->map(fn($v) => strtolower((string)$v))->all();
+
+                $ok = collect($required)->intersect($names)->isNotEmpty();
+                if (!$ok) {
+                    return response()->json(['message' => 'Forbidden: insufficient role'], 403);
+                }
+            }
+
+            return $next($request);
+
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'Auth service unavailable'], 502);
         }
-
-        $me = $resp->json();  
-
-        $request->setUserResolver(function () use ($me) {
-            return (object) [
-                'id'    => $me['id']    ?? null,
-                'name'  => $me['name']  ?? null,
-                'email' => $me['email'] ?? null,
-                'roles' => $me['roles'] ?? [],
-            ];
-        });
-
-        $request->attributes->set('auth_user', $me);
-
-        return $next($request);
     }
 }

@@ -6,7 +6,7 @@ use App\Http\Controllers\PlanWeekController;
 use App\Http\Controllers\PlanDayController;
 use App\Http\Controllers\PlanDayExercisesController;
 
-Route::middleware(['auth.service', 'coach'])->group(function () {
+Route::middleware(['auth.via:coach'])->group(function () {
 
     Route::get('/products/{productId}/plan', [PlanController::class, 'showByProduct']);
 

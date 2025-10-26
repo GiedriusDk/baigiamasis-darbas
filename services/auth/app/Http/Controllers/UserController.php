@@ -32,7 +32,6 @@ class UserController extends Controller
         ]);
     }
 
-    /** Update email (requires current password) */
     public function updateEmail(Request $r)
     {
         $u = $r->user();
@@ -61,14 +60,13 @@ class UserController extends Controller
         ]);
     }
 
-    /** Update password (requires current password; logs out current JWT) */
     public function updatePassword(Request $r)
     {
         $u = $r->user();
 
         $data = $r->validate([
             'current_password' => ['required'],
-            'password'         => ['required','string','min:8','confirmed'], // needs password_confirmation
+            'password'         => ['required','string','min:8','confirmed'],
         ]);
 
         if (!Hash::check($data['current_password'], $u->password)) {
@@ -78,7 +76,6 @@ class UserController extends Controller
         $u->password = Hash::make($data['password']);
         $u->save();
 
-        // If JWT blacklist/invalidating is enabled, invalidate current token
         try {
             auth('api')->logout(true);
         } catch (\Throwable $e) {}

@@ -39,7 +39,7 @@ return [
         'base' => env('AUTH_BASE', 'http://gateway/api/auth'),
     ],
     'payments' => [
-        'base' => env('PAYMENTS_BASE', 'http://gateway/payments'),
+        'base' => env('PAYMENTS_BASE', 'http://gateway/api/payments'),
     ],
 
 ];

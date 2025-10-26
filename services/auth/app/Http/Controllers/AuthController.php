@@ -8,7 +8,6 @@ use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
-    /** Helper: nuoseklus user resursas */
     private function userResource(User $u): array
     {
         $u->loadMissing('roles:id,name');
@@ -40,13 +39,11 @@ class AuthController extends Controller
             'password'   => bcrypt($data['password']),
         ]);
 
-        // Priskiriam rolę (jei nenurodyta – 'user')
         $roleName = $data['role'] ?? 'user';
         if ($role = Role::where('name', $roleName)->first()) {
-            $user->roles()->sync([$role->id]); // viena rolė
+            $user->roles()->sync([$role->id]); 
         }
 
-        // JWT token
         $token = auth('api')->login($user);
 
         return response()->json([

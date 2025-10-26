@@ -188,16 +188,17 @@ class CoachExerciseController extends Controller
         return response()->json(['status' => 'ok']);
     }
 
+
     public function shared(Request $r)
     {
-        $base = rtrim(env('CATALOG_BASE'), '/');
+        $base = rtrim((string) config('services.catalog.base'), '/');
         $allowed = ['page','per_page','q','equipment','muscles','tag'];
         $qs = [];
         foreach ($allowed as $k) {
             $v = $r->query($k);
             if ($v !== null && $v !== '') $qs[$k] = $v;
         }
-        $url = $base.'/exercises'.(empty($qs) ? '' : ('?'.http_build_query($qs)));
+        $url = $base.'/exercises/shared'.(empty($qs) ? '' : ('?'.http_build_query($qs)));
         $res = Http::acceptJson()->get($url);
         if (!$res->ok()) {
             return response()->json(['message' => $res->json('message') ?? 'Catalog error'], $res->status());
@@ -207,18 +208,15 @@ class CoachExerciseController extends Controller
 
     public function sharedShow(int $id)
     {
-        $base = rtrim(env('CATALOG_BASE'), '/');
-        $url = $base.'/exercises/'.$id;
+        $base = rtrim((string) config('services.catalog.base'), '/');
+        $url = $base.'/exercises/shared/'.$id;
         $res = Http::acceptJson()->get($url);
-        if ($res->status() === 404) {
-            return response()->json(['message' => 'Not found'], 404);
-        }
-        if (!$res->ok()) {
-            return response()->json(['message' => 'Catalog error'], 422);
-        }
+        if ($res->status() === 404) return response()->json(['message' => 'Not found'], 404);
+        if (!$res->ok())           return response()->json(['message' => 'Catalog error'], 422);
         return response()->json($res->json());
     }
 
+    
     public function importFromCatalog(Request $r)
     {
         $uid = $r->user()?->id;
@@ -226,8 +224,8 @@ class CoachExerciseController extends Controller
 
         $data = $r->validate(['catalog_id' => ['required','integer','min:1']]);
 
-        $base = rtrim(env('CATALOG_BASE'), '/');
-        $res  = \Illuminate\Support\Facades\Http::acceptJson()->get($base.'/exercises/'.$data['catalog_id']);
+        $base = rtrim((string) config('services.catalog.base'), '/');
+        $res  = Http::acceptJson()->get($base.'/exercises/shared/'.$data['catalog_id']);
         if ($res->status() === 404) return response()->json(['message' => 'Not found'], 404);
         if (!$res->ok())           return response()->json(['message' => 'Catalog error'], 422);
 

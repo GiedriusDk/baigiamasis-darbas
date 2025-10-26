@@ -41,7 +41,7 @@ return [
     ],
 
     'catalog' => [
-        'base' => env('CATALOG_BASE', 'http://gateway/catalog'),
+        'base' => env('CATALOG_BASE', 'http://gateway/catalog/api'),
     ],
 
 ];

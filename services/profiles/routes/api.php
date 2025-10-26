@@ -6,7 +6,7 @@ use App\Http\Controllers\CoachExerciseController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\CoachPublicController;
 
-Route::middleware('auth.service')->prefix('coach')->group(function () {
+Route::middleware('auth.via:coach')->prefix('coach')->group(function () {
     Route::get('profile', [CoachProfileController::class, 'show']);
     Route::put('profile', [CoachProfileController::class, 'update']);
     Route::post('upload', [CoachProfileController::class, 'upload']);
@@ -24,7 +24,7 @@ Route::middleware('auth.service')->prefix('coach')->group(function () {
 
 });
 
-Route::middleware('auth.service')->group(function () {
+Route::middleware('auth.via')->group(function () {
     Route::get('user/profile',  [UserProfileController::class, 'show']);
     Route::put('user/profile',  [UserProfileController::class, 'update']);
     Route::post('user/upload',  [UserProfileController::class, 'upload']);
