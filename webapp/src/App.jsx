@@ -125,7 +125,7 @@ function AppInner() {
 
       <AppShell.Navbar p="md">
         <ScrollArea type="always" offsetScrollbars>
-          <NavLink component={Link} to="/" label="Pagrindinis" active={location.pathname === '/'} />
+          <NavLink component={Link} to="/" label="Home" active={location.pathname === '/'} />
           <NavLink component={Link} to="/plans" label="Generate Plan" active={location.pathname === '/plans'} />
           <NavLink component={Link} to="/my" label="My plan" active={location.pathname === '/my'} />
           <NavLink component={Link} to="/exercises" label="Exercises" active={location.pathname.startsWith('/exercises')} />
@@ -144,8 +144,7 @@ function AppInner() {
             </>
           )}
 
-          <NavLink component={Link} to="/billing" label="Apmokėjimai" active={location.pathname === '/billing'} />
-          {ready && user && <NavLink component={Link} to="/settings" label="Nustatymai" active={location.pathname === '/settings'} />}
+          {ready && user && <NavLink component={Link} to="/settings" label="Settings" active={location.pathname === '/settings'} />}
         </ScrollArea>
       </AppShell.Navbar>
 

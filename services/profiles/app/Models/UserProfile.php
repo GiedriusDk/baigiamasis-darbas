@@ -6,24 +6,34 @@ use Illuminate\Database\Eloquent\Model;
 
 class UserProfile extends Model
 {
+    protected $table = 'user_profiles';
+
     protected $fillable = [
         'user_id',
-        'sex','birth_date',
-        'height_cm','weight_kg',
-        'goal','activity_level',
-        'sessions_per_week','available_minutes',
-        'preferred_days','equipment','preferences',
-        'injuries_note','avatar_path',
+        'sex',
+        'birth_date',
+        'height_cm',
+        'weight_kg',
+        'goal',
+        'activity_level',
+        'sessions_per_week',
+        'available_minutes',
+        'preferred_days',
+        'equipment',
+        'preferences',
+        'injuries',
+        'avatar_path',
     ];
 
     protected $casts = [
-        'birth_date'       => 'date',
-        'preferred_days'   => 'array',
-        'equipment'        => 'array',
-        'preferences'      => 'array',
-        'height_cm'        => 'integer',
-        'sessions_per_week'=> 'integer',
-        'available_minutes'=> 'integer',
-        'weight_kg'        => 'decimal:2',
+        'birth_date'        => 'date',
+        'sessions_per_week' => 'integer',
+        'available_minutes' => 'integer',
+        'height_cm'         => 'integer',
+        'weight_kg'         => 'decimal:2',
+        'preferred_days'    => 'array',
+        'equipment'         => 'array',
+        'injuries'         => 'array',
+        'preferences'       => 'array',
     ];
 }

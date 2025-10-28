@@ -141,3 +141,16 @@ export function importExerciseFromCatalog(catalog_id) {
     body: JSON.stringify({ catalog_id }),
   }).then(d => d?.data ?? d);
 }
+
+export async function updateProfileDefaults(payload) {
+  const res = await fetch(`${BASE}/user/profile`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  return data;
+}

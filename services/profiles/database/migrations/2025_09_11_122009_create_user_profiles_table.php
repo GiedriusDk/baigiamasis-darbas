@@ -9,27 +9,26 @@ return new class extends Migration {
     {
         Schema::create('user_profiles', function (Blueprint $t) {
             $t->id();
-            // cross-service FK nededam (users yra auth servise)
             $t->unsignedBigInteger('user_id')->unique()->index();
 
             $t->enum('sex', ['male','female','other'])->nullable();
             $t->date('birth_date')->nullable();
 
-            $t->smallInteger('height_cm')->nullable();                  // 100..250
-            $t->decimal('weight_kg', 5, 2)->nullable();                 // 30..400.00
+            $t->smallInteger('height_cm')->nullable();
+            $t->decimal('weight_kg', 5, 2)->nullable();
 
             $t->enum('goal', ['fat_loss','muscle_gain','performance','general_fitness'])->nullable();
             $t->enum('activity_level', ['sedentary','light','moderate','active','very_active'])->nullable();
 
-            $t->tinyInteger('sessions_per_week')->nullable();           // 0..14
-            $t->smallInteger('available_minutes')->nullable();          // 0..300
+            $t->tinyInteger('sessions_per_week')->nullable();
+            $t->smallInteger('available_minutes')->nullable();
 
-            $t->json('preferred_days')->nullable();                     // ['mon','wed','fri']
-            $t->json('equipment')->nullable();                          // ['dumbbells','barbell']
-            $t->json('preferences')->nullable();                        // laisvas JSON
+            $t->json('preferred_days')->nullable();
+            $t->json('equipment')->nullable();
+            $t->json('preferences')->nullable();
 
-            $t->text('injuries_note')->nullable();
-            $t->string('avatar_path')->nullable();                      // ateičiai
+            $t->json('injuries')->nullable();
+            $t->string('avatar_path')->nullable();
 
             $t->timestamps();
         });

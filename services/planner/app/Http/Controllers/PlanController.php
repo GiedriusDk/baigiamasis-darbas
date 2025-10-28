@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Plan;
 use App\Models\Workout;
 use App\Models\WorkoutExercise;
-use App\Services\PlanGenerators\PplGenerator;
 use App\Services\PlanGenerators\SplitGenerator;
 use App\Services\CatalogService;
 use Illuminate\Http\Request;
@@ -26,8 +25,8 @@ class PlanController extends Controller
             foreach ($plan->workouts as $w) {
                 foreach ($w->exercises as $ex) {
                     if ($row = $details->get($ex->exercise_id)) {
-                        $ex->exercise_name = $row['name'] ?? null;
-                        $ex->image_url     = $row['image_url'] ?? null;
+                        $ex->exercise_name   = $row['name'] ?? null;
+                        $ex->image_url       = $row['image_url'] ?? null;
                         $ex->catalog_exercise = $row;
                     }
                 }
@@ -37,40 +36,88 @@ class PlanController extends Controller
         return response()->json($plan);
     }
 
-    public function store(Request $r, SplitGenerator $splitGen)
+    public function store(Request $r, SplitGenerator $splitGen, \App\Services\ProfilesService $profiles)
     {
+        // 1) Auth
         $authUser = $r->attributes->get('auth_user');
         $userId   = $authUser['id'] ?? null;
         if (!$userId) return response()->json(['message' => 'Unauthenticated.'], 401);
 
+        // 2) Defaults iš Profiles (S2S)
+        $defaults = [];
+        try {
+            $defaults = $profiles->getProfile((string) $r->bearerToken()) ?? [];
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        // 3) Validacija iš UI
         $data = $r->validate([
-            'goal'              => 'required|string|in:fat_loss,muscle_gain,performance,general_fitness',
-            'sessions_per_week' => 'required|integer|in:2,3,4',
-            'equipment'         => 'nullable|string',
+            'goal'              => 'nullable|string|in:fat_loss,muscle_gain,performance,general_fitness',
+            'sessions_per_week' => 'nullable|integer|in:2,3,4',
+            'equipment'         => 'nullable|string|max:60',
             'start_date'        => 'nullable|date',
             'weeks'             => 'nullable|integer|min:4|max:24',
             'session_minutes'   => 'nullable|integer|in:30,45,60,75,90',
+            'injuries'          => 'nullable|array',
+            'injuries.*'        => 'string|max:40',
+            'save_as_defaults'  => 'sometimes|boolean',
         ]);
 
-        $weeks = $data['weeks'] ?? 8;
-        $sessionMinutes = (int)($data['session_minutes'] ?? 60);
+        // 4) Merge (UI > defaults > fallback)
+        $merged = [
+            'goal'              => $data['goal'] ?? ($defaults['goal'] ?? 'general_fitness'),
+            'sessions_per_week' => (int)($data['sessions_per_week'] ?? ($defaults['sessions_per_week'] ?? 3)),
+            'equipment'         => $data['equipment'] ?? ($defaults['equipment'][0] ?? 'gym'),
+            'start_date'        => $data['start_date'] ?? now()->toDateString(),
+            'weeks'             => (int)($data['weeks'] ?? 8),
+            'session_minutes'   => (int)($data['session_minutes'] ?? ($defaults['available_minutes'] ?? 60)),
+            'injuries'          => $data['injuries'] ?? ($defaults['injuries'] ?? []),
+        ];
 
+        // 5) Tik "Save as defaults" — atnaujinam profi lį ir grįžtam
+        if (!empty($data['save_as_defaults'])) {
+            try {
+                $payload = [
+                    'goal'              => $merged['goal'],
+                    'sessions_per_week' => $merged['sessions_per_week'],
+                    'available_minutes' => $merged['session_minutes'],
+                    'equipment'         => [$merged['equipment']],
+                    'injuries'          => array_values(array_unique($merged['injuries'] ?? [])),
+                ];
+
+                $profiles->updateProfile($payload, (string) $r->bearerToken());
+
+                return response()->json([
+                    'message' => 'Profile defaults updated successfully',
+                    'updated' => $payload,
+                ], 200);
+            } catch (\Throwable $e) {
+                report($e);
+                return response()->json([
+                    'message' => 'Failed to update profile defaults',
+                    'error'   => app()->hasDebugModeEnabled() ? $e->getMessage() : null,
+                ], 422);
+            }
+        }
+
+        // 6) Kuriam planą
         DB::beginTransaction();
         try {
             $plan = Plan::create([
                 'user_id'           => $userId,
-                'goal'              => $data['goal'],
-                'sessions_per_week' => (int)$data['sessions_per_week'],
-                'start_date'        => $data['start_date'] ?? now()->toDateString(),
-                'weeks'             => $weeks,
-                'session_minutes'   => $sessionMinutes,
+                'goal'              => $merged['goal'],
+                'sessions_per_week' => $merged['sessions_per_week'],
+                'start_date'        => $merged['start_date'],
+                'weeks'             => $merged['weeks'],
+                'session_minutes'   => $merged['session_minutes'],
             ]);
 
             $template = $splitGen->generate(
-                $data['goal'],
-                (int)$data['sessions_per_week'],
-                $data['equipment'] ?? null,
-                $sessionMinutes 
+                $merged['goal'],
+                $merged['sessions_per_week'],
+                $merged['equipment'],
+                $merged['session_minutes']
             );
 
             if (!$template) {
@@ -120,14 +167,10 @@ class PlanController extends Controller
     {
         $authUser = $r->attributes->get('auth_user');
         $userId   = $authUser['id'] ?? null;
-        if (!$userId) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
-        }
+        if (!$userId) return response()->json(['message' => 'Unauthenticated.'], 401);
 
         $plan = Plan::where('user_id', $userId)->orderByDesc('created_at')->first();
-        if (!$plan) {
-            return response()->json(['message' => 'No plan'], 404);
-        }
+        if (!$plan) return response()->json(['message' => 'No plan'], 404);
 
         $plan->load('workouts.exercises');
 
@@ -140,8 +183,8 @@ class PlanController extends Controller
             foreach ($plan->workouts as $w) {
                 foreach ($w->exercises as $ex) {
                     if ($row = $details->get($ex->exercise_id)) {
-                        $ex->exercise_name = $row['name'] ?? null;
-                        $ex->image_url     = $row['image_url'] ?? null;
+                        $ex->exercise_name    = $row['name'] ?? null;
+                        $ex->image_url        = $row['image_url'] ?? null;
                         $ex->catalog_exercise = $row;
                     }
                 }
@@ -150,5 +193,4 @@ class PlanController extends Controller
 
         return response()->json($plan);
     }
-    
 }

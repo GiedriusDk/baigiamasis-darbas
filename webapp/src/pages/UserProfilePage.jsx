@@ -1,28 +1,46 @@
-// webapp/src/pages/UserProfilePage.jsx
 import { useEffect, useState } from 'react';
 import {
   Title, Grid, Stack, Textarea, NumberInput, TextInput,
   Group, Button, Avatar, FileButton, ActionIcon, Tooltip,
-  LoadingOverlay, Divider, Select
+  LoadingOverlay, Divider, Select, MultiSelect
 } from '@mantine/core';
 import { IconUpload, IconTrash } from '@tabler/icons-react';
 import { getUserProfile, saveUserProfile, uploadUserAvatar } from '../api/profiles';
 import { notifications } from '@mantine/notifications';
+
+const EQUIPMENT_OPTS = [
+  { value: 'gym',        label: 'Full gym' },
+  { value: 'dumbbell',   label: 'Dumbbells' },
+  { value: 'barbell',    label: 'Barbell' },
+  { value: 'cable',      label: 'Cables' },
+  { value: 'body weight',label: 'Body weight' },
+  { value: 'kettlebell', label: 'Kettlebell' },
+];
+
+const INJURY_OPTIONS = [
+  { value: 'arms', label: 'Arms' },
+  { value: 'shoulders', label: 'Shoulders' },
+  { value: 'back', label: 'Back' },
+  { value: 'knees', label: 'Knees' },
+  { value: 'ankles', label: 'Ankles' },
+  { value: 'legs', label: 'Legs' },
+];
 
 export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
-    sex: '',
+    sex: null,
     birth_date: '',
     height_cm: null,
     weight_kg: null,
-    goal: '',
-    activity_level: '',
-    sessions_per_week: 0,
-    available_minutes: 0,
-    injuries_note: '',
+    goal: null,
+    activity_level: null,
+    sessions_per_week: null,
+    available_minutes: null,
+    equipment: [],
+    injuries: [],
     avatar_path: '',
   });
 
@@ -32,7 +50,20 @@ export default function UserProfilePage() {
     (async () => {
       try {
         const p = await getUserProfile();
-        if (p) setForm(f => ({ ...f, ...p }));
+        if (p) {
+          const toInt = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+          setForm(f => ({
+            ...f,
+            ...p,
+            goal: p.goal ?? null,
+            activity_level: p.activity_level ?? null,
+            sessions_per_week: toInt(p.sessions_per_week),
+            available_minutes: toInt(p.available_minutes),
+            equipment: Array.isArray(p.equipment) ? p.equipment : [],
+            injuries: Array.isArray(p.injuries) ? p.injuries : [],
+            birth_date: p.birth_date || '',
+          }));
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -51,17 +82,37 @@ export default function UserProfilePage() {
       let newAvatarPath = form.avatar_path;
 
       if (avatarFile) {
-        const { url } = await uploadUserAvatar(avatarFile); // turi grąžinti pilną URL per gateway
+        const { url } = await uploadUserAvatar(avatarFile);
         newAvatarPath = url;
       }
 
-      const payload = { ...form, avatar_path: newAvatarPath };
+      const payload = {
+        ...form,
+        avatar_path: newAvatarPath,
+        sessions_per_week: form.sessions_per_week != null ? Number(form.sessions_per_week) : null,
+        available_minutes: form.available_minutes != null ? Number(form.available_minutes) : null,
+        height_cm: form.height_cm != null ? Number(form.height_cm) : null,
+        weight_kg: form.weight_kg != null ? Number(form.weight_kg) : null,
+        equipment: Array.isArray(form.equipment) ? form.equipment : [],
+        injuries: Array.isArray(form.injuries) ? form.injuries : [],
+      };
+
       const res = await saveUserProfile(payload);
 
-      setForm(f => ({ ...f, ...res, avatar_path: newAvatarPath }));
+      setForm(f => ({
+        ...f,
+        ...res,
+        avatar_path: newAvatarPath,
+        goal: res.goal ?? null,
+        activity_level: res.activity_level ?? null,
+        sessions_per_week: (res.sessions_per_week ?? null),
+        available_minutes: (res.available_minutes ?? null),
+        equipment: Array.isArray(res.equipment) ? res.equipment : [],
+        injuries: Array.isArray(res.injuries) ? res.injuries : [],
+        birth_date: res.birth_date || '',
+      }));
       setAvatarFile(null);
 
-      // pranešk header’iui, kad perpieštų avatarą
       window.dispatchEvent(new CustomEvent('profile:updated', { detail: { avatar: newAvatarPath } }));
 
       notifications.show({ color: 'green', message: 'Profile saved' });
@@ -124,6 +175,7 @@ export default function UserProfilePage() {
               ]}
               value={form.sex}
               onChange={(v) => update('sex', v)}
+              clearable
             />
 
             <TextInput
@@ -135,14 +187,14 @@ export default function UserProfilePage() {
 
             <NumberInput
               label="Height (cm)"
-              value={form.height_cm ?? ''}
-              onChange={(v) => update('height_cm', v)}
+              value={form.height_cm ?? undefined}
+              onChange={(v) => update('height_cm', v == null ? null : Number(v))}
             />
 
             <NumberInput
               label="Weight (kg)"
-              value={form.weight_kg ?? ''}
-              onChange={(v) => update('weight_kg', v)}
+              value={form.weight_kg ?? undefined}
+              onChange={(v) => update('weight_kg', v == null ? null : Number(v))}
             />
           </Stack>
         </Grid.Col>
@@ -160,6 +212,7 @@ export default function UserProfilePage() {
               ]}
               value={form.goal}
               onChange={(v) => update('goal', v)}
+              clearable
             />
 
             <Select
@@ -173,26 +226,44 @@ export default function UserProfilePage() {
               ]}
               value={form.activity_level}
               onChange={(v) => update('activity_level', v)}
+              clearable
             />
 
             <NumberInput
               label="Sessions per week"
-              value={form.sessions_per_week ?? 0}
-              onChange={(v) => update('sessions_per_week', v)}
+              value={form.sessions_per_week ?? undefined}
+              onChange={(v) => update('sessions_per_week', v == null ? null : Number(v))}
+              min={0}
+              max={14}
             />
 
             <NumberInput
               label="Available minutes per workout"
-              value={form.available_minutes ?? 0}
-              onChange={(v) => update('available_minutes', v)}
+              value={form.available_minutes ?? undefined}
+              onChange={(v) => update('available_minutes', v == null ? null : Number(v))}
+              min={0}
+              max={300}
             />
 
-            <Textarea
-              label="Injuries / Notes"
-              minRows={3}
-              value={form.injuries_note || ''}
-              onChange={(e) => update('injuries_note', e.currentTarget.value)}
+            <MultiSelect
+              label="Equipment"
+              data={EQUIPMENT_OPTS}
+              value={form.equipment ?? []}
+              onChange={(vals) => update('equipment', vals)}
+              searchable
+              clearable
             />
+
+            <MultiSelect
+              label="Injuries"
+              data={INJURY_OPTIONS}
+              value={form.injuries ?? []}
+              onChange={(vals) => update('injuries', vals)}
+              searchable
+              clearable
+              placeholder="Select any areas to avoid"
+            />
+
 
             <Group justify="flex-end">
               <Button onClick={onSave} loading={saving}>Save</Button>

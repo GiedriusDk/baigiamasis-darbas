@@ -3,7 +3,7 @@ import { getToken } from "./auth";
 const BASE = "/api/planner";
 
 function authHeaders(extra = {}) {
-  const t = getToken ? getToken() : localStorage.getItem("auth_token");
+  const t = (typeof getToken === "function" ? getToken() : null) || localStorage.getItem("auth_token");
   return {
     Accept: "application/json",
     ...(t ? { Authorization: `Bearer ${t}` } : {}),
@@ -14,11 +14,10 @@ function authHeaders(extra = {}) {
 // universalus fetch'as: jei ne JSON, parodo tekstą
 async function request(path, { method = "GET", headers = {}, body } = {}) {
   const res = await fetch(`${BASE}${path}`, { method, headers, body });
-  const raw = await res.text(); // pirmiausia raw tekstas
+  const raw = await res.text();
   let data;
   try { data = raw ? JSON.parse(raw) : null; } catch { data = { message: raw }; }
   if (!res.ok) {
-    // parodyk prasmingą klaidą
     const msg = data?.message || `HTTP ${res.status}`;
     throw new Error(msg);
   }
@@ -41,35 +40,39 @@ export function getPlan(id) {
   return request(`/plans/${id}`, { headers: authHeaders() });
 }
 
+// --- Žemiau: pridėtas Authorization visur ---
 
 export async function getAlternatives(workoutId, order, { equipment, limit = 24 } = {}) {
-  const u = new URL(`/api/planner/workouts/${workoutId}/exercises/${order}/alternatives`, window.location.origin);
-  if (equipment) u.searchParams.set('equipment', equipment);
-  u.searchParams.set('limit', String(limit));
-  const r = await fetch(u, { credentials: 'include' });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json(); // { data: [], current: {} }
+  const qs = new URLSearchParams();
+  if (equipment) qs.set("equipment", equipment);
+  qs.set("limit", String(limit));
+  const url = `${BASE}/workouts/${workoutId}/exercises/${order}/alternatives?${qs.toString()}`;
+  const r = await fetch(url, { headers: authHeaders() });
+  const raw = await r.text();
+  if (!r.ok) throw new Error(raw || `HTTP ${r.status}`);
+  return raw ? JSON.parse(raw) : { data: [], current: null };
 }
 
 export async function swapExercise(workoutId, order, exerciseId) {
-  const r = await fetch(`/api/planner/workouts/${workoutId}/exercises/${order}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+  const r = await fetch(`${BASE}/workouts/${workoutId}/exercises/${order}`, {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ exercise_id: exerciseId }),
   });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  const raw = await r.text();
+  if (!r.ok) throw new Error(raw || `HTTP ${r.status}`);
+  return raw ? JSON.parse(raw) : { ok: true };
 }
 
 export async function searchExercises({ q, equipment, muscles, page = 1, per_page = 30 }) {
-  const u = new URL(`/api/planner/exercises/search`, window.location.origin);
-  if (q) u.searchParams.set('q', q);
-  if (equipment) u.searchParams.set('equipment', equipment);
-  if (muscles) u.searchParams.set('muscles', muscles);
-  u.searchParams.set('page', page);
-  u.searchParams.set('per_page', per_page);
-  const r = await fetch(u, { credentials: 'include' });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json(); // { data: [] }
+  const qs = new URLSearchParams();
+  if (q) qs.set("q", q);
+  if (equipment) qs.set("equipment", equipment);
+  if (muscles) qs.set("muscles", muscles);
+  qs.set("page", String(page));
+  qs.set("per_page", String(per_page));
+  const r = await fetch(`${BASE}/exercises/search?${qs.toString()}`, { headers: authHeaders() });
+  const raw = await r.text();
+  if (!r.ok) throw new Error(raw || `HTTP ${r.status}`);
+  return raw ? JSON.parse(raw) : { data: [] };
 }

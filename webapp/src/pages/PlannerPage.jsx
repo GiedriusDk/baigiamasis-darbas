@@ -1,11 +1,20 @@
 // src/pages/PlannerPage.jsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Paper, Title, Text, Group, Button, Select, NumberInput, Stack,
-  SegmentedControl, Badge, Divider, Alert, Skeleton, Grid, Card, Image
-} from "@mantine/core";
+  SegmentedControl, Badge, Divider, Alert, Skeleton, Grid, Card, Image, MultiSelect } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
-import { createPlan } from "../api/planner";
+import { createPlan, getPlan } from "../api/planner";
+import { notifications } from "@mantine/notifications";
+
+// (nebūtina) – UI prefill iš profilio; backend vis tiek pasiims S2S
+async function fetchProfileDefaults(token) {
+  const r = await fetch("/api/profiles/user/profile", {
+    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+  });
+  if (!r.ok) return null;
+  return r.json();
+}
 
 const EQUIPMENTS = [
   { value: "gym", label: "Full gym" },
@@ -24,42 +33,101 @@ const DURATION_OPTS = [
   { value: "90", label: "1 h 30 min" },
 ];
 
+const INJURIES = [
+  { value: "arms", label: "Arms" },
+  { value: "shoulders", label: "Shoulders" },
+  { value: "back", label: "Back" },
+  { value: "knees", label: "Knees" },
+  { value: "ankles", label: "Ankles" },
+  { value: "legs", label: "Legs" },
+];
+
+// paima {data: {...}} arba {...}
+const unwrap = (x) => (x && x.data) ? x.data : x;
+
 export default function PlannerPage() {
   const [goal, setGoal] = useState("muscle_gain");
   const [sessions, setSessions] = useState(3);
   const [equipment, setEquipment] = useState("gym");
   const [weeks, setWeeks] = useState(8);
-  const [sessionMin, setSessionMin] = useState(60);       // <— nauja
+  const [sessionMin, setSessionMin] = useState(60);
+  const [injuries, setInjuries] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [plan, setPlan] = useState(null);
 
   const token = useMemo(() => localStorage.getItem("auth_token") || "", []);
 
+  // UI prefill iš profilio (pasirinktinai)
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!token) return;
+      try {
+        const p = await fetchProfileDefaults(token);
+        if (!alive || !p) return;
+        if (p.goal) setGoal(p.goal);
+        if (p.sessions_per_week) setSessions(p.sessions_per_week);
+        if (p.available_minutes) setSessionMin(p.available_minutes);
+        if (Array.isArray(p.equipment) && p.equipment.length) {
+          setEquipment(p.equipment[0]);
+        }
+        if (Array.isArray(p.injuries)) {
+          setInjuries(p.injuries);
+        }
+      } catch { /* ignore UI prefill errors */ }
+    })();
+    return () => { alive = false; };
+  }, [token]);
+
   async function onGenerate(e) {
     e?.preventDefault?.();
     setErr("");
     setLoading(true);
     try {
-      const created = await createPlan({
+      const created = unwrap(
+      await createPlan({
+       goal,
+       sessions_per_week: sessions,
+       equipment,
+       weeks,
+       session_minutes: sessionMin,
+       injuries,
+     })
+   );
+   if (!created?.id) throw new Error("Failed to create plan");
+   // VISADA pasiimam enriched planą iš show()
+   const full = unwrap(await getPlan(created.id));
+   setPlan(full);
+    } catch (e) {
+      setPlan(null);
+      setErr(e.message || "Unexpected error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onSaveAsDefaults(e) {
+    e?.preventDefault?.();
+    setErr("");
+    setLoading(true);
+    try {
+      // čia tikslingai nenaudojam getPlan – tik atnaujinam profilį
+      await createPlan({
         goal,
         sessions_per_week: sessions,
         equipment,
         weeks,
-        session_minutes: sessionMin,                     // <— svarbu
+        session_minutes: sessionMin,
+        injuries,
+        save_as_defaults: true,
       });
 
-      const enriched = await fetch(`/api/planner/plans/${created.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then(async (r) => {
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.message || "Failed to load created plan");
-        return j;
-      });
-
-      setPlan(enriched);
+      setPlan(null); // nieko nerodom – tik defaultai išsaugoti
+      notifications.show({ color: "green", message: "Defaults saved to your profile" });
     } catch (e) {
-      setErr(e.message || "Unexpected error");
+      setErr(e.message || "Failed to save defaults");
     } finally {
       setLoading(false);
     }
@@ -98,7 +166,11 @@ export default function PlannerPage() {
               <SegmentedControl
                 value={String(sessions)}
                 onChange={(v) => setSessions(Number(v))}
-                data={[{ label: "2", value: "2" }, { label: "3", value: "3" }, { label: "4", value: "4" }]}
+                data={[
+                  { label: "2", value: "2" },
+                  { label: "3", value: "3" },
+                  { label: "4", value: "4" },
+                ]}
               />
               <Text size="xs" c="dimmed" mt={6}>Currently supported: 2, 3 or 4.</Text>
             </div>
@@ -128,13 +200,28 @@ export default function PlannerPage() {
               label="Session duration"
               data={DURATION_OPTS}
               value={String(sessionMin)}
-              onChange={(v) => setSessionMin(Number(v))}   // <— paversk į skaičių
+              onChange={(v) => setSessionMin(Number(v))}
+            />
+          </Grid.Col>
+
+          <Grid.Col span={{ base: 12, md: 8 }}>
+            <MultiSelect
+              label="Injuries (areas to avoid)"
+              data={INJURIES}
+              value={injuries}
+              onChange={setInjuries}
+              searchable
+              clearable
+              placeholder="Select all that apply"
             />
           </Grid.Col>
         </Grid>
 
         <Group mt="lg">
           <Button onClick={onGenerate} loading={loading}>Generate my plan</Button>
+          <Button variant="outline" onClick={onSaveAsDefaults} loading={loading}>
+            Save as defaults
+          </Button>
         </Group>
 
         {err && (
@@ -160,27 +247,31 @@ export default function PlannerPage() {
 }
 
 function MiniPlan({ plan }) {
+  if (!plan || !Array.isArray(plan.workouts) || plan.workouts.length === 0) {
+    return null;
+  }
+
   return (
     <Paper withBorder p="lg" radius="lg">
       <Group justify="space-between" align="center" mb="xs">
         <Title order={3} c="blue">Plan #{plan.id}</Title>
-        <Badge variant="light">Total days: {plan.workouts?.length || 0}</Badge>
+        <Badge variant="light">Total days: {plan.workouts.length}</Badge>
       </Group>
       <Text size="sm" c="dimmed" mb="md">
         <b>Goal:</b> {plan.goal} • <b>Weeks:</b> {plan.weeks} • <b>Duration:</b> {plan.session_minutes} min • <b>Start:</b> {plan.start_date}
       </Text>
 
       <Grid gutter="lg">
-        {(plan.workouts || []).map((w) => (
+        {plan.workouts.map((w) => (
           <Grid.Col key={w.id} span={{ base: 12, md: 4 }}>
             <Card withBorder radius="lg" p="lg">
               <Group justify="space-between" mb="xs">
-                <Text fw={600}>{w.name}</Text>
-                <Badge size="sm" variant="light">Day {w.day_index + 1}</Badge>
+                <Text fw={600}>{w.name || `Day ${Number(w.day_index) + 1}`}</Text>
+                <Badge size="sm" variant="light">Day {Number(w.day_index) + 1}</Badge>
               </Group>
               <Divider my="xs" />
 
-              {(!w.exercises || w.exercises.length === 0) ? (
+              {!Array.isArray(w.exercises) || w.exercises.length === 0 ? (
                 <Text size="sm" c="dimmed">No exercises stored.</Text>
               ) : (
                 <Stack gap="sm">
@@ -216,7 +307,7 @@ function MiniPlan({ plan }) {
                             }}
                             title={title}
                           >
-                            {title.slice(0, 1).toUpperCase()}
+                            {String(title).slice(0, 1).toUpperCase()}
                           </div>
                         )}
 
