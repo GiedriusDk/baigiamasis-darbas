@@ -37,7 +37,12 @@ class CoachProfileController extends Controller
             'languages'         => 'nullable',
             'certifications'    => 'nullable',
             'phone'             => 'nullable|string|max:64',
+
             'website_url'       => 'nullable|url|max:255',
+
+            'gym_name'          => 'nullable|string|max:255',
+            'gym_address'       => 'nullable|string|max:255',
+
             'socials'           => 'nullable|array',
             'instagram'         => 'nullable|url|max:255',
             'facebook'          => 'nullable|url|max:255',
@@ -57,23 +62,39 @@ class CoachProfileController extends Controller
             $data['certifications'] = array_values(array_filter(array_map('trim', explode(',', $data['certifications']))));
         }
 
-        $socials = [];
-        if (isset($data['socials']) && is_array($data['socials'])) {
-            $socials = $data['socials'];
-        }
-        foreach (['instagram', 'facebook', 'youtube', 'linkedin', 'tiktok', 'other'] as $k) {
-            if (!empty($data[$k])) {
-                $socials[$k] = $data[$k];
-            }
-            unset($data[$k]);
-        }
-        if (!empty($socials)) {
-            $data['socials'] = $socials;
-        }
-
         $p = CoachProfile::firstOrCreate(['user_id' => $uid], []);
-        unset($data['avatar_path']);
-        $p->fill($data)->save();
+
+        $mergedSocials = is_array($p->socials) ? $p->socials : [];
+        if (isset($data['socials']) && is_array($data['socials'])) {
+            $mergedSocials = array_merge($mergedSocials, $data['socials']);
+        }
+        foreach (['instagram','facebook','youtube','linkedin','tiktok','other'] as $k) {
+            if (array_key_exists($k, $data) && $data[$k] !== null && $data[$k] !== '') {
+                $mergedSocials[$k] = $data[$k];
+            }
+        }
+        $mergedSocials = array_filter($mergedSocials, fn($v) => $v !== null && $v !== '');
+
+        $payload = [
+            'bio'               => $data['bio'] ?? null,
+            'city'              => $data['city'] ?? null,
+            'country'           => $data['country'] ?? null,
+            'timezone'          => $data['timezone'] ?? null,
+            'experience_years'  => $data['experience_years'] ?? 0,
+            'availability_note' => $data['availability_note'] ?? null,
+            'specializations'   => $data['specializations'] ?? [],
+            'languages'         => $data['languages'] ?? [],
+            'certifications'    => $data['certifications'] ?? [],
+            'phone'             => $data['phone'] ?? null,
+            'website_url'       => $data['website_url'] ?? null,
+            'gym_name'          => $data['gym_name'] ?? null,
+            'gym_address'        => $data['gym_address'] ?? null,
+            'socials'           => $mergedSocials,
+        ];
+
+        unset($payload['avatar_path']);
+
+        $p->fill($payload)->save();
 
         return response()->json($p->fresh());
     }

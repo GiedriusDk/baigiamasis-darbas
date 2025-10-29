@@ -2,13 +2,11 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Title, Text, Grid, Stack, Group, Badge, Image, Card,
-  Loader, Alert, Divider, Button, Modal, AspectRatio
+  Loader, Alert, Divider, Button, Modal, AspectRatio, ActionIcon, Anchor
 } from "@mantine/core";
+import { IconBrandInstagram, IconBrandFacebook, IconBrandYoutube, IconBrandLinkedin } from "@tabler/icons-react";
 import { getPublicCoach, getPublicCoachExercises } from "../api/profiles";
-import {
-  listProducts, createOrder, checkout,
-  getProductExerciseIdsPublic, getMyAccess
-} from "../api/payments";
+import { listProducts, createOrder, checkout, getProductExerciseIdsPublic, getMyAccess } from "../api/payments";
 import { getPublicUser } from "../api/auth";
 import { useAuth } from "../auth/useAuth";
 import PlanCard from "../components/PlanCard";
@@ -22,64 +20,33 @@ function getYoutubeId(url = "") {
     return null;
   }
 }
-
 function isVideoUrl(url = "") {
   const lower = url.toLowerCase();
   return lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.includes("vimeo.com");
 }
+function normalizeList(v) {
+  if (Array.isArray(v)) return v.filter(Boolean);
+  if (!v) return [];
+  return String(v).split(",").map(s => s.trim()).filter(Boolean);
+}
 
 function MediaThumb({ url, blurred, onOpenImage, onOpenVideo, onOpenYouTube }) {
   if (!url) return null;
-
   const ytId = getYoutubeId(url);
   const clickable = !blurred;
-
-  const wrapperStyle = {
-    position: "relative",
-    borderRadius: 12,
-    width: "100%",
-    height: 160,
-    overflow: "hidden",
-    cursor: clickable ? "pointer" : "default",
-  };
-
-  const mediaStyle = {
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-    filter: blurred ? "blur(8px) brightness(0.7)" : "none",
-    pointerEvents: blurred ? "none" : "auto",
-    userSelect: "none",
-    display: "block",
-  };
-
+  const wrapperStyle = { position: "relative", borderRadius: 12, width: "100%", height: 160, overflow: "hidden", cursor: clickable ? "pointer" : "default" };
+  const mediaStyle = { width: "100%", height: "100%", objectFit: "contain", filter: blurred ? "blur(8px) brightness(0.7)" : "none", pointerEvents: blurred ? "none" : "auto", userSelect: "none", display: "block" };
   const Overlay = ({ children }) => (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "#fff",
-        fontWeight: 800,
-        letterSpacing: 0.3,
-        textShadow: "0 2px 8px rgba(0,0,0,.45)",
-        fontSize: 22,
-        pointerEvents: "none",
-      }}
-    >
+    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, letterSpacing: 0.3, textShadow: "0 2px 8px rgba(0,0,0,.45)", fontSize: 22, pointerEvents: "none" }}>
       {children}
     </div>
   );
-
   const handleClick = () => {
     if (!clickable) return;
     if (ytId && onOpenYouTube) return onOpenYouTube(ytId);
     if (isVideoUrl(url) && onOpenVideo) return onOpenVideo(url);
     if (onOpenImage) return onOpenImage(url);
   };
-
   if (ytId) {
     const thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
     return (
@@ -89,18 +56,14 @@ function MediaThumb({ url, blurred, onOpenImage, onOpenVideo, onOpenYouTube }) {
       </div>
     );
   }
-
   if (isVideoUrl(url)) {
     return (
       <div style={wrapperStyle} onClick={handleClick}>
-        {/* mini video frame (be autoplay) — tik preview */}
         <video src={url} style={mediaStyle} controls={false} />
         <Overlay>{blurred ? "Locked" : "▶"}</Overlay>
       </div>
     );
   }
-
-  // Image / GIF
   return (
     <div style={wrapperStyle} onClick={handleClick}>
       <img src={url} alt="Preview" style={mediaStyle} />
@@ -182,7 +145,6 @@ export default function CoachPublicPage() {
         const coachIds = [Number(coach.id), Number(coach.user_id), Number(coach.coach_id)].filter(Boolean);
         const filtered = list.filter(p => coachIds.includes(Number(p.coach_id)) && p.is_active !== false);
         setPlans(filtered);
-
         const pairs = await Promise.all(filtered.map(async (p) => {
           try {
             const ids = await getProductExerciseIdsPublic(p.id);
@@ -191,14 +153,12 @@ export default function CoachPublicPage() {
             return { productId: p.id, title: p.title, ids: [] };
           }
         }));
-
         const titlesMap = {};
         const exToProd = {};
         for (const { productId, title, ids } of pairs) {
           for (const eid of ids) {
             if (!titlesMap[eid]) titlesMap[eid] = [];
             titlesMap[eid].push(title);
-
             if (!exToProd[eid]) exToProd[eid] = [];
             exToProd[eid].push(Number(productId));
           }
@@ -267,13 +227,150 @@ export default function CoachPublicPage() {
   if (err) return <Alert color="red">{err}</Alert>;
   if (!coach) return null;
 
+  const specs = normalizeList(coach.specializations);
+  const certs = normalizeList(coach.certifications);
+  const langs = normalizeList(coach.languages);
+
   return (
-    <Stack gap="md">
-      <Group gap="lg" align="start">
+    <Stack gap="lg">
+      <Group align="start" gap="lg" wrap="nowrap">
         <Image src={coach.avatar_path || undefined} alt="" radius="xl" w={120} h={120} />
-        <Stack gap={2}>
-          <Title order={2}>{displayName}</Title>
-          <Text c="dimmed">{coach.city || "—"}</Text>
+        <Stack gap="xs" style={{ flex: 1 }}>
+          <Group justify="space-between" align="start">
+            <div>
+              <Title order={2}>{displayName}</Title>
+              <Text c="dimmed">{coach.city || "—"}</Text>
+            </div>
+            <Group gap="xs">
+              {coach.instagram && (
+                <ActionIcon component="a" href={coach.instagram} target="_blank" variant="light" radius="xl">
+                  <IconBrandInstagram size={18} />
+                </ActionIcon>
+              )}
+              {coach.facebook && (
+                <ActionIcon component="a" href={coach.facebook} target="_blank" variant="light" radius="xl">
+                  <IconBrandFacebook size={18} />
+                </ActionIcon>
+              )}
+              {coach.youtube && (
+                <ActionIcon component="a" href={coach.youtube} target="_blank" variant="light" radius="xl">
+                  <IconBrandYoutube size={18} />
+                </ActionIcon>
+              )}
+              {coach.linkedin && (
+                <ActionIcon component="a" href={coach.linkedin} target="_blank" variant="light" radius="xl">
+                  <IconBrandLinkedin size={18} />
+                </ActionIcon>
+              )}
+            </Group>
+          </Group>
+
+          {coach.bio && <Text mt={4}>{coach.bio}</Text>}
+
+          <Grid gutter="md" mt="xs">
+            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+              <Stack gap={6}>
+                <Text c="dimmed" size="sm">Experience</Text>
+                <Text>{coach.experience_years || 0} years</Text>
+                {coach.availability_note && <Text size="sm">{coach.availability_note}</Text>}
+              </Stack>
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
+              <Stack gap={6}>
+                <Text c="dimmed" size="sm">Languages</Text>
+                {langs.length ? (
+                  <Group gap={6} wrap="wrap">{langs.map((l, i) => <Badge key={i} variant="light">{l}</Badge>)}</Group>
+                ) : (
+                  <Text>—</Text>
+                )}
+              </Stack>
+            </Grid.Col>
+
+                        <Grid.Col span={{ base: 12, sm: 12, md: 4 }}>
+              <Stack gap={6}>
+                <Text c="dimmed" size="sm">Location</Text>
+                <Text size="sm">{coach.city || "—"}</Text>
+                <Text size="sm">
+                  {coach.country || ""} {coach.timezone ? `• ${coach.timezone}` : ""}
+                </Text>
+              </Stack>
+            </Grid.Col>
+          </Grid>
+
+          {/* 2-oji eilė: kairė = Contacts + Social + Certifications, dešinė = Specializations + Gym */}
+          <Grid gutter="md" mt="xs">
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Stack gap={14}>
+                <div>
+                  <Text c="dimmed" size="sm">Contacts</Text>
+                  <Group gap="md">
+                    <Text size="sm">{coach.phone}</Text>
+                    {coach.website && (
+                      <Anchor
+                        href={/^https?:\/\//i.test(coach.website) ? coach.website : `https://${coach.website}`}
+                        target="_blank"
+                        rel="noopener"
+                        size="sm"
+                      >
+                        {coach.website}
+                      </Anchor>
+                    )}
+                  </Group>
+                </div>
+
+                <div>
+                  <Text c="dimmed" size="sm">Social</Text>
+                  <Group gap="md">
+                    {coach.instagram && <Anchor c="dimmed" href={coach.instagram} target="_blank" rel="noopener">Instagram</Anchor>}
+                    {coach.facebook  && <Anchor c="dimmed" href={coach.facebook}  target="_blank" rel="noopener">Facebook</Anchor>}
+                    {coach.youtube   && <Anchor c="dimmed" href={coach.youtube}   target="_blank" rel="noopener">YouTube</Anchor>}
+                    {coach.linkedin  && <Anchor c="dimmed" href={coach.linkedin}  target="_blank" rel="noopener">LinkedIn</Anchor>}
+                    {coach.tiktok    && <Anchor c="dimmed" href={coach.tiktok}    target="_blank" rel="noopener">TikTok</Anchor>}
+                    {coach.other     && <Anchor c="dimmed" href={coach.other}     target="_blank" rel="noopener">Other</Anchor>}
+                  </Group>
+                </div>
+
+                <div>
+                  <Text c="dimmed" size="sm">Certifications</Text>
+                  {certs.length ? (
+                    <Group gap={6} wrap="wrap">
+                      {certs.map((c, i) => (
+                        <Badge key={i} color="teal" variant="light">{c}</Badge>
+                      ))}
+                    </Group>
+                  ) : (
+                    <Text>—</Text>
+                  )}
+                </div>
+              </Stack>
+            </Grid.Col>
+
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <Stack gap={14}>
+                <div>
+                  <Text c="dimmed" size="sm">Specializations</Text>
+                  {specs.length ? (
+                    <Group gap={6} wrap="wrap">
+                      {specs.map((s, i) => (
+                        <Badge key={i} variant="outline">{s}</Badge>
+                      ))}
+                    </Group>
+                  ) : (
+                    <Text>—</Text>
+                  )}
+                </div>
+
+                {coach.gym_name && (
+                  <div>
+                    <Text c="dimmed" size="sm">Gym</Text>
+                    <Text size="sm">{coach.gym_name}</Text>
+                    {coach.gym_address && <Text size="sm">{coach.gym_address}</Text>}
+                  </div>
+                )}
+              </Stack>
+            </Grid.Col>
+          </Grid>
         </Stack>
       </Group>
 

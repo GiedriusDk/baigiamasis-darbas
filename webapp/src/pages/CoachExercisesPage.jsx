@@ -46,7 +46,7 @@ function isImageUrl(u = '') {
 }
 
 /* -------------------- MediaThumb ----------------------- */
-function MediaThumb({ url, blurred = false }) {
+function MediaThumb({ url, blurred = false, mimeType }) {
   const [opened, setOpened] = useState(false);
 
   if (!url) return <IconPhoto size={48} color="var(--mantine-color-dimmed)" />;
@@ -59,7 +59,60 @@ function MediaThumb({ url, blurred = false }) {
     width: '100%',
   };
 
-  // YouTube – thumbnail
+  if (mimeType?.startsWith('video/')) {
+    return (
+      <video
+        src={url}
+        height={160}
+        controls={!blurred}
+        style={{ ...commonStyle, maxWidth: '100%' }}
+      />
+    );
+  }
+  if (mimeType?.startsWith('image/')) {
+    if (blurred) {
+      return (
+        <div style={{ position: 'relative', height: 160 }}>
+          <Image
+            src={url}
+            alt=""
+            height={160}
+            fit="contain"
+            radius="md"
+            style={{
+              filter: 'blur(10px) brightness(0.6)',
+              pointerEvents: 'none',
+              objectFit: 'cover',
+              width: '100%',
+              height: '100%',
+            }}
+          />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ padding: '6px 12px', borderRadius: 999, background: 'rgba(255,255,255,.9)', fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,.2)' }}>
+              🔒 Paid
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <>
+        <Image
+          src={url}
+          alt=""
+          height={160}
+          fit="contain"
+          radius="md"
+          style={{ cursor: 'zoom-in' }}
+          onClick={() => setOpened(true)}
+        />
+        <Modal opened={opened} onClose={() => setOpened(false)} centered withCloseButton padding={0} radius="md" size="auto">
+          <Image src={url} alt="" fit="contain" style={{ maxWidth: '90vw', maxHeight: '80vh' }} />
+        </Modal>
+      </>
+    );
+  }
+
   const ytId = getYoutubeId(url);
   if (ytId) {
     const thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
@@ -68,13 +121,7 @@ function MediaThumb({ url, blurred = false }) {
     ) : (
       <a href={url} target="_blank" rel="noreferrer" style={{ position: 'relative', display: 'block' }}>
         <Image src={thumb} alt="YouTube" height={160} fit="cover" radius="md" style={commonStyle} />
-        <IconMovie
-          size={32}
-          style={{
-            position: 'absolute', top: '50%', left: '50%',
-            transform: 'translate(-50%, -50%)', color: 'white', opacity: 0.9
-          }}
-        />
+        <IconMovie size={32} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'white', opacity: 0.9 }} />
       </a>
     );
   }
@@ -91,92 +138,20 @@ function MediaThumb({ url, blurred = false }) {
     );
   }
 
-  // mp4 / webm
   if (isVideoUrl(url)) {
     return (
-      <video
-        src={url}
-        height={160}
-        controls={!blurred}
-        style={{ ...commonStyle, maxWidth: '100%' }}
-      />
+      <video src={url} height={160} controls={!blurred} style={{ ...commonStyle, maxWidth: '100%' }} />
     );
   }
-
-  // Image / GIF
-if (isGifUrl(url) || isImageUrl(url)) {
-  if (blurred) {
+  if (isGifUrl(url) || isImageUrl(url)) {
     return (
-      <div style={{ position: 'relative', height: 160 }}>
-        <Image
-          src={url}
-          alt=""
-          height={160}
-          fit="contain"
-          radius="md"
-          style={{
-            filter: 'blur(10px) brightness(0.6)',
-            pointerEvents: 'none',
-            objectFit: 'cover',
-            width: '100%',
-            height: '100%',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <div
-            style={{
-              padding: '6px 12px',
-              borderRadius: 999,
-              background: 'rgba(255,255,255,.9)',
-              fontWeight: 600,
-              boxShadow: '0 4px 16px rgba(0,0,0,.2)',
-            }}
-          >
-            🔒 Paid
-          </div>
-        </div>
-      </div>
+      <Image src={url} alt="" height={160} fit="contain" radius="md" />
     );
   }
 
-  return (
-    <>
-      <Image
-        src={url}
-        alt=""
-        height={160}
-        fit="contain"
-        radius="md"
-        style={{ cursor: 'zoom-in' }}
-        onClick={() => setOpened(true)}
-      />
-      <Modal
-        opened={opened}
-        onClose={() => setOpened(false)}
-        centered
-        withCloseButton
-        padding={0}
-        radius="md"
-        size="auto"
-      >
-        <Image
-          src={url}
-          alt=""
-          fit="contain"
-          style={{ maxWidth: '90vw', maxHeight: '80vh' }}
-        />
-      </Modal>
-    </>
-  );
-}
+  if (url.startsWith('blob:')) {
+    return <Image src={url} alt="" height={160} fit="contain" radius="md" />;
+  }
 
   return (
     <Group h={160} justify="center" align="center" style={{ ...commonStyle, background: 'rgba(0,0,0,.05)' }}>
@@ -208,12 +183,24 @@ export default function CoachExercisesPage() {
     is_paid: false,
   });
   const [mediaFile, setMediaFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
   const [creating, setCreating] = useState(false);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [editFile, setEditFile] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
+
+
+  useEffect(() => {
+    if (!mediaFile) {
+      setPreviewUrl("");
+      return;
+    }
+    const url = URL.createObjectURL(mediaFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [mediaFile]);
 
   useEffect(() => {
     (async () => {
@@ -476,7 +463,7 @@ export default function CoachExercisesPage() {
                     <Paper mt="md" p="sm" withBorder radius="md">
                       <Text size="sm" c="dimmed" mb={6}>Preview</Text>
                       <Group wrap="wrap" gap="md">
-                        <MediaThumb url={mediaFile ? mediaFile.name : form.media_url} />
+                        <MediaThumb url={mediaFile ? previewUrl : form.media_url} mimeType={mediaFile?.type} />
                       </Group>
                     </Paper>
                   )}
@@ -515,7 +502,7 @@ export default function CoachExercisesPage() {
             {items.map((ex, i) => {
               const mediaUrl = ex.media_path || ex.external_url || ex.media_url || '';
               const isPaid = !!ex.is_paid;
-              const blurred = isPaid && !isCoachOwner; // ← svarbiausia eilutė
+              const blurred = isPaid && !isCoachOwner;
 
               return (
                 <Grid.Col key={ex.id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
@@ -532,22 +519,8 @@ export default function CoachExercisesPage() {
                         position: 'relative',
                       }}
                     >
-                      <MediaThumb url={mediaUrl} blurred={blurred} /> {/* ← buvo blurred={isPaid} */}
-                      {isPaid && (
-                        <Badge
-                          leftSection={<IconLock size={14} />}
-                          radius="lg"
-                          variant="white"
-                          style={{
-                            position: 'absolute',
-                            top: '50%', left: '50%',
-                            transform: 'translate(-50%,-50%)',
-                            boxShadow: '0 8px 24px rgba(0,0,0,.15)'
-                          }}
-                        >
-                          Paid
-                        </Badge>
-                      )}
+                      <MediaThumb url={mediaUrl} blurred={blurred} /> 
+                      
                     </div>
                     
 

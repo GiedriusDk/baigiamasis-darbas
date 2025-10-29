@@ -11,6 +11,7 @@ import {
   getDayExercises, setDayExercises, updateWeek, updateDay
 } from "../api/plans";
 import { useAuth } from "../auth/useAuth";
+import { getPublicPlan } from "../api/plans"; 
 import { searchCatalogExercises } from "../api/catalog";
 
 function ytId(url = "") {
@@ -294,7 +295,7 @@ export default function CoachPlanEditor() {
   const [weeks, setWeeks] = useState([]);
   const [daysByWeek, setDaysByWeek] = useState({});
   const [pickerDay, setPickerDay] = useState(null);
-
+  const [publicPlan, setPublicPlan] = useState(null);
   const [coachEx, setCoachEx] = useState([]);
   const [dayItems, setDayItems] = useState({});
 
@@ -321,39 +322,52 @@ export default function CoachPlanEditor() {
     setDayItems((p) => ({ ...p, [dayId]: ids }));
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setErr("");
-    (async () => {
-      try {
-        const res = await getPlanByProduct(Number(productId));
-        if (cancelled) return;
-        const payload = res?.data ?? res;
-        const p = payload?.plan ?? (payload?.id ? payload : null);
-        const ws = Array.isArray(payload?.weeks) ? payload.weeks : [];
-        const ds = Array.isArray(payload?.days) ? payload.days : [];
-        setPlan(p);
-        setWeeks(ws);
-        const grouped = {};
-        ds.forEach((d) => {
-          const w = Number(d.week_number);
-          if (!grouped[w]) grouped[w] = [];
-          grouped[w].push(d);
-        });
-        Object.keys(grouped).forEach((k) =>
-          grouped[k].sort((a, b) => (a.day_number || 0) - (b.day_number || 0))
-        );
-        setDaysByWeek(grouped);
-        await Promise.all(ds.map((d) => loadDayItems(Number(productId), d.id)));
-      } catch (e) {
-        if (!cancelled) setErr(e.message || "Failed to load plan");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [productId, loadDayItems]);
+useEffect(() => {
+  let cancelled = false;
+  setLoading(true);
+  setErr("");
+
+  (async () => {
+    try {
+      // Coach API: struktūra edytinimui
+      const res = await getPlanByProduct(Number(productId));
+      if (cancelled) return;
+
+      const payload = res?.data ?? res;
+      const p = payload?.plan ?? (payload?.id ? payload : null);
+      const ws = Array.isArray(payload?.weeks) ? payload.weeks : [];
+      const ds = Array.isArray(payload?.days) ? payload.days : [];
+
+      setPlan(p);
+      setWeeks(ws);
+
+      const grouped = {};
+      ds.forEach((d) => {
+        const w = Number(d.week_number);
+        if (!grouped[w]) grouped[w] = [];
+        grouped[w].push(d);
+      });
+      Object.keys(grouped).forEach((k) =>
+        grouped[k].sort((a, b) => (a.day_number || 0) - (b.day_number || 0))
+      );
+      setDaysByWeek(grouped);
+
+      await Promise.all(ds.map((d) => loadDayItems(Number(productId), d.id)));
+
+      // Public API: tekstiniai pavadinimai/aprašai (rodymui)
+      const pub = await getPublicPlan(Number(productId));
+      const pubPayload = pub?.data ?? pub ?? null;
+      if (!cancelled) setPublicPlan(pubPayload || null);
+
+    } catch (e) {
+      if (!cancelled) setErr(e.message || "Failed to load plan");
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+  })();
+
+  return () => { cancelled = true; };
+}, [productId, loadDayItems]);
 
   useEffect(() => {
     let cancelled = false;
@@ -486,7 +500,14 @@ export default function CoachPlanEditor() {
   return (
     <Container size="xl" p="md">
       <Group justify="space-between" mb="md">
-        <Title order={2}>{plan.title || `Plan for product #${productId}`}</Title>
+        <Title order={2}>
+          {publicPlan?.plan?.title || plan?.title || `Plan for product #${productId}`}
+        </Title>
+        {(publicPlan?.plan?.description || plan?.description) && (
+          <Text c="dimmed" size="sm">
+            {publicPlan?.plan?.description || plan?.description}
+          </Text>
+        )}
         <Button variant="default" onClick={() => navigate(-1)}>Back</Button>
       </Group>
       <Divider mb="md" />

@@ -11,74 +11,94 @@ class CoachPublicController extends Controller
 {
     public function index(Request $r)
     {
-        $q         = trim((string) $r->input('q', ''));
-        $city      = trim((string) $r->input('city', ''));
-        $spec      = trim((string) $r->input('spec', ''));
-        $minPrice  = $r->input('min_price');
-        $maxPrice  = $r->input('max_price');
-        $expGte    = $r->input('experience_gte');
-        $expLte    = $r->input('experience_lte');
-        $page      = max(1, (int) $r->input('page', 1));
-        $perPage   = min(50, max(1, (int) $r->input('per_page', 12)));
+        $q        = trim((string) $r->input('q', ''));
+        $city     = trim((string) $r->input('city', ''));
+        $gym      = trim((string) $r->input('gym', ''));
+        $spec     = trim((string) $r->input('spec', ''));
+        $minPrice = $r->input('min_price');
+        $maxPrice = $r->input('max_price');
+        $expGte   = $r->input('experience_gte');
+        $expLte   = $r->input('experience_lte');
+        $page     = max(1, (int) $r->input('page', 1));
+        $perPage  = min(50, max(1, (int) $r->input('per_page', 12)));
 
         $query = CoachProfile::query();
 
-        if ($city !== '')            $query->where('city', 'like', '%'.$city.'%');
-        if ($minPrice !== null)      $query->where('price_per_session', '>=', (int)$minPrice);
-        if ($maxPrice !== null)      $query->where('price_per_session', '<=', (int)$maxPrice);
-        if ($expGte !== null)        $query->where('experience_years', '>=', (int)$expGte);
-        if ($expLte !== null)        $query->where('experience_years', '<=', (int)$expLte);
-
+        if ($city !== '')       $query->where('city', 'ilike', "%{$city}%");
+        if ($gym !== '')        $query->where(function ($qq) use ($gym) {
+                                    $qq->where('gym_name', 'ilike', "%{$gym}%")
+                                    ->orWhere('gym_address', 'ilike', "%{$gym}%");
+                                });
+        if ($minPrice !== null) $query->where('price_per_session', '>=', (int) $minPrice);
+        if ($maxPrice !== null) $query->where('price_per_session', '<=', (int) $maxPrice);
+        if ($expGte !== null)   $query->where('experience_years', '>=', (int) $expGte);
+        if ($expLte !== null)   $query->where('experience_years', '<=', (int) $expLte);
         if ($spec !== '') {
             $query->where(function ($q2) use ($spec) {
                 $q2->whereJsonContains('specializations', $spec)
-                   ->orWhere('specializations', 'like', '%'.$spec.'%');
+                ->orWhere('specializations', 'ilike', "%{$spec}%");
             });
         }
-
-        if ($q !== '') {
-            $query->where(function ($qq) use ($q) {
-                $qq->where('bio', 'like', '%'.$q.'%')
-                   ->orWhere('city', 'like', '%'.$q.'%')
-                   ->orWhere('availability_note', 'like', '%'.$q.'%')
-                   ->orWhere('specializations', 'like', '%'.$q.'%');
-            });
-        }
-
-        $query->orderByDesc('updated_at')->orderBy('id');
-        $paginator = $query->paginate($perPage, ['*'], 'page', $page);
 
         $authBase = rtrim(config('services.auth.base'), '/');
+        $profiles = $query->orderByDesc('updated_at')->orderBy('id')->get();
 
-        $data = $paginator->getCollection()->map(function (CoachProfile $p) use ($authBase) {
+        $rows = $profiles->map(function (CoachProfile $p) use ($authBase) {
             $name = null;
             $authAvatar = null;
             try {
-                $resp = Http::acceptJson()->get($authBase.'/public/users/'.$p->user_id);
+                $resp = \Illuminate\Support\Facades\Http::acceptJson()
+                    ->get($authBase.'/public/users/'.$p->user_id);
                 if ($resp->ok()) {
-                    $name = $resp->json('name');
+                    $first = $resp->json('first_name');
+                    $last  = $resp->json('last_name');
+                    $name  = trim(($first ? $first.' ' : '').($last ?? '')) ?: $resp->json('name');
                     $authAvatar = $resp->json('avatar_url');
                 }
-            } catch (\Throwable $e) {
-            }
+            } catch (\Throwable $e) {}
 
             return [
-                'id'                 => $p->id,
-                'user_id'            => $p->user_id,
-                'name'               => $name,
-                'city'               => $p->city,
-                'avatar_path'        => $p->avatar_path ?: $authAvatar,
-                'experience_years'   => $p->experience_years,
-                'price_per_session'  => $p->price_per_session,
-                'specializations'    => $p->specializations,
+                'id'                => $p->id,
+                'user_id'           => $p->user_id,
+                'name'              => $name,
+                'city'              => $p->city,
+                'gym_name'          => $p->gym_name,
+                'gym_address'       => $p->gym_address,
+                'avatar_path'       => $p->avatar_path ?: $authAvatar,
+                'experience_years'  => $p->experience_years,
+                'price_per_session' => $p->price_per_session,
+                'specializations'   => $p->specializations,
+                'bio'               => $p->bio,
+                'availability_note' => $p->availability_note,
             ];
         });
 
+        if ($q !== '') {
+            $qq = mb_strtolower($q);
+            $rows = $rows->filter(function ($row) use ($qq) {
+                $specs = is_array($row['specializations']) ? implode(' ', $row['specializations']) : (string)$row['specializations'];
+                $hay = mb_strtolower(trim(
+                    ($row['name'] ?? '').' '.
+                    ($row['city'] ?? '').' '.
+                    ($row['gym_name'] ?? '').' '.
+                    ($row['gym_address'] ?? '').' '.
+                    ($row['bio'] ?? '').' '.
+                    ($row['availability_note'] ?? '').' '.
+                    $specs
+                ));
+                return $hay !== '' && mb_strpos($hay, $qq) !== false;
+            })->values();
+        }
+
+        $total  = $rows->count();
+        $offset = ($page - 1) * $perPage;
+        $paged  = $rows->slice($offset, $perPage)->values();
+
         return response()->json([
-            'data'      => $data,
-            'page'      => $paginator->currentPage(),
-            'per_page'  => $paginator->perPage(),
-            'total'     => $paginator->total(),
+            'data'     => $paged,
+            'page'     => $page,
+            'per_page' => $perPage,
+            'total'    => $total,
         ]);
     }
 
@@ -89,27 +109,47 @@ class CoachPublicController extends Controller
             ->firstOrFail();
 
         $authBase = rtrim(config('services.auth.base'), '/');
-        $name = null; $authAvatar = null;
+        $name = null; 
+        $authAvatar = null;
         try {
             $resp = \Illuminate\Support\Facades\Http::acceptJson()
-                ->get($authBase.'/public/users/'.$profile->user_id);
+                ->get($authBase . '/public/users/' . $profile->user_id);
             if ($resp->ok()) {
-                $name       = $resp->json('name');
+                $name = $resp->json('name');
                 $authAvatar = $resp->json('avatar_url');
             }
         } catch (\Throwable $e) {}
 
+        $s = is_array($profile->socials) ? $profile->socials : [];
+
         return response()->json([
-            'id'                 => $profile->id,
-            'user_id'            => $profile->user_id,
-            'name'               => $name,
-            'city'               => $profile->city,
-            'bio'                => $profile->bio,
-            'avatar_path'        => $profile->avatar_path ?: $authAvatar,
-            'experience_years'   => $profile->experience_years,
-            'price_per_session'  => $profile->price_per_session,
-            'specializations'    => $profile->specializations,
-            'availability_note'  => $profile->availability_note,
+            'id'                => $profile->id,
+            'user_id'           => $profile->user_id,
+            'name'              => $name,
+            'avatar_path'       => $profile->avatar_path ?: $authAvatar,
+
+            'bio'               => $profile->bio,
+            'experience_years'  => $profile->experience_years,
+            'specializations'   => $profile->specializations,
+            'certifications'    => $profile->certifications,
+            'languages'         => $profile->languages,
+            'availability_note' => $profile->availability_note,
+
+            'city'              => $profile->city,
+            'country'           => $profile->country,
+            'timezone'          => $profile->timezone,
+
+            'phone'             => $profile->phone,
+            'website'           => $profile->website_url,
+            'gym_name'           => $profile->gym_name,
+            'gym_address'        => $profile->gym_address,
+
+            'instagram'         => $s['instagram'] ?? null,
+            'facebook'          => $s['facebook'] ?? null,
+            'youtube'           => $s['youtube'] ?? null,
+            'tiktok'            => $s['tiktok'] ?? null,
+            'linkedin'          => $s['linkedin'] ?? null,
+            'other'             => $s['other'] ?? null,
         ]);
     }
 

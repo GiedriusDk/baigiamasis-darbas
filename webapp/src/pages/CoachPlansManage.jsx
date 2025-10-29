@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Container,
   Title,
@@ -18,10 +18,20 @@ import {
   ActionIcon,
   Tooltip,
   Text,
+  Badge,
 } from "@mantine/core";
 import { IconArrowUp, IconArrowDown } from "@tabler/icons-react";
 import PlanCard from "../components/PlanCard";
 import { myProducts, createProduct, updateProduct, archiveProduct, reorderProducts } from "../api/payments";
+
+const currencies = [
+  { value: "EUR", label: "EUR (€)" },
+  { value: "USD", label: "USD ($)" },
+  { value: "GBP", label: "GBP (£)" },
+  { value: "PLN", label: "PLN (zł)" },
+  { value: "NOK", label: "NOK (kr)" },
+  { value: "SEK", label: "SEK (kr)" },
+];
 
 const empty = {
   title: "",
@@ -29,13 +39,10 @@ const empty = {
   price: "",
   currency: "EUR",
   type: "online",
-  gym_name: "",
-  gym_address: "",
   duration_weeks: "",
   sessions_per_week: "",
   access_days: "",
   includes_chat: true,
-  includes_calls: false,
   level: "",
   thumbnail_url: "",
   is_active: true,
@@ -60,7 +67,10 @@ export default function CoachPlansManage() {
       setLoading(false);
     }
   }
-  useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    load();
+  }, []);
 
   async function movePlan(id, dir) {
     const prev = plans;
@@ -92,13 +102,10 @@ export default function CoachPlansManage() {
       price: Math.round(parseFloat(String(form.price || "0").replace(",", ".")) * 100),
       currency: (form.currency || "EUR").toUpperCase(),
       type: form.type || "online",
-      gym_name: form.gym_name || null,
-      gym_address: form.gym_address || null,
       duration_weeks: form.duration_weeks !== "" ? Number(form.duration_weeks) : null,
       sessions_per_week: form.sessions_per_week !== "" ? Number(form.sessions_per_week) : null,
       access_days: form.access_days !== "" ? Number(form.access_days) : null,
       includes_chat: !!form.includes_chat,
-      includes_calls: !!form.includes_calls,
       level: form.level || null,
       thumbnail_url: form.thumbnail_url || null,
       is_active: !!form.is_active,
@@ -122,13 +129,10 @@ export default function CoachPlansManage() {
       price: (Number(p.price || 0) / 100).toFixed(2),
       currency: (p.currency || "EUR").toUpperCase(),
       type: p.type || "online",
-      gym_name: p.gym_name || "",
-      gym_address: p.gym_address || "",
       duration_weeks: p.duration_weeks ?? "",
       sessions_per_week: p.sessions_per_week ?? "",
       access_days: p.access_days ?? "",
       includes_chat: !!p.includes_chat,
-      includes_calls: !!p.includes_calls,
       level: p.level || "",
       thumbnail_url: p.thumbnail_url || "",
       is_active: !!p.is_active,
@@ -156,35 +160,50 @@ export default function CoachPlansManage() {
               <TextInput label="Price" placeholder="49.99" value={form.price} onChange={(e) => onChange("price", e.currentTarget.value)} required />
             </Grid.Col>
             <Grid.Col span={{ base: 6, md: 2 }}>
-              <TextInput label="Currency" placeholder="EUR" value={form.currency} onChange={(e) => onChange("currency", e.currentTarget.value.toUpperCase())} />
+              <Select label="Currency" data={currencies} value={form.currency} onChange={(v) => onChange("currency", v || "EUR")} />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 4 }}>
-              <Select label="Plan type" data={[{ value: "online", label: "Online" }, { value: "in_person", label: "In person" }, { value: "hybrid", label: "Hybrid" }]} value={form.type} onChange={(v) => onChange("type", v || "online")} required />
+              <Select
+                label="Plan type"
+                data={[
+                  { value: "online", label: "Online" },
+                  { value: "in_person", label: "In person" },
+                  { value: "hybrid", label: "Hybrid" },
+                ]}
+                value={form.type}
+                onChange={(v) => onChange("type", v || "online")}
+                required
+              />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 4 }}>
-              <NumberInput label="Duration (weeks)" min={1} max={52} allowDecimal={false} value={form.duration_weeks === "" ? "" : Number(form.duration_weeks)} onChange={(v) => onChange("duration_weeks", v ?? "")} placeholder="12" />
+              <NumberInput label="Duration (weeks)" min={1} max={52} value={form.duration_weeks === "" ? "" : Number(form.duration_weeks)} onChange={(v) => onChange("duration_weeks", v ?? "")} placeholder="12" />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 4 }}>
-              <NumberInput label="Sessions per week" min={1} max={14} allowDecimal={false} value={form.sessions_per_week === "" ? "" : Number(form.sessions_per_week)} onChange={(v) => onChange("sessions_per_week", v ?? "")} placeholder="3" />
+              <NumberInput label="Sessions per week" min={1} max={14} value={form.sessions_per_week === "" ? "" : Number(form.sessions_per_week)} onChange={(v) => onChange("sessions_per_week", v ?? "")} placeholder="3" />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 4 }}>
-              <NumberInput label="Access days" min={1} max={365} allowDecimal={false} value={form.access_days === "" ? "" : Number(form.access_days)} onChange={(v) => onChange("access_days", v ?? "")} placeholder="90" />
+              <NumberInput label="Access days" min={1} max={365} value={form.access_days === "" ? "" : Number(form.access_days)} onChange={(v) => onChange("access_days", v ?? "")} placeholder="90" />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 4 }}>
-              <Select label="Level" data={[{ value: "beginner", label: "Beginner" }, { value: "intermediate", label: "Intermediate" }, { value: "advanced", label: "Advanced" }]} value={form.level || null} onChange={(v) => onChange("level", v || "")} clearable />
+              <Select
+                label="Level"
+                data={[
+                  { value: "beginner", label: "Beginner" },
+                  { value: "intermediate", label: "Intermediate" },
+                  { value: "advanced", label: "Advanced" },
+                ]}
+                value={form.level || null}
+                onChange={(v) => onChange("level", v || "")}
+                clearable
+              />
             </Grid.Col>
-            {thumb && <Grid.Col span={12}><Image src={thumb} h={140} fit="cover" radius="md" /></Grid.Col>}
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <TextInput label="Gym name" placeholder="If in person" value={form.gym_name} onChange={(e) => onChange("gym_name", e.currentTarget.value)} />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <TextInput label="Gym address" placeholder="Street, city, country" value={form.gym_address} onChange={(e) => onChange("gym_address", e.currentTarget.value)} />
-            </Grid.Col>
+            {thumb && (
+              <Grid.Col span={12}>
+                <Image src={thumb} h={140} fit="cover" radius="md" />
+              </Grid.Col>
+            )}
             <Grid.Col span={{ base: 12, md: 6 }}>
               <Switch label="Includes chat" checked={!!form.includes_chat} onChange={(e) => onChange("includes_chat", e.currentTarget.checked)} />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <Switch label="Includes calls" checked={!!form.includes_calls} onChange={(e) => onChange("includes_calls", e.currentTarget.checked)} />
             </Grid.Col>
             <Grid.Col span={12}>
               <Textarea label="Description" placeholder="Weekly check-ins, video calls..." minRows={3} value={form.description} onChange={(e) => onChange("description", e.currentTarget.value)} />
@@ -226,7 +245,12 @@ export default function CoachPlansManage() {
                       </ActionIcon>
                     </Tooltip>
                   </Group>
-                  <Text size="xs" c="dimmed">Order: {i + 1}</Text>
+                  <Group gap="xs">
+                    <Badge variant="light" color={p.is_active ? "green" : "red"}>
+                      {p.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                    <Text size="xs" c="dimmed">Order: {i + 1}</Text>
+                  </Group>
                 </Group>
               </Card>
             </Grid.Col>

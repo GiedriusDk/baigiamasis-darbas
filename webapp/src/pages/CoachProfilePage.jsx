@@ -106,6 +106,8 @@ export default function CoachProfilePage() {
         certifications: fromCsv(form.certifications),
         phone: form.phone || null,
         website_url: form.website_url || null,
+        gym_name: form.gym_name || null,
+        gym_address: form.gym_address || null,
         socials: {
           instagram: form.socials?.instagram || "",
           facebook: form.socials?.facebook || "",
@@ -210,6 +212,18 @@ export default function CoachProfilePage() {
               placeholder="https://your-site.com"
               value={form.website_url}
               onChange={(e) => update("website_url", e.currentTarget.value)}
+            />
+            <TextInput
+              label="Gym name"
+              placeholder="Example: GymPlus, Impuls..."
+              value={form.gym_name}
+              onChange={(e) => update("gym_name", e.currentTarget.value)}
+            />
+            <TextInput
+              label="Gym address"
+              placeholder="Street, city, country"
+              value={form.gym_address}
+              onChange={(e) => update("gym_address", e.currentTarget.value)}
             />
           </Stack>
         </Grid.Col>

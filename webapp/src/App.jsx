@@ -126,25 +126,29 @@ function AppInner() {
       <AppShell.Navbar p="md">
         <ScrollArea type="always" offsetScrollbars>
           <NavLink component={Link} to="/" label="Home" active={location.pathname === '/'} />
-          <NavLink component={Link} to="/plans" label="Generate Plan" active={location.pathname === '/plans'} />
-          <NavLink component={Link} to="/my" label="My plan" active={location.pathname === '/my'} />
           <NavLink component={Link} to="/exercises" label="Exercises" active={location.pathname.startsWith('/exercises')} />
           <NavLink component={Link} to="/coaches" label="Coaches" active={location.pathname.startsWith('/coaches')} />
 
           {ready && !isCoach && (
+            <>
             <NavLink component={Link} to="/profile" label="My profile" active={location.pathname.startsWith('/profile')} />
+            <NavLink component={Link} to="/plans" label="Generate Plan" active={location.pathname === '/plans'} />
+            <NavLink component={Link} to="/my" label="My plan" active={location.pathname === '/my'} />
+            </>
           )}
 
           {ready && isCoach && (
             <>
-              <NavLink component={Link} to="/coach/profile" label="Coach profile" active={location.pathname.startsWith('/coach/profile')} />
-              <NavLink component={Link} to="/coach/exercises" label="Coach exercises" active={location.pathname.startsWith('/coach/exercises')} />
+              <NavLink component={Link} to="/coach/exercises" label="Manage exercises" active={location.pathname.startsWith('/coach/exercises')} />
               <NavLink component={Link} to="/coach/plans/manage" label="Manage plans" active={location.pathname.startsWith('/coach/plans/manage')}/>
               <NavLink component={Link} to={`/coach/${user?.id}/plans`} label="Public plans" active={location.pathname.startsWith(`/coach/${user?.id}/plans`)}/>
+              <NavLink component={Link} to="/coach/profile" label="Profile" active={location.pathname.startsWith('/coach/profile')} />
             </>
           )}
 
-          {ready && user && <NavLink component={Link} to="/settings" label="Settings" active={location.pathname === '/settings'} />}
+          {ready && user && (
+              <NavLink component={Link} to="/settings" label="Settings" active={location.pathname === '/settings'} />
+          )}
         </ScrollArea>
       </AppShell.Navbar>
 
