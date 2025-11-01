@@ -3,14 +3,20 @@
 namespace App\Services\PlanGenerators;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use App\Services\CatalogService;
 
 class SplitGenerator
 {
     public function __construct(protected CatalogService $catalog) {}
 
-    public function generate(string $goal, int $sessions, ?string $equipment = null, int $durationMin = 60): array
-    {
+    public function generate(
+        string $goal,
+        int $sessions,
+        ?string $equipment = null,
+        int $durationMin = 60,
+        array $injuries = []
+    ): array {
         $split = DB::table('splits')
             ->where('goal', $goal)
             ->where('sessions_per_week', $sessions)
@@ -24,6 +30,7 @@ class SplitGenerator
             ->get();
 
         $scheme = GoalConfig::config($goal)['scheme'];
+        $banned = $this->injuriesToBannedMuscles($injuries);
 
         $out = [];
         foreach ($days as $day) {
@@ -46,6 +53,9 @@ class SplitGenerator
                 ]);
 
                 if ($pool) {
+                    $pool = array_values(array_filter($pool, fn ($ex) => $this->isSafeForInjuries($ex, $banned)));
+                    if (!$pool) continue;
+
                     $slotPools[$slot->tag] = $pool;
                     shuffle($pool);
                     $subset = array_slice($pool, 0, (int) $slot->count);
@@ -199,5 +209,69 @@ class SplitGenerator
         if ($coreLast) $picked[] = $coreLast;
 
         return $picked;
+    }
+
+    protected function injuriesToBannedMuscles(array $injuries): array
+    {
+        $map = [
+            'Arms'       => ['biceps','triceps','forearms'],
+            'Shoulders'  => ['shoulders','delts','front delts','rear delts'],
+            'Back'       => ['lats','upper back','lower back','traps','erectors'],
+            'Chest'      => ['chest','pectorals','pecs'],
+            'Abs'        => ['abs','core','obliques'],
+            'Quads'      => ['quads'],
+            'Hamstrings' => ['hamstrings'],
+            'Glutes'     => ['glutes'],
+            'Calves'     => ['calves'],
+            'Neck'       => ['neck'],
+            'Hips'       => ['hips','hip flexors'],
+            'Knees'      => ['quads','hamstrings','glutes','calves'],
+            'Elbows'     => ['biceps','triceps','forearms'],
+            'Wrists'     => ['forearms'],
+            'Ankles'     => ['calves'],
+            'legs'       => ['legs','quads','hamstrings','glutes','calves'],
+        ];
+
+        $banned = [];
+        foreach ($injuries as $inj) {
+            foreach ($map[$inj] ?? [] as $m) {
+                $banned[Str::lower($m)] = true;
+            }
+        }
+        return $banned;
+    }
+
+    protected function isSafeForInjuries(array $ex, array $banned): bool
+    {
+        if (empty($banned)) return true;
+
+        $muscles = [];
+        foreach (['primary_muscle','secondary_muscles','tags'] as $k) {
+            $v = $ex[$k] ?? null;
+            if (is_string($v)) {
+                foreach (explode(',', $v) as $p) {
+                    $p = Str::lower(trim($p));
+                    if ($p !== '') $muscles[$p] = true;
+                }
+            } elseif (is_array($v)) {
+                foreach ($v as $p) {
+                    $p = Str::lower(trim((string)$p));
+                    if ($p !== '') $muscles[$p] = true;
+                }
+            }
+        }
+
+        foreach ($muscles as $m => $_) {
+            if (isset($banned[$m])) return false;
+        }
+
+        if (isset($banned['lats']) || isset($banned['lower back']) || isset($banned['upper back'])) {
+            $name = Str::lower(($ex['name'] ?? $ex['title'] ?? ''));
+            if (preg_match('/deadlift|good\s*morning|back\s*extension/', $name)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

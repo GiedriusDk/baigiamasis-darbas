@@ -127,14 +127,20 @@ function AppInner() {
         <ScrollArea type="always" offsetScrollbars>
           <NavLink component={Link} to="/" label="Home" active={location.pathname === '/'} />
           <NavLink component={Link} to="/exercises" label="Exercises" active={location.pathname.startsWith('/exercises')} />
-          <NavLink component={Link} to="/coaches" label="Coaches" active={location.pathname.startsWith('/coaches')} />
+        
 
           {ready && !isCoach && (
             <>
-            <NavLink component={Link} to="/profile" label="My profile" active={location.pathname.startsWith('/profile')} />
             <NavLink component={Link} to="/plans" label="Generate Plan" active={location.pathname === '/plans'} />
             <NavLink component={Link} to="/my" label="My plan" active={location.pathname === '/my'} />
             </>
+          )}
+
+
+
+            <NavLink component={Link} to="/coaches" label="Coaches" active={location.pathname.startsWith('/coaches')} />
+          {ready && !isCoach && (
+            <NavLink component={Link} to="/profile" label="My profile" active={location.pathname.startsWith('/profile')} />
           )}
 
           {ready && isCoach && (
@@ -146,6 +152,7 @@ function AppInner() {
             </>
           )}
 
+            
           {ready && user && (
               <NavLink component={Link} to="/settings" label="Settings" active={location.pathname === '/settings'} />
           )}

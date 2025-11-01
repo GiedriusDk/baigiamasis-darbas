@@ -1,4 +1,4 @@
-// src/pages/PlannerPage.jsx
+
 import { useEffect, useMemo, useState } from "react";
 import {
   Paper, Title, Text, Group, Button, Select, NumberInput, Stack,
@@ -7,7 +7,6 @@ import { IconInfoCircle } from "@tabler/icons-react";
 import { createPlan, getPlan } from "../api/planner";
 import { notifications } from "@mantine/notifications";
 
-// (nebūtina) – UI prefill iš profilio; backend vis tiek pasiims S2S
 async function fetchProfileDefaults(token) {
   const r = await fetch("/api/profiles/user/profile", {
     headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
@@ -37,9 +36,19 @@ const INJURIES = [
   { value: "arms", label: "Arms" },
   { value: "shoulders", label: "Shoulders" },
   { value: "back", label: "Back" },
+  { value: "chest", label: "Chest" },
+  { value: "abs", label: "Abs / Core" },
+  { value: "legs", label: "Legs (general)" },
+  { value: "quads", label: "Quads" },
+  { value: "hamstrings", label: "Hamstrings" },
+  { value: "glutes", label: "Glutes" },
+  { value: "calves", label: "Calves" },
   { value: "knees", label: "Knees" },
   { value: "ankles", label: "Ankles" },
-  { value: "legs", label: "Legs" },
+  { value: "hips", label: "Hips" },
+  { value: "neck", label: "Neck" },
+  { value: "elbows", label: "Elbows" },
+  { value: "wrists", label: "Wrists" },
 ];
 
 // paima {data: {...}} arba {...}
@@ -97,7 +106,6 @@ export default function PlannerPage() {
      })
    );
    if (!created?.id) throw new Error("Failed to create plan");
-   // VISADA pasiimam enriched planą iš show()
    const full = unwrap(await getPlan(created.id));
    setPlan(full);
     } catch (e) {
@@ -113,7 +121,6 @@ export default function PlannerPage() {
     setErr("");
     setLoading(true);
     try {
-      // čia tikslingai nenaudojam getPlan – tik atnaujinam profilį
       await createPlan({
         goal,
         sessions_per_week: sessions,
@@ -124,7 +131,7 @@ export default function PlannerPage() {
         save_as_defaults: true,
       });
 
-      setPlan(null); // nieko nerodom – tik defaultai išsaugoti
+      setPlan(null);
       notifications.show({ color: "green", message: "Defaults saved to your profile" });
     } catch (e) {
       setErr(e.message || "Failed to save defaults");

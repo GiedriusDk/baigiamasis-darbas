@@ -5,20 +5,19 @@ import {
   Loader, Alert, Divider, Button, Modal, AspectRatio, ActionIcon, Anchor
 } from "@mantine/core";
 import { IconBrandInstagram, IconBrandFacebook, IconBrandYoutube, IconBrandLinkedin } from "@tabler/icons-react";
-import { getPublicCoach, getPublicCoachExercises } from "../api/profiles";
+import { getPublicCoach, getPublicCoachExercises, getSharedExerciseById } from "../api/profiles";
 import { listProducts, createOrder, checkout, getProductExerciseIdsPublic, getMyAccess } from "../api/payments";
 import { getPublicUser } from "../api/auth";
 import { useAuth } from "../auth/useAuth";
 import PlanCard from "../components/PlanCard";
+import ExerciseDetailsModal from "../components/ExerciseDetailsModal.jsx";
 
 function getYoutubeId(url = "") {
   try {
     const regExp = /(?:youtube\.com\/(?:.*v=|v\/|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,12})/;
-    const match = url.match(regExp);
-    return match ? match[1] : null;
-  } catch {
-    return null;
-  }
+    const m = url.match(regExp);
+    return m ? m[1] : null;
+  } catch { return null; }
 }
 function isVideoUrl(url = "") {
   const lower = url.toLowerCase();
@@ -37,11 +36,10 @@ function MediaThumb({ url, blurred, onOpenImage, onOpenVideo, onOpenYouTube }) {
   const wrapperStyle = { position: "relative", borderRadius: 12, width: "100%", height: 160, overflow: "hidden", cursor: clickable ? "pointer" : "default" };
   const mediaStyle = { width: "100%", height: "100%", objectFit: "contain", filter: blurred ? "blur(8px) brightness(0.7)" : "none", pointerEvents: blurred ? "none" : "auto", userSelect: "none", display: "block" };
   const Overlay = ({ children }) => (
-    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, letterSpacing: 0.3, textShadow: "0 2px 8px rgba(0,0,0,.45)", fontSize: 22, pointerEvents: "none" }}>
-      {children}
-    </div>
+    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, letterSpacing: 0.3, textShadow: "0 2px 8px rgba(0,0,0,.45)", fontSize: 22, pointerEvents: "none" }}>{children}</div>
   );
-  const handleClick = () => {
+  const handleClick = (e) => {
+    e.stopPropagation();
     if (!clickable) return;
     if (ytId && onOpenYouTube) return onOpenYouTube(ytId);
     if (isVideoUrl(url) && onOpenVideo) return onOpenVideo(url);
@@ -59,7 +57,7 @@ function MediaThumb({ url, blurred, onOpenImage, onOpenVideo, onOpenYouTube }) {
   if (isVideoUrl(url)) {
     return (
       <div style={wrapperStyle} onClick={handleClick}>
-        <video src={url} style={mediaStyle} controls={false} />
+        <video src={url} style={mediaStyle} />
         <Overlay>{blurred ? "Locked" : "▶"}</Overlay>
       </div>
     );
@@ -95,11 +93,14 @@ function MediaViewer({ imageUrl, videoUrl, opened, onClose }) {
   );
 }
 
+
 export default function CoachPublicPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, ready } = useAuth();
-
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalExercise, setModalExercise] = useState(null);
+  const [modalExerciseId, setModalExerciseId] = useState(null);
   const [coach, setCoach] = useState(null);
   const [coachUser, setCoachUser] = useState(null);
   const [exercises, setExercises] = useState([]);
@@ -223,6 +224,38 @@ export default function CoachPublicPage() {
     [access.product_ids]
   );
 
+  const hasAccessToExercise = (e) => {
+    const prodIds = (exerciseToProductIds[e.id] || []).map(Number);
+    const ownsAnyPlanWithThis = prodIds.some(pid => ownedProducts.has(pid));
+    const isCatalog = Boolean(e.catalog_id ?? e.is_catalog);
+    const needsPlan = isCatalog ? !ownsAnyPlanWithThis : (!!e.is_paid && !ownsAnyPlanWithThis);
+    return !needsPlan; // true = galima rodyti pilną info
+  };
+
+  async function openExerciseDetails(e) {
+    if (!hasAccessToExercise(e)) return;
+
+    // Jeigu pratimas iš katalogo – duosim tik ID, o modalas pats atsisiųs duomenis
+    if (e.catalog_id) {
+      setModalExercise(null);
+      setModalExerciseId(Number(e.catalog_id));
+    } else {
+      // Trenerio kurtas pratimas – paduodam visus laukus, kurių tikisi modalo komponentas
+      setModalExercise({
+        id: e.id,
+        name: e.title || e.name || "Exercise",
+        image_url: e.media_url || e.image_url,
+        // Modalas „instructions“ pats išsivynioja: masyvas / JSON string / paprastas tekstas ar per \n
+        instructions: e.instructions ?? e.description ?? "",
+        primary_muscle: e.primary_muscle,
+        equipment: e.equipment,
+      });
+      setModalExerciseId(null);
+    }
+
+    setModalOpen(true);
+  }
+
   if (loading) return <Group justify="center"><Loader /></Group>;
   if (err) return <Alert color="red">{err}</Alert>;
   if (!coach) return null;
@@ -275,30 +308,23 @@ export default function CoachPublicPage() {
                 {coach.availability_note && <Text size="sm">{coach.availability_note}</Text>}
               </Stack>
             </Grid.Col>
-
             <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
               <Stack gap={6}>
                 <Text c="dimmed" size="sm">Languages</Text>
                 {langs.length ? (
                   <Group gap={6} wrap="wrap">{langs.map((l, i) => <Badge key={i} variant="light">{l}</Badge>)}</Group>
-                ) : (
-                  <Text>—</Text>
-                )}
+                ) : <Text>—</Text>}
               </Stack>
             </Grid.Col>
-
-                        <Grid.Col span={{ base: 12, sm: 12, md: 4 }}>
+            <Grid.Col span={{ base: 12, sm: 12, md: 4 }}>
               <Stack gap={6}>
                 <Text c="dimmed" size="sm">Location</Text>
                 <Text size="sm">{coach.city || "—"}</Text>
-                <Text size="sm">
-                  {coach.country || ""} {coach.timezone ? `• ${coach.timezone}` : ""}
-                </Text>
+                <Text size="sm">{coach.country || ""} {coach.timezone ? `• ${coach.timezone}` : ""}</Text>
               </Stack>
             </Grid.Col>
           </Grid>
 
-          {/* 2-oji eilė: kairė = Contacts + Social + Certifications, dešinė = Specializations + Gym */}
           <Grid gutter="md" mt="xs">
             <Grid.Col span={{ base: 12, md: 6 }}>
               <Stack gap={14}>
@@ -307,18 +333,12 @@ export default function CoachPublicPage() {
                   <Group gap="md">
                     <Text size="sm">{coach.phone}</Text>
                     {coach.website && (
-                      <Anchor
-                        href={/^https?:\/\//i.test(coach.website) ? coach.website : `https://${coach.website}`}
-                        target="_blank"
-                        rel="noopener"
-                        size="sm"
-                      >
+                      <Anchor href={/^https?:\/\//i.test(coach.website) ? coach.website : `https://${coach.website}`} target="_blank" rel="noopener" size="sm">
                         {coach.website}
                       </Anchor>
                     )}
                   </Group>
                 </div>
-
                 <div>
                   <Text c="dimmed" size="sm">Social</Text>
                   <Group gap="md">
@@ -330,18 +350,15 @@ export default function CoachPublicPage() {
                     {coach.other     && <Anchor c="dimmed" href={coach.other}     target="_blank" rel="noopener">Other</Anchor>}
                   </Group>
                 </div>
-
                 <div>
                   <Text c="dimmed" size="sm">Certifications</Text>
-                  {certs.length ? (
+                  {normalizeList(coach.certifications).length ? (
                     <Group gap={6} wrap="wrap">
-                      {certs.map((c, i) => (
+                      {normalizeList(coach.certifications).map((c, i) => (
                         <Badge key={i} color="teal" variant="light">{c}</Badge>
                       ))}
                     </Group>
-                  ) : (
-                    <Text>—</Text>
-                  )}
+                  ) : <Text>—</Text>}
                 </div>
               </Stack>
             </Grid.Col>
@@ -352,15 +369,10 @@ export default function CoachPublicPage() {
                   <Text c="dimmed" size="sm">Specializations</Text>
                   {specs.length ? (
                     <Group gap={6} wrap="wrap">
-                      {specs.map((s, i) => (
-                        <Badge key={i} variant="outline">{s}</Badge>
-                      ))}
+                      {specs.map((s, i) => <Badge key={i} variant="outline">{s}</Badge>)}
                     </Group>
-                  ) : (
-                    <Text>—</Text>
-                  )}
+                  ) : <Text>—</Text>}
                 </div>
-
                 {coach.gym_name && (
                   <div>
                     <Text c="dimmed" size="sm">Gym</Text>
@@ -405,7 +417,7 @@ export default function CoachPublicPage() {
 
           return (
             <Grid.Col key={e.id} span={{ base: 12, sm: 6, md: 4, lg: 3 }}>
-              <Card withBorder radius="lg" padding="sm">
+              <Card withBorder radius="lg" padding="sm" onClick={() => openExerciseDetails(e)} style={{ cursor: hasAccessToExercise(e) ? "pointer" : "default" }}>
                 <MediaThumb
                   url={e.media_url}
                   blurred={blurred}
@@ -442,6 +454,13 @@ export default function CoachPublicPage() {
         videoUrl={viewerVideo}
         opened={viewerOpen}
         onClose={() => { setViewerOpen(false); setViewerImage(null); setViewerVideo(null); }}
+      />
+
+      <ExerciseDetailsModal
+        opened={modalOpen}
+        onClose={() => { setModalOpen(false); setModalExercise(null); setModalExerciseId(null); }}
+        exercise={modalExercise}
+        exerciseId={modalExerciseId}
       />
     </Stack>
   );

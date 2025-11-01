@@ -38,12 +38,10 @@ class PlanController extends Controller
 
     public function store(Request $r, SplitGenerator $splitGen, \App\Services\ProfilesService $profiles)
     {
-        // 1) Auth
         $authUser = $r->attributes->get('auth_user');
         $userId   = $authUser['id'] ?? null;
         if (!$userId) return response()->json(['message' => 'Unauthenticated.'], 401);
 
-        // 2) Defaults iš Profiles (S2S)
         $defaults = [];
         try {
             $defaults = $profiles->getProfile((string) $r->bearerToken()) ?? [];
@@ -51,7 +49,6 @@ class PlanController extends Controller
             report($e);
         }
 
-        // 3) Validacija iš UI
         $data = $r->validate([
             'goal'              => 'nullable|string|in:fat_loss,muscle_gain,performance,general_fitness',
             'sessions_per_week' => 'nullable|integer|in:2,3,4',
@@ -64,7 +61,6 @@ class PlanController extends Controller
             'save_as_defaults'  => 'sometimes|boolean',
         ]);
 
-        // 4) Merge (UI > defaults > fallback)
         $merged = [
             'goal'              => $data['goal'] ?? ($defaults['goal'] ?? 'general_fitness'),
             'sessions_per_week' => (int)($data['sessions_per_week'] ?? ($defaults['sessions_per_week'] ?? 3)),
@@ -75,7 +71,6 @@ class PlanController extends Controller
             'injuries'          => $data['injuries'] ?? ($defaults['injuries'] ?? []),
         ];
 
-        // 5) Tik "Save as defaults" — atnaujinam profi lį ir grįžtam
         if (!empty($data['save_as_defaults'])) {
             try {
                 $payload = [
@@ -101,7 +96,6 @@ class PlanController extends Controller
             }
         }
 
-        // 6) Kuriam planą
         DB::beginTransaction();
         try {
             $plan = Plan::create([
@@ -117,7 +111,8 @@ class PlanController extends Controller
                 $merged['goal'],
                 $merged['sessions_per_week'],
                 $merged['equipment'],
-                $merged['session_minutes']
+                $merged['session_minutes'],
+                $merged['injuries']       // <- svarbu
             );
 
             if (!$template) {
