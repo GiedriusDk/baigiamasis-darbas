@@ -14,15 +14,17 @@ import ExerciseDetailsModal from "../components/ExerciseDetailsModal.jsx";
 
 function getYoutubeId(url = "") {
   try {
-    const regExp = /(?:youtube\.com\/(?:.*v=|v\/|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,12})/;
-    const m = url.match(regExp);
+    const re = /(?:youtube\.com\/(?:.*v=|v\/|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,12})/;
+    const m = String(url).match(re);
     return m ? m[1] : null;
   } catch { return null; }
 }
+
 function isVideoUrl(url = "") {
-  const lower = url.toLowerCase();
-  return lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.includes("vimeo.com");
+  const u = String(url).toLowerCase();
+  return u.endsWith(".mp4") || u.endsWith(".webm") || u.includes("vimeo.com");
 }
+
 function normalizeList(v) {
   if (Array.isArray(v)) return v.filter(Boolean);
   if (!v) return [];
@@ -229,23 +231,21 @@ export default function CoachPublicPage() {
     const ownsAnyPlanWithThis = prodIds.some(pid => ownedProducts.has(pid));
     const isCatalog = Boolean(e.catalog_id ?? e.is_catalog);
     const needsPlan = isCatalog ? !ownsAnyPlanWithThis : (!!e.is_paid && !ownsAnyPlanWithThis);
-    return !needsPlan; // true = galima rodyti pilną info
+    return !needsPlan;
   };
 
   async function openExerciseDetails(e) {
     if (!hasAccessToExercise(e)) return;
 
-    // Jeigu pratimas iš katalogo – duosim tik ID, o modalas pats atsisiųs duomenis
     if (e.catalog_id) {
       setModalExercise(null);
       setModalExerciseId(Number(e.catalog_id));
     } else {
-      // Trenerio kurtas pratimas – paduodam visus laukus, kurių tikisi modalo komponentas
       setModalExercise({
         id: e.id,
         name: e.title || e.name || "Exercise",
-        image_url: e.media_url || e.image_url,
-        // Modalas „instructions“ pats išsivynioja: masyvas / JSON string / paprastas tekstas ar per \n
+        image_url: e.image_url || (isVideoUrl(e.media_url) ? null : e.media_url),
+        video_url: e.media_url, // <-- svarbu
         instructions: e.instructions ?? e.description ?? "",
         primary_muscle: e.primary_muscle,
         equipment: e.equipment,

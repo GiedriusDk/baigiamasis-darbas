@@ -167,7 +167,7 @@ export default function UserProfilePage() {
             </Stack>
 
             <Select
-              label="Sex"
+              label="Gender"
               data={[
                 { value: 'male', label: 'Male' },
                 { value: 'female', label: 'Female' },
