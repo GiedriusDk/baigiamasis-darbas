@@ -9,12 +9,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Plan extends Model
 {
     protected $fillable = [
-        'user_id',
-        'goal',
-        'sessions_per_week',
-        'start_date',
-        'weeks',
-        'session_minutes',
+        'user_id','goal','sessions_per_week','start_date','weeks',
+        'session_minutes','equipment','injuries','meta'
+    ];
+
+    protected $casts = [
+        'injuries' => 'array',
+        'meta'     => 'array',
+        'start_date' => 'date',
     ];
 
     public function workouts(): HasMany

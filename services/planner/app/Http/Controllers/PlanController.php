@@ -33,7 +33,10 @@ class PlanController extends Controller
             }
         }
 
-        return response()->json($plan);
+        return response()->json([
+            ...$plan->toArray(),
+            'start_date' => optional($plan->start_date)->format('Y-m-d'),
+        ]);
     }
 
     public function store(Request $r, SplitGenerator $splitGen, \App\Services\ProfilesService $profiles)
@@ -80,9 +83,7 @@ class PlanController extends Controller
                     'equipment'         => [$merged['equipment']],
                     'injuries'          => array_values(array_unique($merged['injuries'] ?? [])),
                 ];
-
                 $profiles->updateProfile($payload, (string) $r->bearerToken());
-
                 return response()->json([
                     'message' => 'Profile defaults updated successfully',
                     'updated' => $payload,
@@ -105,6 +106,8 @@ class PlanController extends Controller
                 'start_date'        => $merged['start_date'],
                 'weeks'             => $merged['weeks'],
                 'session_minutes'   => $merged['session_minutes'],
+                'equipment'         => $merged['equipment'],
+                'injuries'          => array_values($merged['injuries'] ?? []),
             ]);
 
             $template = $splitGen->generate(
@@ -112,7 +115,7 @@ class PlanController extends Controller
                 $merged['sessions_per_week'],
                 $merged['equipment'],
                 $merged['session_minutes'],
-                $merged['injuries']       // <- svarbu
+                $merged['injuries']
             );
 
             if (!$template) {
@@ -145,7 +148,6 @@ class PlanController extends Controller
             DB::commit();
             $plan->load('workouts.exercises');
             return response()->json($plan, 201);
-
         } catch (\Throwable $e) {
             DB::rollBack();
             if (config('app.debug')) {
@@ -186,6 +188,9 @@ class PlanController extends Controller
             }
         }
 
-        return response()->json($plan);
+        return response()->json([
+            ...$plan->toArray(),
+            'start_date' => optional($plan->start_date)->format('Y-m-d'),
+        ]);
     }
 }

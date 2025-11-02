@@ -98,7 +98,12 @@ export default function MyPlanPage() {
           <Badge variant="light">Total days: {plan.workouts?.length || 0}</Badge>
         </Group>
         <Text size="sm" c="dimmed" mb="sm">
-          <b>Goal:</b> {toTitle(plan.goal)} • <b>Weeks:</b> {plan.weeks} • <b>Start:</b> {plan.start_date}
+          <b>Goal:</b> {toTitle(plan.goal)} •
+          <b>Sessions:</b> {plan.sessions_per_week} •
+          <b>Start:</b> {plan.start_date} •
+          <b>Equipment:</b> {plan.equipment || '—'} •
+          <b>Session duration:</b> {plan.session_minutes} •
+          <b>Injuries:</b> {(plan.injuries?.length ? plan.injuries.join(', ') : 'none')}
         </Text>
         <Divider my="sm" />
 

@@ -39,51 +39,58 @@ class SplitGenerator
                 ->orderBy('id')
                 ->get();
 
-            $picked = [];
-            $slotPools = [];
-
-            if ($warm = WarmUpPicker::pick($this->catalog, $goal, $day->name, $equipment)) {
-                $picked[] = $warm;
-            }
+            $picked       = [];
+            $slotPools    = [];
+            $alreadyIds   = [];
+            $alreadyNames = [];
 
             foreach ($slots as $slot) {
                 $pool = $this->catalog->byTag($slot->tag, [
                     'equipment' => ($equipment === 'gym') ? null : $equipment,
-                    'per_page'  => 100,
+                    'per_page'  => 120,
                 ]);
 
-                if ($pool) {
-                    $pool = array_values(array_filter($pool, fn ($ex) => $this->isSafeForInjuries($ex, $banned)));
-                    if (!$pool) continue;
+                if (!$pool) continue;
 
-                    $slotPools[$slot->tag] = $pool;
-                    shuffle($pool);
-                    $subset = array_slice($pool, 0, (int) $slot->count);
+                $pool = array_values(array_filter($pool, fn ($ex) => $this->isSafeForInjuries($ex, $banned)));
+                if (!$pool) continue;
 
-                    foreach ($subset as $ex) {
-                        $picked[] = [
-                            'id'        => $ex['id'],
-                            'name'      => $ex['name'] ?? 'Exercise',
-                            'sets'      => $scheme['sets'],
-                            'rep_min'   => $scheme['rep_min'],
-                            'rep_max'   => $scheme['rep_max'],
-                            'rest_sec'  => $scheme['rest'],
-                            '_meta_tag' => $slot->tag,
-                        ];
-                    }
+                $slotPools[$slot->tag] = $pool;
+                shuffle($pool);
+
+                $subset = [];
+                foreach ($pool as $cand) {
+                    if (count($subset) >= (int)$slot->count) break;
+                    $id  = (string)($cand['id'] ?? '');
+                    $nm  = Str::lower(trim((string)($cand['name'] ?? $cand['title'] ?? '')));
+                    if ($id !== '' && isset($alreadyIds[$id])) continue;
+                    if ($nm !== '' && isset($alreadyNames[$nm])) continue;
+                    $subset[] = $cand;
+                    if ($id !== '') $alreadyIds[$id] = true;
+                    if ($nm !== '') $alreadyNames[$nm] = true;
+                }
+
+                foreach ($subset as $ex) {
+                    $picked[] = [
+                        'id'        => $ex['id'],
+                        'name'      => $ex['name'] ?? 'Exercise',
+                        'sets'      => $scheme['sets'],
+                        'rep_min'   => $scheme['rep_min'],
+                        'rep_max'   => $scheme['rep_max'],
+                        'rest_sec'  => $scheme['rest'],
+                        '_meta_tag' => $slot->tag,
+                    ];
                 }
             }
-
-            $picked = CoreLast::enforce($picked);
 
             $budget = max(10, $durationMin) * 60;
             $spent  = $this->totalSeconds($picked, $goal);
 
             if ($spent < $budget * 0.85 && !empty($slotPools)) {
-                $picked = $this->topUpToBudget($picked, $slotPools, $goal, $durationMin, maxExtra: 8, maxTotal: 18);
+                $picked = $this->topUpToBudget($picked, $slotPools, $goal, $durationMin, 8, 24, $banned);
             }
 
-            $picked = $this->timebox($picked, $goal, $day->name, $durationMin);
+            $picked = $this->timebox($picked, $goal, $durationMin);
 
             $out[] = [
                 'name'      => $day->name,
@@ -97,11 +104,7 @@ class SplitGenerator
 
     protected function estimateExerciseSeconds(array $ex, string $goal): int
     {
-        if (($ex['_meta_tag'] ?? null) === 'warmup' || ($ex['_is_warmup'] ?? false)) {
-            $sec = (int)($ex['rep_max'] ?? $ex['rep_min'] ?? 30);
-            return max(20, min(300, $sec));
-        }
-        $repSec = 3;
+        $repSec = 6;
         $rest = (int)($ex['rest_sec'] ?? 60);
         $sets = max(1, (int)($ex['sets'] ?? 3));
         $minR = max(1, (int)($ex['rep_min'] ?? 8));
@@ -112,7 +115,7 @@ class SplitGenerator
         return $sets * $setTotal;
     }
 
-    protected function timebox(array $exList, string $goal, string $dayName, int $durationMin): array
+    protected function timebox(array $exList, string $goal, int $durationMin): array
     {
         $budget = max(10, $durationMin) * 60;
         $kept   = [];
@@ -120,9 +123,7 @@ class SplitGenerator
 
         foreach ($exList as $i => $ex) {
             $need = $this->estimateExerciseSeconds($ex, $goal);
-            if ($i > 0 && ($ex['_meta_tag'] ?? '') !== 'warmup') {
-                $need += 20;
-            }
+            if ($i > 0) $need += 20;
             if ($spent + $need > $budget) break;
             $kept[] = $ex;
             $spent += $need;
@@ -139,7 +140,7 @@ class SplitGenerator
         $s = 0;
         foreach ($list as $i => $ex) {
             $need = $this->estimateExerciseSeconds($ex, $goal);
-            if ($i > 0 && ($ex['_meta_tag'] ?? '') !== 'warmup') $need += 20;
+            if ($i > 0) $need += 20;
             $s += $need;
         }
         return $s;
@@ -150,40 +151,55 @@ class SplitGenerator
         array $slotPools,
         string $goal,
         int $durationMin,
-        int $maxExtra = 8,
-        int $maxTotal = 18
+        int $maxExtra,
+        int $maxTotal,
+        array $banned
     ): array {
         $budget = $durationMin * 60;
         $spent  = $this->totalSeconds($picked, $goal);
         if ($spent >= $budget) return $picked;
 
-        $tags = array_keys($slotPools);
-        $idx  = array_fill_keys($tags, 0);
-        $added = 0;
-
-        $isCoreTag = fn($t) => in_array($t, ['core_anti_extension','core_rotation','core']);
-
-        $coreLast = null;
-        if (!empty($picked)) {
-            $last = end($picked);
-            if ($isCoreTag($last['_meta_tag'] ?? '')) {
-                array_pop($picked);
-                $coreLast = $last;
-                $spent = $this->totalSeconds($picked, $goal);
-            }
+        $alreadyIds   = [];
+        $alreadyNames = [];
+        foreach ($picked as $ex) {
+            $id = (string)($ex['id'] ?? '');
+            $nm = Str::lower(trim((string)($ex['name'] ?? '')));
+            if ($id !== '') $alreadyIds[$id] = true;
+            if ($nm !== '') $alreadyNames[$nm] = true;
         }
 
+        $maxPerTag = [
+            'core_anti_extension' => 1,
+        ];
+
+        $counts = [];
+        foreach ($picked as $ex) {
+            $t = $ex['_meta_tag'] ?? '';
+            $counts[$t] = ($counts[$t] ?? 0) + 1;
+        }
+
+        $tags  = array_keys($slotPools);
+        $idx   = array_fill_keys($tags, 0);
+        $added = 0;
+
         $loops = 0;
-        while ($added < $maxExtra && count($picked) < $maxTotal && $spent < $budget && $loops < 50) {
+        while ($added < $maxExtra && count($picked) < $maxTotal && $spent < $budget && $loops < 100) {
             $loops++;
             foreach ($tags as $t) {
-                if ($isCoreTag($t)) continue;
+                if (isset($maxPerTag[$t]) && (($counts[$t] ?? 0) >= $maxPerTag[$t])) continue;
+
                 $pool = $slotPools[$t] ?? [];
                 if (!$pool) continue;
 
-                $i = $idx[$t] % count($pool);
-                $cand = $pool[$i];
+                $cand = $pool[$idx[$t] % count($pool)];
                 $idx[$t]++;
+
+                if (!$this->isSafeForInjuries($cand, $banned)) continue;
+
+                $id = (string)($cand['id'] ?? '');
+                $nm = Str::lower(trim((string)($cand['name'] ?? $cand['title'] ?? '')));
+                if ($id !== '' && isset($alreadyIds[$id])) continue;
+                if ($nm !== '' && isset($alreadyNames[$nm])) continue;
 
                 $ex = [
                     'id'        => $cand['id'],
@@ -199,14 +215,15 @@ class SplitGenerator
                 if ($spent + $need > $budget) continue;
 
                 $picked[] = $ex;
+                $alreadyIds[$id] = true;
+                if ($nm !== '') $alreadyNames[$nm] = true;
+                $counts[$t] = ($counts[$t] ?? 0) + 1;
                 $spent += $need;
                 $added++;
 
                 if ($added >= $maxExtra || count($picked) >= $maxTotal || $spent >= $budget) break;
             }
         }
-
-        if ($coreLast) $picked[] = $coreLast;
 
         return $picked;
     }
@@ -215,8 +232,8 @@ class SplitGenerator
     {
         $map = [
             'Arms'       => ['biceps','triceps','forearms'],
-            'Shoulders'  => ['shoulders','delts','front delts','rear delts'],
-            'Back'       => ['lats','upper back','lower back','traps','erectors'],
+            'Shoulders'  => ['shoulders','delts','front delts','rear delts','deltoids'],
+            'Back'       => ['back','lats','upper back','lower back','traps','erectors'],
             'Chest'      => ['chest','pectorals','pecs'],
             'Abs'        => ['abs','core','obliques'],
             'Quads'      => ['quads'],
@@ -226,16 +243,22 @@ class SplitGenerator
             'Neck'       => ['neck'],
             'Hips'       => ['hips','hip flexors'],
             'Knees'      => ['quads','hamstrings','glutes','calves'],
-            'Elbows'     => ['biceps','triceps','forearms'],
-            'Wrists'     => ['forearms'],
-            'Ankles'     => ['calves'],
-            'legs'       => ['legs','quads','hamstrings','glutes','calves'],
+            'Elbows'     => ['biceps','triceps','forearms','elbows'],
+            'Wrists'     => ['forearms','wrists'],
+            'Ankles'     => ['calves','ankles'],
+            'Legs'       => ['legs','quads','hamstrings','glutes','calves'],
         ];
+
+        $mapLower = [];
+        foreach ($map as $k => $vals) {
+            $mapLower[Str::lower($k)] = array_map(fn($v) => Str::lower($v), $vals);
+        }
 
         $banned = [];
         foreach ($injuries as $inj) {
-            foreach ($map[$inj] ?? [] as $m) {
-                $banned[Str::lower($m)] = true;
+            $inj = Str::lower((string)$inj);
+            foreach ($mapLower[$inj] ?? [] as $m) {
+                $banned[$m] = true;
             }
         }
         return $banned;
@@ -245,31 +268,45 @@ class SplitGenerator
     {
         if (empty($banned)) return true;
 
-        $muscles = [];
-        foreach (['primary_muscle','secondary_muscles','tags'] as $k) {
-            $v = $ex[$k] ?? null;
+        $fields = [
+            'body_parts','target_muscles','secondary_muscles',
+            'primary_muscle','primary_muscles','muscles','tags'
+        ];
+
+        $tokens = [];
+        foreach ($fields as $k) {
+            if (!array_key_exists($k, $ex) || $ex[$k] === null) continue;
+            $v = $ex[$k];
             if (is_string($v)) {
-                foreach (explode(',', $v) as $p) {
-                    $p = Str::lower(trim($p));
-                    if ($p !== '') $muscles[$p] = true;
+                $vv = null;
+                $tv = trim($v);
+                if ($tv !== '' && $tv[0] === '[') $vv = json_decode($v, true);
+                if (is_array($vv)) {
+                    foreach ($vv as $p) $tokens[] = $p;
+                } else {
+                    foreach (explode(',', $v) as $p) $tokens[] = $p;
                 }
             } elseif (is_array($v)) {
-                foreach ($v as $p) {
-                    $p = Str::lower(trim((string)$p));
-                    if ($p !== '') $muscles[$p] = true;
-                }
+                foreach ($v as $p) $tokens[] = $p;
             }
         }
 
-        foreach ($muscles as $m => $_) {
-            if (isset($banned[$m])) return false;
+        $tokens = array_map(fn($s) => Str::lower(trim((string)$s)), $tokens);
+        $tokens = array_filter($tokens);
+
+        foreach ($tokens as $t) {
+            if (isset($banned[$t])) return false;
         }
 
-        if (isset($banned['lats']) || isset($banned['lower back']) || isset($banned['upper back'])) {
-            $name = Str::lower(($ex['name'] ?? $ex['title'] ?? ''));
-            if (preg_match('/deadlift|good\s*morning|back\s*extension/', $name)) {
-                return false;
-            }
+        $name = Str::lower(($ex['name'] ?? $ex['title'] ?? ''));
+        if ($name !== '') {
+            $shoulderRx = '/shoulder|deltoid|overhead\s+press|military\s+press|lateral\s+raise|front\s+raise|rear\s+delt/i';
+            $backRx     = '/deadlift|good\s*morning|row\b|pull-?up|pulldown|back\s*extension|hyperextension/i';
+            $legsRx     = '/squat|lunge|leg\s+press|leg\s+extension|leg\s+curl|calf\s+raise|step-?up|hip\s+thrust/i';
+
+            if ((isset($banned['shoulders']) || isset($banned['delts']) || isset($banned['deltoids'])) && preg_match($shoulderRx, $name)) return false;
+            if ((isset($banned['back']) || isset($banned['lats']) || isset($banned['upper back']) || isset($banned['lower back'])) && preg_match($backRx, $name)) return false;
+            if ((isset($banned['legs']) || isset($banned['quads']) || isset($banned['hamstrings']) || isset($banned['glutes']) || isset($banned['calves'])) && preg_match($legsRx, $name)) return false;
         }
 
         return true;

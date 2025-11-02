@@ -11,7 +11,7 @@ class CoachProfile extends Model
     protected $fillable = [
         'user_id', 'bio', 'city', 'country', 'timezone', 'experience_years',
         'availability_note', 'specializations', 'languages', 'certifications',
-        'phone', 'website_url', 'socials', 'gym_name', 'gym_address'
+        'phone', 'website_url', 'socials', 'gym_name', 'gym_address', 'avatar_path',
     ];
 
     protected $casts = [

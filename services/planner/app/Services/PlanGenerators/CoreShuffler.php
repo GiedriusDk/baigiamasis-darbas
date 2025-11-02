@@ -2,37 +2,36 @@
 
 namespace App\Services\PlanGenerators;
 
-class CoreShuffler
+final class CoreLast
 {
-    public static function shuffle(array $picked, string $goal): array
+    private const CORE_TAGS = [
+        'abs','abdominals'
+    ];
+
+    public static function enforce(array $list): array
     {
-        $cfg = GoalConfig::config($goal);
-        if (!$cfg['core']['reposition'] || count($picked) < 2) return $picked;
+        if (empty($list)) return $list;
 
-        $isCore = function ($row) {
-            $t = mb_strtolower($row['_meta_tag'] ?? '');
-            if (in_array($t, ['core_anti_extension','core_rotation'])) return true;
-            $n = mb_strtolower($row['name'] ?? '');
-            return str_contains($n, 'plank') || str_contains($n, 'dead bug') || str_contains($n, 'rollout');
-        };
+        $warmup = [];
+        $middle = [];
+        $core = [];
 
-        $last = count($picked) - 1;
-        if ($isCore($picked[$last])) {
-            $middle = (int) floor($last / 2);
-            [$picked[$middle], $picked[$last]] = [$picked[$last], $picked[$middle]];
-        }
-
-        $chance = max(0, min(100, (int)$cfg['core']['random_chance']));
-        if ($chance > 0) {
-            $coreIdxs = [];
-            foreach ($picked as $i => $row) if ($isCore($row)) $coreIdxs[] = $i;
-            if ($coreIdxs && mt_rand(1,100) <= $chance) {
-                $i = $coreIdxs[array_rand($coreIdxs)];
-                $target = mt_rand(1, max(1, $last - 1));
-                [$picked[$target], $picked[$i]] = [$picked[$i], $picked[$target]];
+        foreach ($list as $ex) {
+            $tag = $ex['_meta_tag'] ?? '';
+            if (($ex['_is_warmup'] ?? false) || $tag === 'warmup') {
+                $warmup[] = $ex;
+            } elseif (in_array($tag, self::CORE_TAGS, true)) {
+                $core[] = $ex;
+            } else {
+                $middle[] = $ex;
             }
         }
 
-        return $picked;
+        if (!empty($core)) {
+            $last = end($core);
+            $core = [$last];
+        }
+
+        return array_values(array_merge($warmup, $middle, $core));
     }
 }

@@ -118,7 +118,7 @@ export default function CoachesListPage() {
                     <Text fw={700}>{name}</Text>
                     <Group gap={6} wrap="wrap">
                       {c.city && <Badge variant="outline">{c.city}</Badge>}
-                      {c.gym_name && <Badge variant="light">{c.gym_name}</Badge>}
+                      {c.gym_name && <Badge variant="outline">{c.gym_name}</Badge>}
                     </Group>
                     <Group gap={6} wrap="wrap">
                       {specs.slice(0, 3).map((s, i) => (

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
   Title, Text, Grid, Paper, Group, Stack, TextInput, Textarea, Select,
-  Button, Badge, Image, Card, ActionIcon, FileButton, Divider, Loader,
-  Alert, Modal, Tooltip, Switch
+  Button, Badge, Image, Card, ActionIcon, FileButton, Divider,
+  Loader, Alert, Tooltip, Switch
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
-  IconPlus, IconTrash, IconUpload, IconPhoto, IconMovie, IconPencil,
-  IconArrowUp, IconArrowDown, IconLock
+  IconPlus, IconTrash, IconUpload, IconPhoto, IconMovie,
+  IconPencil, IconArrowUp, IconArrowDown
 } from '@tabler/icons-react';
 
 import {
@@ -17,9 +17,8 @@ import {
   deleteCoachExercise,
   reorderCoachExercises,
 } from '../api/profiles';
-import { myProducts, getProductExercises, setProductExercises } from "../api/payments";
+import { myProducts } from "../api/payments";
 import { useAuth } from "../auth/useAuth";
-
 
 const difficulties = [
   { value: 'easy',   label: 'Easy' },
@@ -27,8 +26,6 @@ const difficulties = [
   { value: 'hard',   label: 'Hard' },
 ];
 
-
-// Palaiko watch?v=, youtu.be/, embed/, shorts/ + papildomus query
 function getYoutubeId(url = '') {
   const rx = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/i;
   const m = url.match(rx);
@@ -45,10 +42,7 @@ function isImageUrl(u = '') {
   return /\/[^?]+\.(png|jpg|jpeg|webp|avif)(?:\?|$)/i.test(u);
 }
 
-/* -------------------- MediaThumb ----------------------- */
 function MediaThumb({ url, blurred = false, mimeType }) {
-  const [opened, setOpened] = useState(false);
-
   if (!url) return <IconPhoto size={48} color="var(--mantine-color-dimmed)" />;
 
   const commonStyle = {
@@ -60,98 +54,35 @@ function MediaThumb({ url, blurred = false, mimeType }) {
   };
 
   if (mimeType?.startsWith('video/')) {
-    return (
-      <video
-        src={url}
-        height={160}
-        controls={!blurred}
-        style={{ ...commonStyle, maxWidth: '100%' }}
-      />
-    );
+    return <video src={url} height={160} controls={!blurred} style={{ ...commonStyle, maxWidth: '100%' }} />;
   }
   if (mimeType?.startsWith('image/')) {
-    if (blurred) {
-      return (
-        <div style={{ position: 'relative', height: 160 }}>
-          <Image
-            src={url}
-            alt=""
-            height={160}
-            fit="contain"
-            radius="md"
-            style={{
-              filter: 'blur(10px) brightness(0.6)',
-              pointerEvents: 'none',
-              objectFit: 'cover',
-              width: '100%',
-              height: '100%',
-            }}
-          />
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ padding: '6px 12px', borderRadius: 999, background: 'rgba(255,255,255,.9)', fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,.2)' }}>
-              🔒 Paid
-            </div>
-          </div>
-        </div>
-      );
-    }
     return (
-      <>
-        <Image
-          src={url}
-          alt=""
-          height={160}
-          fit="contain"
-          radius="md"
-          style={{ cursor: 'zoom-in' }}
-          onClick={() => setOpened(true)}
-        />
-        <Modal opened={opened} onClose={() => setOpened(false)} centered withCloseButton padding={0} radius="md" size="auto">
-          <Image src={url} alt="" fit="contain" style={{ maxWidth: '90vw', maxHeight: '80vh' }} />
-        </Modal>
-      </>
+      <Image
+        src={url}
+        alt=""
+        height={160}
+        fit="contain"
+        radius="md"
+        style={{ ...(blurred ? { filter: 'blur(10px) brightness(0.6)' } : {}), width: '100%' }}
+      />
     );
   }
 
   const ytId = getYoutubeId(url);
   if (ytId) {
     const thumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-    return blurred ? (
-      <Image src={thumb} alt="YouTube" height={160} fit="cover" radius="md" style={commonStyle} />
-    ) : (
-      <a href={url} target="_blank" rel="noreferrer" style={{ position: 'relative', display: 'block' }}>
+    return (
+      <div style={{ position: 'relative' }}>
         <Image src={thumb} alt="YouTube" height={160} fit="cover" radius="md" style={commonStyle} />
-        <IconMovie size={32} style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'white', opacity: 0.9 }} />
-      </a>
+        {!blurred && <IconMovie size={28} style={{ position: 'absolute', inset: 'calc(50% - 14px) auto auto calc(50% - 14px)', color: 'white' }} />}
+      </div>
     );
   }
-  if (url.includes('youtube.com') || url.includes('youtu.be')) {
-    return (
-      <Group h={160} justify="center" align="center" style={{ ...commonStyle, background: 'rgba(0,0,0,.05)' }}>
-        <IconMovie />
-        {!blurred && (
-          <Button component="a" href={url} target="_blank" variant="subtle" size="xs">
-            Open
-          </Button>
-        )}
-      </Group>
-    );
-  }
+  if (isVideoUrl(url)) return <video src={url} height={160} controls={!blurred} style={{ ...commonStyle, maxWidth: '100%' }} />;
+  if (isGifUrl(url) || isImageUrl(url)) return <Image src={url} alt="" height={160} fit="contain" radius="md" />;
 
-  if (isVideoUrl(url)) {
-    return (
-      <video src={url} height={160} controls={!blurred} style={{ ...commonStyle, maxWidth: '100%' }} />
-    );
-  }
-  if (isGifUrl(url) || isImageUrl(url)) {
-    return (
-      <Image src={url} alt="" height={160} fit="contain" radius="md" />
-    );
-  }
-
-  if (url.startsWith('blob:')) {
-    return <Image src={url} alt="" height={160} fit="contain" radius="md" />;
-  }
+  if (url.startsWith('blob:')) return <Image src={url} alt="" height={160} fit="contain" radius="md" />;
 
   return (
     <Group h={160} justify="center" align="center" style={{ ...commonStyle, background: 'rgba(0,0,0,.05)' }}>
@@ -161,17 +92,17 @@ function MediaThumb({ url, blurred = false, mimeType }) {
 }
 
 export default function CoachExercisesPage() {
-
   const { user } = useAuth();
   const isCoachOwner = true;
+
   const [items, setItems] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [errList, setErrList] = useState(null);
-  const [plansForAssign, setPlansForAssign] = useState([]);
-  
-  const [loadingPlans, setLoadingPlans] = useState(false);
-  const [assigning, setAssigning] = useState(false);
 
+  const [plansForAssign, setPlansForAssign] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+
+  // unified form state (create + edit)
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -183,18 +114,17 @@ export default function CoachExercisesPage() {
     is_paid: false,
   });
   const [mediaFile, setMediaFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewUrl, setPreviewUrl] = useState('');
   const [creating, setCreating] = useState(false);
 
-  const [editOpen, setEditOpen] = useState(false);
-  const [editItem, setEditItem] = useState(null);
-  const [editFile, setEditFile] = useState(null);
+  // edit mode
+  const [editingId, setEditingId] = useState(null);
+  const isEditing = editingId !== null;
   const [savingEdit, setSavingEdit] = useState(false);
-
 
   useEffect(() => {
     if (!mediaFile) {
-      setPreviewUrl("");
+      setPreviewUrl('');
       return;
     }
     const url = URL.createObjectURL(mediaFile);
@@ -217,130 +147,126 @@ export default function CoachExercisesPage() {
   }, []);
 
   useEffect(() => {
-  let active = true;
-  (async () => {
-    try {
-      setLoadingPlans(true);
-      const res = await myProducts();
-      const list = Array.isArray(res?.data) ? res.data : [];
-      if (active) {
-        setPlansForAssign(list.map(p => ({ value: String(p.id), label: p.title })));
+    let active = true;
+    (async () => {
+      try {
+        setLoadingPlans(true);
+        const res = await myProducts();
+        const list = Array.isArray(res?.data) ? res.data : [];
+        if (active) setPlansForAssign(list.map(p => ({ value: String(p.id), label: p.title })));
+      } finally {
+        setLoadingPlans(false);
       }
-    } finally {
-      setLoadingPlans(false);
-    }
-  })();
-  return () => { active = false; };
-}, []);
+    })();
+    return () => { active = false; };
+  }, []);
 
-  /* ---------------- Create ---------------- */
-  async function handleCreate(e) {
+  function resetForm() {
+    setForm({
+      title: '',
+      description: '',
+      equipment: '',
+      primary_muscle: '',
+      difficulty: 'easy',
+      tagsLine: '',
+      media_url: '',
+      is_paid: false,
+    });
+    setMediaFile(null);
+    setPreviewUrl('');
+    setEditingId(null);
+    setSavingEdit(false);
+    setCreating(false);
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
+
     if (!form.title.trim()) {
       notifications.show({ color: 'red', message: 'Title is required' });
       return;
     }
 
+    const basePayload = {
+      title: form.title.trim(),
+      description: form.description.trim() || undefined,
+      equipment: form.equipment.trim() || undefined,
+      primary_muscle: form.primary_muscle.trim() || undefined,
+      difficulty: form.difficulty || 'easy',
+      is_paid: !!form.is_paid,
+      tags: form.tagsLine
+        ? form.tagsLine.split(',').map(s => s.trim()).filter(Boolean)
+        : [],
+      media_url: mediaFile ? undefined : (form.media_url.trim() || undefined),
+    };
+
+    if (isEditing) {
+      setSavingEdit(true);
+      try {
+        const updated = await updateCoachExercise(editingId, basePayload, mediaFile || undefined);
+        setItems(prev => prev.map(x => x.id === updated.id ? updated : x));
+        notifications.show({ color: 'green', message: 'Exercise updated' });
+        resetForm();
+      } catch (e) {
+        notifications.show({ color: 'red', message: e.message || 'Update failed' });
+        setSavingEdit(false);
+      }
+      return;
+    }
+
     setCreating(true);
     try {
-      const payload = {
-        title: form.title.trim(),
-        description: form.description.trim() || undefined,
-        equipment: form.equipment.trim() || undefined,
-        primary_muscle: form.primary_muscle.trim() || undefined,
-        difficulty: form.difficulty || 'easy',
-        is_paid: !!form.is_paid,
-        tags: form.tagsLine
-          ? form.tagsLine.split(',').map(s => s.trim()).filter(Boolean)
-          : undefined,
-        media_url: mediaFile ? undefined : (form.media_url.trim() || undefined),
-      };
-
-      const created = await createCoachExercise(payload, mediaFile || undefined);
-
+      const created = await createCoachExercise(basePayload, mediaFile || undefined);
       setItems(prev => [...prev, created]);
-      setForm({
-        title: '',
-        description: '',
-        equipment: '',
-        primary_muscle: '',
-        difficulty: 'easy',
-        tagsLine: '',
-        media_url: '',
-        is_paid: false,
-      });
-      setMediaFile(null);
       notifications.show({ color: 'green', message: 'Exercise created' });
+      resetForm();
     } catch (e) {
       notifications.show({ color: 'red', message: e.message || 'Create failed' });
-    } finally {
       setCreating(false);
     }
   }
 
-  /* ---------------- Edit ---------------- */
-  function openEdit(ex) {
-    setEditItem({
-      ...ex,
+  function loadForEdit(ex) {
+    setEditingId(ex.id);
+    setForm({
+      title: ex.title || '',
+      description: ex.description || '',
+      equipment: ex.equipment || '',
+      primary_muscle: ex.primary_muscle || '',
+      difficulty: ex.difficulty || 'easy',
       tagsLine: Array.isArray(ex.tags) ? ex.tags.join(', ') : '',
+      media_url: ex.media_path || ex.external_url || ex.media_url || '',
+      is_paid: !!ex.is_paid,
     });
-    setEditFile(null);
-    setEditOpen(true);
+    setMediaFile(null);
+    setPreviewUrl('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  async function saveEdit() {
-    if (!editItem) return;
-    setSavingEdit(true);
+  async function clearMediaWhileEditing() {
+    if (!isEditing) return;
     try {
-      const payload = {
-        title: editItem.title?.trim(),
-        description: editItem.description?.trim() || undefined,
-        equipment: editItem.equipment?.trim() || undefined,
-        primary_muscle: editItem.primary_muscle?.trim() || undefined,
-        difficulty: editItem.difficulty || undefined,
-        is_paid: !!editItem.is_paid,
-        tags: editItem.tagsLine
-          ? editItem.tagsLine.split(',').map(s => s.trim()).filter(Boolean)
-          : [],
-      };
-      const updated = await updateCoachExercise(editItem.id, payload, editFile || undefined);
+      const updated = await updateCoachExercise(editingId, { media_url: '' });
       setItems(prev => prev.map(x => x.id === updated.id ? updated : x));
-      setEditOpen(false);
-      setEditItem(null);
-      setEditFile(null);
-      notifications.show({ color: 'green', message: 'Exercise updated' });
-    } catch (e) {
-      notifications.show({ color: 'red', message: e.message || 'Update failed' });
-    } finally {
-      setSavingEdit(false);
-    }
-  }
-
-  async function clearMediaOnEdit() {
-    if (!editItem) return;
-    try {
-      const updated = await updateCoachExercise(editItem.id, { media_url: '' });
-      setItems(prev => prev.map(x => x.id === updated.id ? updated : x));
-      setEditItem(updated);
-      setEditFile(null);
+      setForm(f => ({ ...f, media_url: '' }));
+      setMediaFile(null);
       notifications.show({ color: 'green', message: 'Media removed' });
     } catch (e) {
       notifications.show({ color: 'red', message: e.message || 'Failed to remove media' });
     }
   }
 
-  /* ---------------- Delete ---------------- */
   async function handleDelete(id) {
     try {
       await deleteCoachExercise(id);
       setItems(prev => prev.filter(x => x.id !== id));
+      if (editingId === id) resetForm();
       notifications.show({ color: 'green', message: 'Exercise deleted' });
     } catch (e) {
       notifications.show({ color: 'red', message: e.message || 'Delete failed' });
     }
   }
 
-  /* ---------------- Reorder ---------------- */
   async function move(id, dir) {
     const prev = items;
     const idx = prev.findIndex(x => x.id === id);
@@ -353,25 +279,33 @@ export default function CoachExercisesPage() {
     try {
       await reorderCoachExercises(arr.map(x => x.id));
     } catch (e) {
-      setItems(prev); // restore
+      setItems(prev);
       notifications.show({ color: 'red', message: `Reorder failed: ${e.message || ''}` });
     }
   }
 
-  /* ---------------- Render ---------------- */
   return (
     <Stack gap="lg">
       <Group justify="space-between" align="start">
         <div>
-          <Title order={2}>Add exercise</Title>
-          <Text c="dimmed" size="sm">Create your own exercise and attach media (image, gif, or video link/upload).</Text>
+          <Title order={2}>{isEditing ? 'Edit exercise' : 'Add exercise'}</Title>
+          <Text c="dimmed" size="sm">
+            {isEditing
+              ? 'Update your exercise details and media below.'
+              : 'Create your own exercise and attach media (image, gif, or video link/upload).'}
+          </Text>
         </div>
+        {isEditing && (
+          <Button variant="subtle" onClick={resetForm}>
+            Cancel editing
+          </Button>
+        )}
       </Group>
 
       <Grid gutter="xl">
         <Grid.Col span={{ base: 12 }}>
           <Paper p="lg" radius="lg" withBorder>
-            <form onSubmit={handleCreate}>
+            <form onSubmit={handleSubmit}>
               <Grid gutter="lg" align="end">
                 <Grid.Col span={{ base: 12 }}>
                   <TextInput
@@ -448,16 +382,14 @@ export default function CoachExercisesPage() {
                           </Button>
                         )}
                       </FileButton>
- 
-                      {mediaFile && (
-                        <Button ml="xs" variant="subtle" color="red" onClick={() => setMediaFile(null)}>
-                          Clear selected
+                      {(mediaFile || isEditing || form.media_url) && (
+                        <Button ml="xs" variant="subtle" color="red"
+                                onClick={isEditing ? clearMediaWhileEditing : () => { setMediaFile(null); setForm(f => ({ ...f, media_url: '' })); }}>
+                          {isEditing ? 'Remove current media' : 'Clear selected'}
                         </Button>
                       )}
                     </div>
                   </Group>
-
-                  
 
                   {(mediaFile || form.media_url) && (
                     <Paper mt="md" p="sm" withBorder radius="md">
@@ -467,7 +399,6 @@ export default function CoachExercisesPage() {
                       </Group>
                     </Paper>
                   )}
-                    
                 </Grid.Col>
 
                 <Grid.Col span={{ base: 12, md: 6 }}>
@@ -479,8 +410,13 @@ export default function CoachExercisesPage() {
                 </Grid.Col>
 
                 <Grid.Col span={{ base: 12 }}>
-                  <Button type="submit" fullWidth loading={creating} leftSection={<IconPlus size={18} />}>
-                    Create
+                  <Button
+                    type="submit"
+                    fullWidth
+                    loading={isEditing ? savingEdit : creating}
+                    leftSection={<IconPlus size={18} />}
+                  >
+                    {isEditing ? 'Save changes' : 'Create'}
                   </Button>
                 </Grid.Col>
               </Grid>
@@ -519,10 +455,8 @@ export default function CoachExercisesPage() {
                         position: 'relative',
                       }}
                     >
-                      <MediaThumb url={mediaUrl} blurred={blurred} /> 
-                      
+                      <MediaThumb url={mediaUrl} blurred={blurred} />
                     </div>
-                    
 
                     <Group justify="space-between" mt="sm" align="start">
                       <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
@@ -546,7 +480,7 @@ export default function CoachExercisesPage() {
                           </ActionIcon>
                         </Tooltip>
                         <Tooltip label="Edit">
-                          <ActionIcon variant="subtle" onClick={() => openEdit(ex)}>
+                          <ActionIcon variant="subtle" onClick={() => loadForEdit(ex)}>
                             <IconPencil size={16} />
                           </ActionIcon>
                         </Tooltip>
@@ -570,68 +504,6 @@ export default function CoachExercisesPage() {
           </Grid>
         </>
       )}
-
-      {/* Edit modal */}
-      <Modal opened={editOpen} onClose={() => setEditOpen(false)} title="Edit exercise" size="lg">
-        {editItem && (
-          <Stack>
-            <TextInput
-              label="Title"
-              value={editItem.title || ''}
-              onChange={(e) => setEditItem({ ...editItem, title: e.currentTarget.value })}
-            />
-            <Textarea
-              label="Description"
-              minRows={3}
-              value={editItem.description || ''}
-              onChange={(e) => setEditItem({ ...editItem, description: e.currentTarget.value })}
-            />
-            <Grid>
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <TextInput
-                  label="Equipment"
-                  value={editItem.equipment || ''}
-                  onChange={(e) => setEditItem({ ...editItem, equipment: e.currentTarget.value })}
-                />
-              </Grid.Col>
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <TextInput
-                  label="Primary muscle"
-                  value={editItem.primary_muscle || ''}
-                  onChange={(e) => setEditItem({ ...editItem, primary_muscle: e.currentTarget.value })}
-                />
-              </Grid.Col>
-            </Grid>
-            <Select
-              label="Difficulty"
-              data={difficulties}
-              value={editItem.difficulty || null}
-              onChange={(v) => setEditItem({ ...editItem, difficulty: v || '' })}
-            />
-            <Switch
-              label="Paid (hidden preview)"
-              checked={!!editItem.is_paid}
-              onChange={(e) => setEditItem({ ...editItem, is_paid: e.currentTarget.checked })}
-            />
-            <TextInput
-              label="Tags (comma-separated)"
-              value={editItem.tagsLine || ''}
-              onChange={(e) => setEditItem({ ...editItem, tagsLine: e.currentTarget.value })}
-            />
-
-            <Group>
-              <FileButton onChange={setEditFile} accept="image/*,video/*">
-                {(props) => <Button leftSection={<IconUpload size={16} />} {...props}>Upload new media</Button>}
-              </FileButton>
-              <Button variant="subtle" color="red" onClick={clearMediaOnEdit}>Remove media</Button>
-            </Group>
-
-            <Group justify="flex-end" mt="sm">
-              <Button onClick={saveEdit} loading={savingEdit}>Save</Button>
-            </Group>
-          </Stack>
-        )}
-      </Modal>
     </Stack>
   );
 }

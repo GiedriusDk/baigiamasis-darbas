@@ -148,9 +148,7 @@ export default function PlannerPage() {
       </div>
 
       <Paper withBorder p="lg" radius="lg">
-        <Group justify="space-between" align="center" mb="md">
-          <Badge size="sm" variant="light">MVP — 2–4 sessions/week</Badge>
-        </Group>
+
 
         <Grid gutter="lg">
           <Grid.Col span={{ base: 12, md: 4 }}>

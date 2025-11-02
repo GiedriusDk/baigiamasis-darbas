@@ -147,7 +147,7 @@ function AppInner() {
             <>
               <NavLink component={Link} to="/coach/exercises" label="Manage exercises" active={location.pathname.startsWith('/coach/exercises')} />
               <NavLink component={Link} to="/coach/plans/manage" label="Manage plans" active={location.pathname.startsWith('/coach/plans/manage')}/>
-              <NavLink component={Link} to={`/coach/${user?.id}/plans`} label="Public plans" active={location.pathname.startsWith(`/coach/${user?.id}/plans`)}/>
+              {/* <NavLink component={Link} to={`/coach/${user?.id}/plans`} label="Public plans" active={location.pathname.startsWith(`/coach/${user?.id}/plans`)} /> */}
               <NavLink component={Link} to="/coach/profile" label="Profile" active={location.pathname.startsWith('/coach/profile')} />
             </>
           )}
