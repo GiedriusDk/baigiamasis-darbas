@@ -189,8 +189,7 @@ export default function PlannerPage() {
               onChange={setEquipment}
             />
           </Grid.Col>
-
-          <Grid.Col span={{ base: 12, md: 4 }}>
+            {/* <Grid.Col span={{ base: 12, md: 4 }}>
             <NumberInput
               label="Weeks"
               min={4}
@@ -198,7 +197,8 @@ export default function PlannerPage() {
               value={weeks}
               onChange={setWeeks}
             />
-          </Grid.Col>
+          </Grid.Col> */}
+          
 
           <Grid.Col span={{ base: 12, md: 4 }}>
             <Select

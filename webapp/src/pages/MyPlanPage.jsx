@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Paper, Title, Text, Group, Badge, Divider, Grid, Card, Image, Stack,
-  Alert, Skeleton, Button, Modal, Tabs, TextInput, ActionIcon, ScrollArea
+  Alert, Skeleton, Button, Modal, Tabs, TextInput, ActionIcon, ScrollArea, Loader
 } from "@mantine/core";
 import { IconInfoCircle, IconArrowsExchange, IconSearch } from "@tabler/icons-react";
 import ExerciseDetailsModal from "../components/ExerciseDetailsModal.jsx";
@@ -221,21 +221,33 @@ function SwapModal({ opened, onClose, workoutId, order, onPicked, token }) {
     })();
   }, [opened, workoutId, order, token]);
 
-  async function doSearch() {
-    setLoading(true);
+  useEffect(() => {
+  if (!opened) return;
+  const controller = new AbortController();
+  const delay = setTimeout(async () => {
     try {
+      setLoading(true);
       const u = new URL(`/api/planner/exercises/search`, window.location.origin);
-      if (q) u.searchParams.set('q', q);
-      const r = await fetch(u, { headers: { Authorization: `Bearer ${token}` } });
+      if (q.trim()) u.searchParams.set('q', q.trim());
+      const r = await fetch(u, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal
+      });
       const j = await r.json();
       if (!r.ok) throw new Error(j.message || "Search failed");
       setResults(j.data || []);
     } catch (e) {
-      // tyliai
+      if (e.name !== "AbortError") console.error(e);
     } finally {
       setLoading(false);
     }
-  }
+  }, 300);
+
+  return () => {
+    clearTimeout(delay);
+    controller.abort();
+  };
+}, [q, opened, token]);
 
   async function swapTo(ex) {
     setLoading(true);
@@ -318,10 +330,8 @@ function SwapModal({ opened, onClose, workoutId, order, onPicked, token }) {
               value={q}
               onChange={(e) => setQ(e.currentTarget.value)}
               style={{ flex: 1 }}
+              rightSection={loading ? <Loader size="xs" /> : null}
             />
-            <ActionIcon variant="filled" onClick={doSearch} loading={loading} aria-label="search">
-              <IconSearch size={16} />
-            </ActionIcon>
           </Group>
           <List items={results} />
         </Tabs.Panel>
