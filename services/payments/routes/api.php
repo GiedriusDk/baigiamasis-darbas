@@ -5,6 +5,7 @@ use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\PublicProductsController;
+use App\Http\Controllers\InternalAccessController;
 
 Route::prefix('')->group(function () {
     Route::get('products', [ProductsController::class, 'index']);
@@ -34,3 +35,4 @@ Route::prefix('')->group(function () {
 Route::prefix('public')->group(function () {
     Route::get('products/{id}', [PublicProductsController::class, 'show']);
 });
+Route::get('internal/can-chat', [InternalAccessController::class, 'canChat']);

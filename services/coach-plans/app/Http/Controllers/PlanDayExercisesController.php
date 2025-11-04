@@ -79,7 +79,7 @@ class PlanDayExercisesController extends Controller
             'items.*.rest_seconds'     => 'nullable|integer|min:0',
         ]);
 
-        $items = array_values($validated['items'] ?? []);  // <— tuščias, jei nesiųsta
+        $items = array_values($validated['items'] ?? []);
 
         \DB::transaction(function () use ($plan, $dayId, $items) {
             \DB::table('plan_day_exercises')
