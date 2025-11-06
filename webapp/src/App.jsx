@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   AppShell, Burger, Group, NavLink, ScrollArea, Title,
   Menu, Avatar, Loader, Button
@@ -30,7 +30,10 @@ import PaymentsSuccess from "./pages/PaymentsSuccess";
 import PaymentsCancel from "./pages/PaymentsCancel";
 import CoachPlanEditor from "./pages/CoachPlanEditor";
 import PlanViewPage from "./pages/PlanViewPage";
+import ChatWidget from "./components/ChatWidget";
+import { setChatDebug } from './api/chat';
 
+setChatDebug(true);
 function Home() {
   return <Title order={3}>Home</Title>;
 }
@@ -106,7 +109,10 @@ function AppInner() {
   const location = useLocation();
   const { user, ready } = useAuth();
   const isCoach = !!user?.roles?.some(r => r.name === 'coach');
-
+  const coachIdFromUrl = useMemo(() => {
+    const m = location.pathname.match(/^\/coaches\/(\d+)/);
+    return m ? Number(m[1]) : null;
+  }, [location.pathname]);
   return (
     <AppShell
       header={{ height: 64 }}
@@ -189,6 +195,10 @@ function AppInner() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell.Main>
+
+      {coachIdFromUrl && (
+        <ChatWidget coachId={coachIdFromUrl} title="Chat with coach" />
+      )}
     </AppShell>
   );
 }

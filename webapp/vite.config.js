@@ -13,6 +13,7 @@ export default defineConfig({
       '/api/planner':    { target: 'http://localhost:8080', changeOrigin: true },
       '/api/payments':    { target: 'http://localhost:8080', changeOrigin: true },
       '/api/coach-plans':    { target: 'http://localhost:8080', changeOrigin: true },
+      '/api/chat':    { target: 'http://localhost:8080', changeOrigin: true },
       
     },
   },
