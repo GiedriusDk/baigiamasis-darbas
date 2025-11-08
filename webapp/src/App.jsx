@@ -30,8 +30,11 @@ import PaymentsSuccess from "./pages/PaymentsSuccess";
 import PaymentsCancel from "./pages/PaymentsCancel";
 import CoachPlanEditor from "./pages/CoachPlanEditor";
 import PlanViewPage from "./pages/PlanViewPage";
-import ChatWidget from "./components/ChatWidget";
-import { setChatDebug } from './api/chat';
+import { setChatDebug, presenceTouch } from './api/chat';
+import CoachFloatingInbox from "./components/CoachFloatingInbox";
+import UserFloatingInbox from "./components/UserFloatingInbox";
+import usePresenceHeartbeat from './hooks/usePresenceHeartbeat';
+
 
 setChatDebug(true);
 function Home() {
@@ -113,7 +116,30 @@ function AppInner() {
     const m = location.pathname.match(/^\/coaches\/(\d+)/);
     return m ? Number(m[1]) : null;
   }, [location.pathname]);
+
+  // ❶ Periodiškas heartbeat į chat servisą (kas 60s) + iškart paleidžiant
+  usePresenceHeartbeat({ intervalMs: 60000, fireImmediately: true });
+
+  // ❷ „Touch“ po login/refresh (kai turime user)
+  useEffect(() => {
+    if (ready && user) presenceTouch().catch(() => {});
+  }, [ready, user]);
+
+  // ❸ „Touch“ kaskart pakeitus maršrutą
+  useEffect(() => {
+    if (ready && user) presenceTouch().catch(() => {});
+  }, [location.pathname, ready, user]);
+
+  // (nebūtina, bet naudinga) „Touch“ grįžus į aktyvų langą
+  useEffect(() => {
+    function onFocus() {
+      if (ready && user) presenceTouch().catch(() => {});
+    }
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [ready, user]);
   return (
+    
     <AppShell
       header={{ height: 64 }}
       navbar={{ width: 260, breakpoint: 'sm', collapsed: { mobile: !opened } }}
@@ -196,9 +222,8 @@ function AppInner() {
         </Routes>
       </AppShell.Main>
 
-      {coachIdFromUrl && (
-        <ChatWidget coachId={coachIdFromUrl} title="Chat with coach" />
-      )}
+      {isCoach && <CoachFloatingInbox />}
+      {!isCoach && <UserFloatingInbox />}
     </AppShell>
   );
 }

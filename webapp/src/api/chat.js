@@ -2,6 +2,7 @@ import { getToken } from './auth';
 
 const CHAT_BASE     = '/api/chat';
 const PROFILES_BASE = '/api/profiles/coach/public';
+const USERS_PUBLIC  = '/api/profiles/user/public'; 
 
 let CHAT_DEBUG = false;
 export function setChatDebug(on = true) { CHAT_DEBUG = !!on; }
@@ -38,26 +39,37 @@ async function request(url, { method = 'GET', headers = {}, body } = {}) {
   return data;
 }
 
-/* Public coach profile (gaunam coach user_id ir avatar/name) */
 export function getCoachPublicProfile(coachProfileId) {
   return request(`${PROFILES_BASE}/${coachProfileId}`, {
     headers: { Accept: 'application/json' },
   });
 }
 
-/* Chat API */
-export function listConversations() {
-  return request(`${CHAT_BASE}/conversations`, {
-    headers: authHeaders(),
+export function getUserPublicProfile(userId) {
+  return request(`${USERS_PUBLIC}/${userId}`, {
+    headers: { Accept: 'application/json' },
   });
 }
 
-export function ensureConversation(coachUserId) {
-  return request(`${CHAT_BASE}/conversations`, {
+export async function listConversations() {
+  const r = await fetch('/api/chat/conversations', {
+    method: 'GET',
+    headers: authHeaders({ Accept: 'application/json' }),
+    credentials: 'include',
+  });
+  if (!r.ok) throw new Error('load convos failed');
+  return await r.json();
+}
+
+export async function ensureConversation(coachId) {
+  const r = await fetch('/api/chat/conversations', {
     method: 'POST',
     headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ coach_id: Number(coachUserId) }),
+    credentials: 'include',
+    body: JSON.stringify({ coach_id: coachId }),
   });
+  if (!r.ok) throw new Error('ensure failed');
+  return await r.json();
 }
 
 export function getMessages(conversationId, { perPage = 50, page = 1 } = {}) {
@@ -73,4 +85,24 @@ export function sendMessage(conversationId, body) {
     headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ body }),
   });
+}
+
+export function presenceTouch() {
+  return request('/api/chat/presence/touch', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({}),
+  });
+}
+
+export async function getPresenceStatus(ids = []) {
+  if (!ids.length) return {};
+  const q = ids.join(',');
+  const res = await request(
+    `${CHAT_BASE}/presence/status?ids=${encodeURIComponent(q)}`,
+    { headers: authHeaders({ Accept: 'application/json' }) }
+  );
+  const map = {};
+  (res?.data || []).forEach(r => { map[Number(r.user_id)] = r; });
+  return map;
 }

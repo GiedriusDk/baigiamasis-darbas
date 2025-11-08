@@ -35,4 +35,7 @@ Route::prefix('')->group(function () {
 Route::prefix('public')->group(function () {
     Route::get('products/{id}', [PublicProductsController::class, 'show']);
 });
-Route::get('internal/can-chat', [InternalAccessController::class, 'canChat']);
+Route::prefix('internal')->middleware('auth.via')->group(function () {
+    Route::get('owned-coaches', [InternalAccessController::class, 'ownedCoaches']);
+    Route::get('can-chat',      [InternalAccessController::class, 'canChat']);
+});

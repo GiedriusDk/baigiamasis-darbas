@@ -5,6 +5,7 @@ use App\Http\Controllers\CoachProfileController;
 use App\Http\Controllers\CoachExerciseController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\CoachPublicController;
+use App\Http\Controllers\PublicUsersController;
 
 Route::middleware('auth.via:coach')->prefix('coach')->group(function () {
     Route::get('profile', [CoachProfileController::class, 'show']);
@@ -35,3 +36,7 @@ Route::prefix('coach/public')->group(function () {
     Route::get('{id}', [CoachPublicController::class, 'show']);
     Route::get('{id}/exercises', [CoachPublicController::class, 'exercises']);
 });
+Route::prefix('user/public')->group(function () {
+    Route::get('{id}', [PublicUsersController::class, 'show']);
+});
+

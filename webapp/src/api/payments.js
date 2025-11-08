@@ -180,3 +180,12 @@ export async function getMyAccess() {
     exercise_ids: Array.isArray(data?.exercise_ids) ? data.exercise_ids.map(Number) : [],
   };
 }
+
+export async function ownedCoaches() {
+  const r = await fetch('/api/payments/internal/owned-coaches', {
+    headers: authHeaders(),
+    credentials: 'include',
+  });
+  if (!r.ok) throw new Error('owned-coaches failed');
+  return await r.json(); // { data: [coachUserId, ...] }
+}

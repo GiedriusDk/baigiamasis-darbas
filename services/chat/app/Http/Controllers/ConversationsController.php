@@ -28,6 +28,29 @@ class ConversationsController extends Controller
         return response()->json(['data' => $rows]);
     }
 
+
+    public function ensure(Request $r)
+    {
+        $u = $r->user();
+        if (!$u) return response()->json([], 401);
+
+        $data = $r->validate([
+            'coach_id' => 'required|integer|min:1',
+        ]);
+        $coachId = (int)$data['coach_id'];
+
+        // “User” = klientas; “coach” = treneris (nebūtinai role, tiesiog pora)
+        $c = Conversation::firstOrCreate(
+            ['user_id' => min($u->id, $coachId), 'coach_id' => max($u->id, $coachId)]
+        );
+
+        return response()->json([
+            'id'       => (int)$c->id,
+            'user_id'  => (int)$c->user_id,
+            'coach_id' => (int)$c->coach_id,
+        ]);
+    }
+
     public function store(Request $r, PaymentsService $payments)
     {
         $me = $this->me($r);

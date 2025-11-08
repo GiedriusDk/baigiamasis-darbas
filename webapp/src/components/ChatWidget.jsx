@@ -157,7 +157,7 @@ export default function ChatWidget({ coachId: coachProfileId, title = "Chat with
                 <div>
                   <Title order={5} style={{ lineHeight: 1.2 }}>{shownName}</Title>
                   <Group gap={6}>
-                    <Badge size="xs" variant="light" color="green">ONLINE</Badge>
+                    <Badge size="xs" variant="light" color="green">ONLINEee</Badge>
                     <Text size="xs" c="dimmed">{activeCoachUserId ? `coach #${activeCoachUserId}` : ""}</Text>
                   </Group>
                 </div>

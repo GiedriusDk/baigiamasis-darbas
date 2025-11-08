@@ -169,6 +169,28 @@ services:
     command: sh -lc "php artisan key:generate --force && php -S 0.0.0.0:9000 -t public"
     depends_on: [db]
     networks: [backend]
+    
+  chat-scheduler:
+    build: ./services/chat
+    working_dir: /var/www/html
+    command: bash -c "while true; do php artisan chat:presence-sweep; sleep 60; done"
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8080/chat
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: chat_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
+      APP_TIMEZONE: Europe/Vilnius
+      CHAT_PRESENCE_SECONDS: 60
+    volumes:
+      - ./services/chat:/var/www/html
+    depends_on: [chat, db]
+    restart: unless-stopped
+    networks: [backend]
 
   db:
     image: postgres:16
