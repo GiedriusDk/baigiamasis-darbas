@@ -16,17 +16,13 @@ class CheckoutController extends Controller
             return response()->json(['message' => 'Order not payable'], 422);
         }
 
-        // StripeService turi suformuoti success_url į FE:
-        // FRONTEND_URL/payments/success?order={$order->id}&session_id={CHECKOUT_SESSION_ID}
         $url = $stripe->createCheckoutSessionForOrder($order);
 
         return response()->json(['checkout_url' => $url]);
     }
 
-    // GET /api/payments/confirm?order=123&session=cs_test_...
     public function confirm(Request $request, StripeService $stripe)
     {
-        // 1) parametrai
         $data = $request->validate([
             'order'   => 'required|integer|exists:orders,id',
             'session' => 'required|string',
@@ -43,7 +39,6 @@ class CheckoutController extends Controller
             ]);
         }
 
-        // 2) Stripe session (rekomenduojama StripeService daryti expand=['payment_intent'])
         $session = $stripe->retrieveCheckoutSession($data['session']);
 
         $isPaid = (
@@ -58,7 +53,6 @@ class CheckoutController extends Controller
             ], 202);
         }
 
-        // 3) Užfiksuojam DB
         DB::transaction(function () use ($order, $session) {
             $providerTxnId = $session->payment_intent->id ?? $session->payment_intent ?? $session->id;
             $amount        = $session->amount_total ?? $order->amount ?? 0;

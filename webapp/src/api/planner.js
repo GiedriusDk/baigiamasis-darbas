@@ -1,4 +1,4 @@
-// webapp/src/api/planner.js
+
 import { getToken } from "./auth";
 const BASE = "/api/planner";
 
@@ -11,7 +11,6 @@ function authHeaders(extra = {}) {
   };
 }
 
-// universalus fetch'as: jei ne JSON, parodo tekstą
 async function request(path, { method = "GET", headers = {}, body } = {}) {
   const res = await fetch(`${BASE}${path}`, { method, headers, body });
   const raw = await res.text();
@@ -40,7 +39,6 @@ export function getPlan(id) {
   return request(`/plans/${id}`, { headers: authHeaders() });
 }
 
-// --- Žemiau: pridėtas Authorization visur ---
 
 export async function getAlternatives(workoutId, order, { equipment, limit = 24 } = {}) {
   const qs = new URLSearchParams();

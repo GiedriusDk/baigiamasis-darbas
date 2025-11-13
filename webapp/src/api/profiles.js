@@ -1,4 +1,4 @@
-// webapp/src/api/profiles.js
+
 import { getToken } from './auth';
 
 const BASE = '/api/profiles';

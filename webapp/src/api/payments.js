@@ -187,5 +187,5 @@ export async function ownedCoaches() {
     credentials: 'include',
   });
   if (!r.ok) throw new Error('owned-coaches failed');
-  return await r.json(); // { data: [coachUserId, ...] }
+  return await r.json();
 }

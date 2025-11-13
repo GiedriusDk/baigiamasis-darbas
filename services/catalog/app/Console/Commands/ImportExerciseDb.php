@@ -25,12 +25,10 @@ class ImportExerciseDb extends Command
             return self::FAILURE;
         }
 
-        // 1) Lookup lentelės (pildo tik 'name' stulpelį)
         $this->syncLookup($bpFile, 'body_parts');
         $this->syncLookup($eqFile, 'equipments');
         $this->syncLookup($muFile, 'muscles');
 
-        // 2) Pagrindinis importas
         $this->info('Reading exercises.json …');
         $data = json_decode(file_get_contents($exFile), true);
 
@@ -105,10 +103,6 @@ class ImportExerciseDb extends Command
         );
     }
 
-    /**
-     * Užpildo lookup lenteles naudodamas tik 'name' stulpelį.
-     * Priima masyvus su 'name' arba paprastus string'us.
-     */
     private function syncLookup(?string $file, string $table): void
     {
         if (!$file || !file_exists($file)) return;
@@ -119,10 +113,8 @@ class ImportExerciseDb extends Command
         $rows = [];
         foreach ($json as $item) {
             if (is_string($item)) {
-                // pvz.: ["Waist", "Chest", ...]
                 $rows[] = ['name' => $item];
             } else {
-                // pvz.: [{"name":"Waist"}, {"name":"Chest"}] arba {"slug":"waist","name":"Waist"}
                 $name = $item['name'] ?? ($item['slug'] ?? null);
                 if ($name) {
                     $rows[] = ['name' => $name];
@@ -131,8 +123,6 @@ class ImportExerciseDb extends Command
         }
 
         if ($rows) {
-            // 'name' lentelėse turi būti UNIQUE
-            // (Laravel upsert reikalauja nurodyti bent vieną atnaujinamą lauką – naudojam 'name')
             DB::table($table)->upsert($rows, ['name'], ['name']);
             $this->info("Synced ".count($rows)." rows into {$table}");
         }

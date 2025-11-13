@@ -24,15 +24,15 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function handleLogin({ email, password }) {
-    await auth.login({ email, password })     // įsirašo token
+    await auth.login({ email, password })  
     try {
-      const u = await auth.me()               // pasiimam „me“
-      setUser(u)                              // ir nustatom user
+      const u = await auth.me()           
+      setUser(u)                            
     } catch {}
   }
 
   async function handleRegister({ name, email, password, password_confirmation }) {
-    await auth.register({ name, email, password, password_confirmation }) // įsirašo token
+    await auth.register({ name, email, password, password_confirmation }) 
     try {
       const u = await auth.me()
       setUser(u)
@@ -48,5 +48,4 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-// jei patogu, gali pasilikti šitą helperį
 export const useAuth = () => useContext(AuthContext)

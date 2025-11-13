@@ -12,12 +12,9 @@ class ChatPresenceSweep extends Command
 
     public function handle(): int
     {
-        // prioritetas: config, tada env, default 60 s
         $ttl = (int) (config('chat.presence_seconds') ?? env('CHAT_PRESENCE_SECONDS', 60));
         if ($ttl < 1) { $ttl = 60; }
 
-        // Paprastas, patikimas PostgreSQL update:
-        // now() – DB serverio laikas; be jokių PHP laiko zonų konvertavimų.
         $affected = DB::update(
             "UPDATE chat_status
              SET is_online = FALSE

@@ -33,7 +33,6 @@ export default function ChatWidget({ coachId: coachProfileId, title = "Chat with
   const scrollRef = useRef(null);
   const canType = !!(ready && user && convId);
 
-  /* Užkraunam header info + coach user_id iš public profilio */
   useEffect(() => {
     if (!coachProfileId) return;
     let cancelled = false;
@@ -48,7 +47,6 @@ export default function ChatWidget({ coachId: coachProfileId, title = "Chat with
     return () => { cancelled = true; };
   }, [coachProfileId, coachName, coachAvatar]);
 
-  /* Mano pokalbių sąrašas (nebūtinas token iš useAuth – API pats paims) */
   useEffect(() => {
     if (!opened || !ready || !user) return;
     let cancelled = false;
@@ -65,7 +63,6 @@ export default function ChatWidget({ coachId: coachProfileId, title = "Chat with
     return () => { cancelled = true; };
   }, [opened, ready, user]);
 
-  /* Užsitikrinam/sukuriam pokalbį su aktyviu coach (coach user_id) */
   useEffect(() => {
     if (!opened || !ready || !user || !activeCoachUserId) return;
     let cancelled = false;

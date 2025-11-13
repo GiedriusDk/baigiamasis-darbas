@@ -16,8 +16,7 @@ import {
   getPresenceStatus,
 } from "../api/chat";
 
-import { ownedCoaches } from "../api/payments";      // ← rekomenduojamas endpointas
-// import { myProducts } from "../api/payments";      // ← alternatyva, jei norėsi imti iš /products/mine
+import { ownedCoaches } from "../api/payments";
 
 export default function UserFloatingInbox() {
   const { ready, user } = useAuth();

@@ -35,6 +35,11 @@ import CoachFloatingInbox from "./components/CoachFloatingInbox";
 import UserFloatingInbox from "./components/UserFloatingInbox";
 import usePresenceHeartbeat from './hooks/usePresenceHeartbeat';
 
+import ProgressHome from './pages/Progress/ProgressHome.jsx';
+import MetricsPage from './pages/Progress/MetricsPage.jsx';
+import MetricDetailsPage from './pages/Progress/MetricDetailsPage.jsx';
+import GoalsPage from './pages/Progress/GoalsPage.jsx';
+
 
 setChatDebug(true);
 function Home() {
@@ -165,6 +170,12 @@ function AppInner() {
             <>
             <NavLink component={Link} to="/plans" label="Generate Plan" active={location.pathname === '/plans'} />
             <NavLink component={Link} to="/my" label="My plan" active={location.pathname === '/my'} />
+            <NavLink
+              component={Link}
+              to="/progress"
+              label="Progress"
+              active={location.pathname === '/progress'}
+            />
             </>
           )}
 
@@ -217,6 +228,11 @@ function AppInner() {
 
           <Route path="/coach/plans/:productId/builder" element={<CoachPlanEditor />} />
           <Route path="/plans/:productId/" element={<PlanViewPage />} />
+
+          <Route path="/progress" element={<RequireAuth><ProgressHome /></RequireAuth>} />
+          <Route path="/progress/metrics" element={<RequireAuth><MetricsPage /></RequireAuth>} />
+          <Route path="/progress/metric/:id" element={<RequireAuth><MetricDetailsPage /></RequireAuth>} />
+          <Route path="/progress/goals" element={<RequireAuth><GoalsPage /></RequireAuth>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
