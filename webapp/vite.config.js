@@ -14,6 +14,7 @@ export default defineConfig({
       '/api/payments':    { target: 'http://localhost:8080', changeOrigin: true },
       '/api/coach-plans':    { target: 'http://localhost:8080', changeOrigin: true },
       '/api/chat':    { target: 'http://localhost:8080', changeOrigin: true },
+      '/chat':    { target: 'http://localhost:8080', changeOrigin: true },
       '/api/progress':    { target: 'http://localhost:8080', changeOrigin: true },
       
       

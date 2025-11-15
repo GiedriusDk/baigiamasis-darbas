@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ConversationsController;
 use App\Http\Controllers\MessagesController;
 use App\Http\Controllers\PresenceController;
+use App\Http\Controllers\ForumController;
 
 Route::middleware(['auth.via', 'chat.presence'])->group(function () {
     Route::get('/conversations', [ConversationsController::class, 'index']);
@@ -14,9 +15,12 @@ Route::middleware(['auth.via', 'chat.presence'])->group(function () {
     Route::post('/conversations/{conversation}/messages', [MessagesController::class, 'store']);
 });
 
-// <- SVARBU: presence maršrutai be 'chat.presence'
 Route::middleware(['auth.via'])->group(function () {
     Route::post('/presence/touch', [PresenceController::class, 'touch']);
     Route::post('/presence/leave', [PresenceController::class, 'leave']);
     Route::get('/presence/status', [PresenceController::class, 'status']);
+
+    Route::get('/forums', [ForumController::class, 'rooms']);
+    Route::get('/forums/{room}/messages', [ForumController::class, 'messages']);
+    Route::post('/forums/{room}/messages', [ForumController::class, 'send']);
 });

@@ -40,4 +40,8 @@ class Message extends Model
     {
         return $q->where('room_id', $roomId);
     }
+    public function sender()
+    {
+        return $this->belongsTo(User::class, 'sender_id');
+    }
 }

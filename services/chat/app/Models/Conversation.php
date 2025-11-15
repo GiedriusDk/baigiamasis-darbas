@@ -12,13 +12,24 @@ class Conversation extends Model
 
     protected $table = 'chat_rooms';
 
-    protected $fillable = ['coach_id', 'user_id', 'plan_id'];
+    protected $fillable = ['coach_id', 'user_id', 'plan_id', 'type', 'title', 'slug'];
 
     protected $casts = [
         'coach_id' => 'integer',
         'user_id'  => 'integer',
         'plan_id'  => 'integer',
+        
     ];
+
+    public function scopePrivate($q)
+    {
+        return $q->where('type', 'private');
+    }
+
+    public function scopeForum($q)
+    {
+        return $q->where('type', 'forum');
+    }
 
     public function messages()
     {
@@ -27,7 +38,11 @@ class Conversation extends Model
 
     public function scopeForUser(Builder $q, int $userId): Builder
     {
-        return $q->where('coach_id', $userId)->orWhere('user_id', $userId);
+        return $q->where('type', 'private')
+                ->where(function ($w) use ($userId) {
+                    $w->where('coach_id', $userId)
+                    ->orWhere('user_id', $userId);
+                });
     }
 
     public function scopeBetween(Builder $q, int $a, int $b): Builder

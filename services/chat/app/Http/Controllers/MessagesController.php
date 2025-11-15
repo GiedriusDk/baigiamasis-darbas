@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Conversation;
 use App\Models\Message;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class MessagesController extends Controller
 {
@@ -52,17 +53,25 @@ class MessagesController extends Controller
         }
 
         $data = $r->validate([
-            'body' => 'required|string|max:5000',
+            'body'       => ['required_without:attachment', 'nullable', 'string', 'max:5000'],
+            'attachment' => ['nullable', 'file', 'max:10240'], // ~10 MB
         ]);
 
         $me = $this->me($r);
 
+        $attachmentUrl = null;
+        if ($r->hasFile('attachment')) {
+            $stored = $r->file('attachment')->store('public/chat_attachments');
+            $attachmentUrl = Storage::url($stored); // /storage/...
+        }
+
         $msg = Message::create([
-            'room_id'     => $conversation->id,
-            'sender_id'   => $me,
-            'message'     => $data['body'],
-            'is_read'     => false,
-            'created_at'  => now(),
+            'room_id'        => $conversation->id,
+            'sender_id'      => $me,
+            'message'        => $data['body'] ?? null,
+            'attachment_url' => $attachmentUrl,
+            'is_read'        => false,
+            'created_at'     => now(),
         ]);
 
         $conversation->updated_at = now();

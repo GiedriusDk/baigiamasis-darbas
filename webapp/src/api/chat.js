@@ -79,11 +79,35 @@ export function getMessages(conversationId, { perPage = 50, page = 1 } = {}) {
   });
 }
 
-export function sendMessage(conversationId, body) {
+export function sendMessage(conversationId, payload) {
+  if (payload && typeof payload === 'object' && !(payload instanceof Blob)) {
+    const { body = '', attachmentFile = null } = payload || {};
+    const trimmed = String(body || '').trim();
+
+    if (attachmentFile) {
+      const fd = new FormData();
+      if (trimmed) fd.append('body', trimmed);
+      fd.append('attachment', attachmentFile);
+
+      return request(`${CHAT_BASE}/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: fd,
+      });
+    }
+
+    return request(`${CHAT_BASE}/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ body: trimmed }),
+    });
+  }
+
+  const text = String(payload || '').trim();
   return request(`${CHAT_BASE}/conversations/${conversationId}/messages`, {
     method: 'POST',
     headers: authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body: text }),
   });
 }
 
@@ -105,4 +129,39 @@ export async function getPresenceStatus(ids = []) {
   const map = {};
   (res?.data || []).forEach(r => { map[Number(r.user_id)] = r; });
   return map;
+}
+
+
+export function listForumRooms() {
+  return request(`${CHAT_BASE}/forums`, {
+    headers: authHeaders({ Accept: 'application/json' }),
+  });
+}
+
+export function listForumMessages(roomId) {
+  return request(`${CHAT_BASE}/forums/${roomId}/messages`, {
+    headers: authHeaders({ Accept: 'application/json' }),
+  });
+}
+
+export function sendForumMessage(roomId, { message, attachmentFile = null }) {
+  if (attachmentFile) {
+    const fd = new FormData();
+    if (message && message.trim()) {
+      fd.append("message", message.trim());
+    }
+    fd.append("attachment", attachmentFile);
+
+    return request(`${CHAT_BASE}/forums/${roomId}/messages`, {
+      method: "POST",
+      headers: authHeaders(), // be Content-Type
+      body: fd,
+    });
+  }
+
+  return request(`${CHAT_BASE}/forums/${roomId}/messages`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ message }),
+  });
 }

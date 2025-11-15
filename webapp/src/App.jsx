@@ -40,6 +40,7 @@ import MetricsPage from './pages/Progress/MetricsPage.jsx';
 import MetricDetailsPage from './pages/Progress/MetricDetailsPage.jsx';
 import GoalsPage from './pages/Progress/GoalsPage.jsx';
 
+import ForumsPage from "./pages/ForumsPage.jsx";
 
 setChatDebug(true);
 function Home() {
@@ -122,20 +123,16 @@ function AppInner() {
     return m ? Number(m[1]) : null;
   }, [location.pathname]);
 
-  // ❶ Periodiškas heartbeat į chat servisą (kas 60s) + iškart paleidžiant
   usePresenceHeartbeat({ intervalMs: 60000, fireImmediately: true });
 
-  // ❷ „Touch“ po login/refresh (kai turime user)
   useEffect(() => {
     if (ready && user) presenceTouch().catch(() => {});
   }, [ready, user]);
 
-  // ❸ „Touch“ kaskart pakeitus maršrutą
   useEffect(() => {
     if (ready && user) presenceTouch().catch(() => {});
   }, [location.pathname, ready, user]);
 
-  // (nebūtina, bet naudinga) „Touch“ grįžus į aktyvų langą
   useEffect(() => {
     function onFocus() {
       if (ready && user) presenceTouch().catch(() => {});
@@ -197,7 +194,10 @@ function AppInner() {
 
             
           {ready && user && (
+            <>
+              <NavLink component={Link} to="/forum" label="Forum" active={location.pathname === '/forum'} />
               <NavLink component={Link} to="/settings" label="Settings" active={location.pathname === '/settings'} />
+            </>
           )}
         </ScrollArea>
       </AppShell.Navbar>
@@ -228,6 +228,9 @@ function AppInner() {
 
           <Route path="/coach/plans/:productId/builder" element={<CoachPlanEditor />} />
           <Route path="/plans/:productId/" element={<PlanViewPage />} />
+
+          
+          <Route path="/forum" element={<RequireAuth><ForumsPage /></RequireAuth>} />
 
           <Route path="/progress" element={<RequireAuth><ProgressHome /></RequireAuth>} />
           <Route path="/progress/metrics" element={<RequireAuth><MetricsPage /></RequireAuth>} />

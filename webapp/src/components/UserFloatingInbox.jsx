@@ -1,10 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ActionIcon, Affix, Avatar, Badge, Box, Button, Card, Divider, Group,
-  Loader, Paper, ScrollArea, Stack, Text, Textarea, Title, Tooltip
+  ActionIcon,
+  Affix,
+  Avatar,
+  Badge,
+  Box,
+  Button,
+  Card,
+  Divider,
+  Group,
+  Loader,
+  Paper,
+  ScrollArea,
+  Stack,
+  Text,
+  Textarea,
+  Title,
+  Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconMessageCircle, IconX, IconRefresh, IconSend } from "@tabler/icons-react";
+import {
+  IconMessageCircle,
+  IconX,
+  IconRefresh,
+  IconSend,
+  IconPaperclip,
+} from "@tabler/icons-react";
 import { useAuth } from "../auth/useAuth";
 
 import {
@@ -36,21 +57,19 @@ export default function UserFloatingInbox() {
   const scrollRef = useRef(null);
   const canType = !!(ready && user && activeId);
 
-  // 1) Bootstrap – iš payments gaunam visų turimų trenerių user_id ir kiekvienam kviečiam ensureConversation
+  const [attachmentFile, setAttachmentFile] = useState(null);
+  const [attachmentName, setAttachmentName] = useState("");
+  const fileInputRef = useRef(null);
+
   async function bootstrapEnsureConvos() {
     setBooting(true);
     try {
-      // Rekomenduojama:
       const res = await ownedCoaches().catch(() => null);
       const coachIds = Array.isArray(res?.data) ? res.data.map(Number) : [];
 
-      // Jei vietoje ownedCoaches naudoji myProducts():
-      // const pr = await myProducts().catch(() => null);
-      // const coachIds = Array.from(new Set((pr?.data || []).map(p => Number(p.coach_id)).filter(Boolean)));
-
       if (coachIds.length) {
         await Promise.all(
-          coachIds.map(id => ensureConversation(id).catch(() => null))
+          coachIds.map((id) => ensureConversation(id).catch(() => null))
         );
       }
     } finally {
@@ -58,7 +77,6 @@ export default function UserFloatingInbox() {
     }
   }
 
-  // 2) Pakeliame pokalbių sąrašą
   async function loadConvos() {
     setLoadingList(true);
     try {
@@ -71,24 +89,26 @@ export default function UserFloatingInbox() {
     }
   }
 
-  // 3) Užsipildome trenerių meta (vardas, avatar, presence)
   async function ensureCoachMeta(ids) {
     const need = ids.filter((id) => !coachMeta[id]);
     if (!need.length) return;
 
-    // profiliai
-    const profiles = await Promise.all(need.map(async (id) => {
-      try {
-        const d = await getCoachPublicProfile(id);
-        const name = d?.name || [d?.first_name, d?.last_name].filter(Boolean).join(" ") || `Coach #${id}`;
-        const avatar = d?.avatar_url || d?.avatar_path || "";
-        return [id, { name, avatar }];
-      } catch {
-        return [id, { name: `Coach #${id}`, avatar: "" }];
-      }
-    }));
+    const profiles = await Promise.all(
+      need.map(async (id) => {
+        try {
+          const d = await getCoachPublicProfile(id);
+          const name =
+            d?.name ||
+            [d?.first_name, d?.last_name].filter(Boolean).join(" ") ||
+            `Coach #${id}`;
+          const avatar = d?.avatar_url || d?.avatar_path || "";
+          return [id, { name, avatar }];
+        } catch {
+          return [id, { name: `Coach #${id}`, avatar: "" }];
+        }
+      })
+    );
 
-    // presence (is_online/last_seen_at)
     const presence = await getPresenceStatus(need).catch(() => ({}));
 
     const patch = {};
@@ -97,14 +117,13 @@ export default function UserFloatingInbox() {
       patch[id] = {
         ...base,
         online: !!rec.is_online,
-        last_seen_at: rec.last_seen_at || null
+        last_seen_at: rec.last_seen_at || null,
       };
     });
 
-    setCoachMeta(m => ({ ...m, ...patch }));
+    setCoachMeta((m) => ({ ...m, ...patch }));
   }
 
-  // 4) Vienkartinis messages fetch + intervalas
   async function loadMessagesOnce(id) {
     if (!id) return;
     setLoadingMessages(true);
@@ -121,7 +140,6 @@ export default function UserFloatingInbox() {
     }
   }
 
-  // Open → bootstrap + sąrašas
   useEffect(() => {
     if (!opened || !ready || !user) return;
     (async () => {
@@ -130,16 +148,14 @@ export default function UserFloatingInbox() {
     })();
   }, [opened, ready, user]);
 
-  // Kai turime konversacijas – susirenkame meta
   useEffect(() => {
     if (!convos.length) return;
-    const coachIds = Array.from(new Set(
-      convos.map((c) => Number(c.coach_id)).filter(Boolean)
-    ));
+    const coachIds = Array.from(
+      new Set(convos.map((c) => Number(c.coach_id)).filter(Boolean))
+    );
     ensureCoachMeta(coachIds);
   }, [convos]);
 
-  // Messages polling
   useEffect(() => {
     if (!opened || !activeId) return;
     loadMessagesOnce(activeId);
@@ -147,15 +163,24 @@ export default function UserFloatingInbox() {
     return () => clearInterval(t);
   }, [opened, activeId]);
 
-  // Send
   async function handleSend() {
     const body = input.trim();
-    if (!body || !activeId || sending) return;
+    if (!body && !attachmentFile) return;
+    if (!activeId || sending) return;
+
     setSending(true);
     try {
-      const r = await sendMessage(activeId, body);
+      const r = await sendMessage(activeId, {
+        body,
+        attachmentFile,
+      });
+
+      const msg = r?.data || r;
       setInput("");
-      setMessages((m) => [...m, r?.data].slice(-200));
+      setAttachmentFile(null);
+      setAttachmentName("");
+      setMessages((m) => [...m, msg].slice(-200));
+
       requestAnimationFrame(() => {
         const el = scrollRef.current;
         if (el) el.scrollTo({ top: el.scrollHeight });
@@ -163,6 +188,22 @@ export default function UserFloatingInbox() {
     } finally {
       setSending(false);
     }
+  }
+
+  function handleAttachClick() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileChange(e) {
+    const f = e.target.files?.[0] || null;
+    setAttachmentFile(f);
+    setAttachmentName(f ? f.name : "");
+  }
+
+  function handleRemoveAttachment() {
+    setAttachmentFile(null);
+    setAttachmentName("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   if (!ready || !user) return null;
@@ -209,16 +250,23 @@ export default function UserFloatingInbox() {
               height: "100%",
               display: "grid",
               gridTemplateColumns: "260px 1fr",
-              gap: 8
+              gap: 8,
             }}
           >
-            {/* Kairė – sąrašas */}
-            <Stack gap="xs" p="xs" style={{ borderRight: "1px solid var(--mantine-color-gray-3)" }}>
+            <Stack
+              gap="xs"
+              p="xs"
+              style={{ borderRight: "1px solid var(--mantine-color-gray-3)" }}
+            >
               <Group justify="space-between">
                 <Title order={5}>My coaches</Title>
                 <Group gap={6}>
-                  <ActionIcon variant="subtle" onClick={loadConvos}><IconRefresh size={16} /></ActionIcon>
-                  <ActionIcon variant="subtle" onClick={close}><IconX size={18} /></ActionIcon>
+                  <ActionIcon variant="subtle" onClick={loadConvos}>
+                    <IconRefresh size={16} />
+                  </ActionIcon>
+                  <ActionIcon variant="subtle" onClick={close}>
+                    <IconX size={18} />
+                  </ActionIcon>
                 </Group>
               </Group>
 
@@ -238,17 +286,31 @@ export default function UserFloatingInbox() {
                         p="xs"
                         radius="md"
                         onClick={() => setActiveId(c.id)}
-                        style={{ cursor: "pointer", background: active ? "var(--mantine-color-gray-1)" : "transparent" }}
+                        style={{
+                          cursor: "pointer",
+                          background: active
+                            ? "var(--mantine-color-gray-1)"
+                            : "transparent",
+                        }}
                       >
                         <Group gap="sm" wrap="nowrap">
                           <Avatar radius="xl" src={meta?.avatar || undefined}>
                             {!meta?.avatar && String(cid).slice(-1)}
                           </Avatar>
                           <div style={{ minWidth: 0 }}>
-                            <Text fw={600} truncate="end">{title}</Text>
-                            <Text size="xs" c="dimmed">{sub}</Text>
+                            <Text fw={600} truncate="end">
+                              {title}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              {sub}
+                            </Text>
                           </div>
-                          <Badge size="xs" variant="light" ml="auto" color={meta?.online ? "green" : "red"}>
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            ml="auto"
+                            color={meta?.online ? "green" : "red"}
+                          >
                             {meta?.online ? "ONLINE" : "OFFLINE"}
                           </Badge>
                         </Group>
@@ -256,29 +318,41 @@ export default function UserFloatingInbox() {
                     );
                   })}
                   {!loadingList && convos.length === 0 && (
-                    <Text c="dimmed" size="sm">No conversations.</Text>
+                    <Text c="dimmed" size="sm">
+                      No conversations.
+                    </Text>
                   )}
                 </Stack>
               </ScrollArea>
             </Stack>
 
-            {/* Dešinė – pokalbis */}
-            <Stack p="xs" gap="xs" style={{ minWidth: 0 }}>
+            <Stack p="xs" gap="xs" style={{ minWidth: 0, minHeight: 0 }}>
               <Group justify="space-between">
                 <Group gap="sm">
                   <Avatar radius="xl" src={activeCoach?.avatar || undefined}>
-                    {!activeCoach?.avatar && (activeCoachId ? String(activeCoachId).slice(-1) : "C")}
+                    {!activeCoach?.avatar &&
+                      (activeCoachId ? String(activeCoachId).slice(-1) : "C")}
                   </Avatar>
                   <div>
                     <Title order={5} style={{ lineHeight: 1.2 }}>
-                      {activeCoach ? activeCoach.name : activeId ? `Conversation #${activeId}` : "Conversation"}
+                      {activeCoach
+                        ? activeCoach.name
+                        : activeId
+                        ? `Conversation #${activeId}`
+                        : "Conversation"}
                     </Title>
                     {activeCoachId && (
                       <Group gap={6}>
-                        <Badge size="xs" variant="light" color={activeCoach?.online ? "green" : "red"}>
+                        <Badge
+                          size="xs"
+                          variant="light"
+                          color={activeCoach?.online ? "green" : "red"}
+                        >
                           {activeCoach?.online ? "ONLINE" : "OFFLINE"}
                         </Badge>
-                        <Text size="xs" c="dimmed">coach #{activeCoachId}</Text>
+                        <Text size="xs" c="dimmed">
+                          coach #{activeCoachId}
+                        </Text>
                       </Group>
                     )}
                   </div>
@@ -288,29 +362,99 @@ export default function UserFloatingInbox() {
               <Divider />
               <ScrollArea style={{ flex: 1 }} viewportRef={scrollRef}>
                 <Stack gap="xs">
-                  {loadingMessages && <Group justify="center" my="md"><Loader size="sm" /></Group>}
+                  {loadingMessages && (
+                    <Group justify="center" my="md">
+                      <Loader size="sm" />
+                    </Group>
+                  )}
                   {!loadingMessages && messages.length === 0 && activeId && (
-                    <Text c="dimmed" ta="center">No messages.</Text>
+                    <Text c="dimmed" ta="center">
+                      No messages.
+                    </Text>
                   )}
                   {messages.map((m) => {
                     const mine = m.sender_id === user?.id;
                     const text = m.body ?? m.message ?? m.text ?? "";
                     const when = new Date(m.created_at || m.createdAt).toLocaleString();
+                    const attachment = m.attachment_url || m.attachmentUrl || "";
+                    const hasText = !!text;
+                    const hasAttachment = !!attachment;
+
                     return (
-                      <Group key={m.id} justify={mine ? "flex-end" : "flex-start"} wrap="nowrap">
-                        {!mine && <Avatar size="sm" radius="xl" src={activeCoach?.avatar || undefined} />}
+                      <Group
+                        key={m.id}
+                        justify={mine ? "flex-end" : "flex-start"}
+                        wrap="nowrap"
+                      >
+                        {!mine && (
+                          <Avatar
+                            size="sm"
+                            radius="xl"
+                            src={activeCoach?.avatar || undefined}
+                          />
+                        )}
+
                         <Paper
                           radius="lg"
                           p="xs"
                           withBorder
                           style={{
-                            maxWidth: "80%",
-                            background: mine ? "var(--mantine-color-blue-light)" : "var(--mantine-color-gray-0)",
+                            // toks pats „burbulo“ plotis kaip tekstinių žinučių
+                            maxWidth: 260,
+                            background: mine
+                              ? "var(--mantine-color-blue-light)"
+                              : "var(--mantine-color-gray-0)",
                           }}
                         >
-                          <div style={{ whiteSpace: "pre-wrap" }}>{text}</div>
-                          <div style={{ fontSize: 12, color: "var(--mantine-color-dimmed)" }}>{when}</div>
+                          {hasText && (
+                            <div style={{ whiteSpace: "pre-wrap" }}>{text}</div>
+                          )}
+
+                          {hasAttachment && (
+                            <div
+                              style={{
+                                marginTop: hasText ? 6 : 0,
+                                borderRadius: 8,
+                                overflow: "hidden",
+                              }}
+                            >
+                              {/\.(mp4|webm)$/i.test(attachment) ? (
+                                <video
+                                  src={attachment}
+                                  controls
+                                  style={{
+                                    display: "block",
+                                    width: "100%",     // pilnai telpa į burbulą
+                                    maxHeight: 180,    // kad neužimtų viso chat’o
+                                  }}
+                                />
+                              ) : (
+                                <img
+                                  src={attachment}
+                                  alt=""
+                                  style={{
+                                    display: "block",
+                                    width: "100%",     // prisitaiko prie burbulo
+                                    maxHeight: 180,
+                                    objectFit: "cover" // gražiai apkarpo, ne ištempia
+                                  }}
+                                />
+                              )}
+                            </div>
+                          )}
+
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "var(--mantine-color-dimmed)",
+                              marginTop: 4,
+                              textAlign: mine ? "right" : "left",
+                            }}
+                          >
+                            {when}
+                          </div>
                         </Paper>
+
                         {mine && <Avatar size="sm" radius="xl" />}
                       </Group>
                     );
@@ -319,9 +463,25 @@ export default function UserFloatingInbox() {
               </ScrollArea>
 
               <Divider />
+              {attachmentName && (
+                <Group justify="space-between" gap="xs">
+                  <Text size="xs" c="dimmed">
+                    Attached: {attachmentName}
+                  </Text>
+                  <Button
+                    size="xs"
+                    variant="subtle"
+                    onClick={handleRemoveAttachment}
+                  >
+                    Remove
+                  </Button>
+                </Group>
+              )}
               <Group align="end" wrap="nowrap">
                 <Textarea
-                  placeholder={activeId ? "Type a message…" : "Select a coach…"}
+                  placeholder={
+                    activeId ? "Type a message…" : "Select a coach…"
+                  }
                   autosize
                   minRows={1}
                   maxRows={4}
@@ -330,14 +490,32 @@ export default function UserFloatingInbox() {
                   disabled={!canType || sending}
                   style={{ flex: 1 }}
                 />
+                <ActionIcon
+                  variant="light"
+                  radius="xl"
+                  onClick={handleAttachClick}
+                  disabled={!canType || sending}
+                >
+                  <IconPaperclip size={18} />
+                </ActionIcon>
                 <Button
                   onClick={handleSend}
                   loading={sending}
-                  disabled={!canType || input.trim().length === 0}
+                  disabled={
+                    !canType ||
+                    (!input.trim() && !attachmentFile)
+                  }
                   rightSection={<IconSend size={16} />}
                 >
                   Send
                 </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  style={{ display: "none" }}
+                  onChange={handleFileChange}
+                />
               </Group>
             </Stack>
           </Paper>

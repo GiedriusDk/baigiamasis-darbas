@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('chat_rooms', function (Blueprint $table) {
             $table->bigIncrements('id');
-            $table->bigInteger('coach_id');
-            $table->bigInteger('user_id');
+            $table->bigInteger('coach_id')->nullable();
+            $table->bigInteger('user_id')->nullable();
             $table->bigInteger('plan_id')->nullable();
             $table->timestamps();
 

@@ -1,12 +1,38 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ActionIcon, Affix, Avatar, Badge, Box, Button, Card, Divider, Group,
-  Loader, Paper, ScrollArea, Stack, Text, Textarea, Title, Tooltip
+  ActionIcon,
+  Affix,
+  Avatar,
+  Badge,
+  Box,
+  Button,
+  Card,
+  Divider,
+  Group,
+  Loader,
+  Paper,
+  ScrollArea,
+  Stack,
+  Text,
+  Textarea,
+  Title,
+  Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconMessageCircle, IconX, IconRefresh, IconSend } from '@tabler/icons-react';
+import {
+  IconMessageCircle,
+  IconX,
+  IconRefresh,
+  IconSend,
+  IconPaperclip,
+} from "@tabler/icons-react";
 import { useAuth } from "../auth/useAuth";
-import { listConversations, getMessages, sendMessage, getUserPublicProfile } from "../api/chat";
+import {
+  listConversations,
+  getMessages,
+  sendMessage,
+  getUserPublicProfile,
+} from "../api/chat";
 
 export default function CoachFloatingInbox() {
   const { ready, user } = useAuth();
@@ -24,6 +50,11 @@ export default function CoachFloatingInbox() {
   const [userMeta, setUserMeta] = useState({});
   const scrollRef = useRef(null);
   const canType = !!(ready && user && activeId);
+
+  // attachment
+  const [attachmentFile, setAttachmentFile] = useState(null);
+  const [attachmentName, setAttachmentName] = useState("");
+  const fileInputRef = useRef(null);
 
   async function loadConvos() {
     setLoadingList(true);
@@ -45,7 +76,10 @@ export default function CoachFloatingInbox() {
       need.map(async (id) => {
         try {
           const d = await getUserPublicProfile(id);
-          const name = d?.name || [d?.first_name, d?.last_name].filter(Boolean).join(" ") || `User #${id}`;
+          const name =
+            d?.name ||
+            [d?.first_name, d?.last_name].filter(Boolean).join(" ") ||
+            `User #${id}`;
           const avatar = d?.avatar_url || d?.avatar_path || "";
           const online = !!(d?.is_online ?? false);
           return [id, { name, avatar, online }];
@@ -83,7 +117,9 @@ export default function CoachFloatingInbox() {
 
   useEffect(() => {
     if (!convos.length) return;
-    const uids = Array.from(new Set(convos.map((c) => Number(c.user_id)).filter(Boolean)));
+    const uids = Array.from(
+      new Set(convos.map((c) => Number(c.user_id)).filter(Boolean))
+    );
     ensureUserMeta(uids);
   }, [convos]);
 
@@ -96,12 +132,22 @@ export default function CoachFloatingInbox() {
 
   async function handleSend() {
     const body = input.trim();
-    if (!body || !activeId || sending) return;
+    if (!body && !attachmentFile) return;
+    if (!activeId || sending) return;
+
     setSending(true);
     try {
-      const r = await sendMessage(activeId, body);
+      const r = await sendMessage(activeId, {
+        body,
+        attachmentFile,
+      });
+
+      const msg = r?.data || r;
       setInput("");
-      setMessages((m) => [...m, r?.data].slice(-200));
+      setAttachmentFile(null);
+      setAttachmentName("");
+      setMessages((m) => [...m, msg].slice(-200));
+
       requestAnimationFrame(() => {
         const el = scrollRef.current;
         if (el) el.scrollTo({ top: el.scrollHeight });
@@ -109,6 +155,22 @@ export default function CoachFloatingInbox() {
     } finally {
       setSending(false);
     }
+  }
+
+  function handleAttachClick() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFileChange(e) {
+    const f = e.target.files?.[0] || null;
+    setAttachmentFile(f);
+    setAttachmentName(f ? f.name : "");
+  }
+
+  function handleRemoveAttachment() {
+    setAttachmentFile(null);
+    setAttachmentName("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   if (!ready || !user) return null;
@@ -148,13 +210,33 @@ export default function CoachFloatingInbox() {
             zIndex: 1000,
           }}
         >
-          <Paper shadow="lg" radius="lg" p="xs" withBorder style={{ height: "100%", display: "grid", gridTemplateColumns: "260px 1fr", gap: 8 }}>
-            <Stack gap="xs" p="xs" style={{ borderRight: "1px solid var(--mantine-color-gray-3)" }}>
+          <Paper
+            shadow="lg"
+            radius="lg"
+            p="xs"
+            withBorder
+            style={{
+              height: "100%",
+              display: "grid",
+              gridTemplateColumns: "260px 1fr",
+              gap: 8,
+            }}
+          >
+            {/* Kairė – sąrašas */}
+            <Stack
+              gap="xs"
+              p="xs"
+              style={{ borderRight: "1px solid var(--mantine-color-gray-3)" }}
+            >
               <Group justify="space-between">
                 <Title order={5}>Inbox</Title>
                 <Group gap={6}>
-                  <ActionIcon variant="subtle" onClick={loadConvos}><IconRefresh size={16} /></ActionIcon>
-                  <ActionIcon variant="subtle" onClick={close}><IconX size={18} /></ActionIcon>
+                  <ActionIcon variant="subtle" onClick={loadConvos}>
+                    <IconRefresh size={16} />
+                  </ActionIcon>
+                  <ActionIcon variant="subtle" onClick={close}>
+                    <IconX size={18} />
+                  </ActionIcon>
                 </Group>
               </Group>
 
@@ -174,88 +256,218 @@ export default function CoachFloatingInbox() {
                         p="xs"
                         radius="md"
                         onClick={() => setActiveId(c.id)}
-                        style={{ cursor: "pointer", background: active ? "var(--mantine-color-gray-1)" : "transparent" }}
+                        style={{
+                          cursor: "pointer",
+                          background: active
+                            ? "var(--mantine-color-gray-1)"
+                            : "transparent",
+                        }}
                       >
                         <Group gap="sm" wrap="nowrap">
                           <Avatar radius="xl" src={meta?.avatar || undefined}>
                             {!meta?.avatar && String(uid).slice(-1)}
                           </Avatar>
                           <div style={{ minWidth: 0 }}>
-                            <Text fw={600} truncate="end">{title}</Text>
-                            <Text size="xs" c="dimmed">{sub}</Text>
+                            <Text fw={600} truncate="end">
+                              {title}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              {sub}
+                            </Text>
                           </div>
                           <Group gap={6} ml="auto">
-                            {meta?.online && <Badge size="xs" color="green" variant="light">ONLINE</Badge>}
-                            <Badge size="xs" variant="light">coach #{c.coach_id}</Badge>
+                            {meta?.online && (
+                              <Badge size="xs" color="green" variant="light">
+                                ONLINE
+                              </Badge>
+                            )}
+                            <Badge size="xs" variant="light">
+                              coach #{c.coach_id}
+                            </Badge>
                           </Group>
                         </Group>
                       </Card>
                     );
                   })}
                   {!loadingList && convos.length === 0 && (
-                    <Text c="dimmed" size="sm">No conversations yet.</Text>
+                    <Text c="dimmed" size="sm">
+                      No conversations yet.
+                    </Text>
                   )}
                 </Stack>
               </ScrollArea>
             </Stack>
 
-            <Stack p="xs" gap="xs" style={{ minWidth: 0 }}>
+            {/* Dešinė – pokalbis */}
+            <Stack p="xs" gap="xs" style={{ minWidth: 0, minHeight: 0 }}>
               <Group justify="space-between">
                 <Group gap="sm">
                   {activeUser && (
                     <Avatar radius="xl" src={activeUser.avatar || undefined}>
-                      {!activeUser.avatar && (activeUser.name?.[0] || 'U')}
+                      {!activeUser.avatar && (activeUser.name?.[0] || "U")}
                     </Avatar>
                   )}
                   <div>
                     <Title order={5}>
-                      {activeUser ? activeUser.name : (activeId ? `Conversation #${activeId}` : 'Select a conversation')}
+                      {activeUser
+                        ? activeUser.name
+                        : activeId
+                        ? `Conversation #${activeId}`
+                        : "Select a conversation"}
                     </Title>
                     {activeUser && (
                       <Group gap={6}>
-                        {activeUser.online && <Badge size="xs" color="green" variant="light">ONLINE</Badge>}
-                        {activeUserId && <Badge size="xs" variant="light">user #{activeUserId}</Badge>}
+                        {activeUser.online && (
+                          <Badge size="xs" color="green" variant="light">
+                            ONLINE
+                          </Badge>
+                        )}
+                        {activeUserId && (
+                          <Badge size="xs" variant="light">
+                            user #{activeUserId}
+                          </Badge>
+                        )}
                       </Group>
                     )}
                   </div>
                 </Group>
               </Group>
+
               <Divider />
+
               <ScrollArea style={{ flex: 1 }} viewportRef={scrollRef}>
                 <Stack gap="xs">
-                  {loadingMessages && <Group justify="center" my="md"><Loader size="sm" /></Group>}
-                  {!loadingMessages && messages.length === 0 && activeId && (
-                    <Text c="dimmed" ta="center">No messages.</Text>
+                  {loadingMessages && (
+                    <Group justify="center" my="md">
+                      <Loader size="sm" />
+                    </Group>
                   )}
+                  {!loadingMessages && messages.length === 0 && activeId && (
+                    <Text c="dimmed" ta="center">
+                      No messages.
+                    </Text>
+                  )}
+
                   {messages.map((m) => {
                     const mine = m.sender_id === user?.id;
-                    const text = m.body ?? m.message ?? m.text ?? '';
-                    const when = new Date(m.created_at || m.createdAt).toLocaleString();
+                    const text = m.body ?? m.message ?? m.text ?? "";
+                    const when = new Date(
+                      m.created_at || m.createdAt
+                    ).toLocaleString();
+                    const attachment =
+                      m.attachment_url || m.attachmentUrl || "";
+                    const hasText = !!text;
+                    const hasAttachment = !!attachment;
+
                     return (
-                      <Group key={m.id} justify={mine ? 'flex-end' : 'flex-start'} wrap="nowrap">
-                        {!mine && <Avatar size="sm" radius="xl" />}
+                      <Group
+                        key={m.id}
+                        justify={mine ? "flex-end" : "flex-start"}
+                        wrap="nowrap"
+                      >
+                        {!mine && (
+                          <Avatar
+                            size="sm"
+                            radius="xl"
+                            src={activeUser?.avatar || undefined}
+                          >
+                            {!activeUser?.avatar &&
+                              (activeUser?.name?.[0] || "U")}
+                          </Avatar>
+                        )}
+
                         <Paper
                           radius="lg"
                           p="xs"
                           withBorder
                           style={{
-                            maxWidth: '80%',
-                            background: mine ? 'var(--mantine-color-blue-light)' : 'var(--mantine-color-gray-0)',
+                            maxWidth: 260,
+                            background: mine
+                              ? "var(--mantine-color-blue-light)"
+                              : "var(--mantine-color-gray-0)",
                           }}
                         >
-                          <div style={{ whiteSpace: 'pre-wrap' }}>{text}</div>
-                          <div style={{ fontSize: 12, color: 'var(--mantine-color-dimmed)' }}>{when}</div>
+                          {hasText && (
+                            <div style={{ whiteSpace: "pre-wrap" }}>{text}</div>
+                          )}
+
+                          {hasAttachment && (
+                            <div
+                              style={{
+                                marginTop: hasText ? 6 : 0,
+                                borderRadius: 8,
+                                overflow: "hidden",
+                              }}
+                            >
+                              {/\.(mp4|webm)$/i.test(attachment) ? (
+                                <video
+                                  src={attachment}
+                                  controls
+                                  style={{
+                                    display: "block",
+                                    width: "100%",
+                                    maxHeight: 180,
+                                  }}
+                                />
+                              ) : (
+                                <img
+                                  src={attachment}
+                                  alt=""
+                                  style={{
+                                    display: "block",
+                                    width: "100%",
+                                    height: "auto",
+                                    maxWidth: "240px",
+                                    maxHeight: "180px",
+                                    borderRadius: "8px",
+                                    objectFit: "contain",
+                                  }}
+                                />
+                              )}
+                            </div>
+                          )}
+
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "var(--mantine-color-dimmed)",
+                              marginTop: 4,
+                              textAlign: mine ? "right" : "left",
+                            }}
+                          >
+                            {when}
+                          </div>
                         </Paper>
+
                         {mine && <Avatar size="sm" radius="xl" />}
                       </Group>
                     );
                   })}
                 </Stack>
               </ScrollArea>
+
               <Divider />
+
+              {attachmentName && (
+                <Group justify="space-between" gap="xs">
+                  <Text size="xs" c="dimmed">
+                    Attached: {attachmentName}
+                  </Text>
+                  <Button
+                    size="xs"
+                    variant="subtle"
+                    onClick={handleRemoveAttachment}
+                  >
+                    Remove
+                  </Button>
+                </Group>
+              )}
+
               <Group align="end" wrap="nowrap">
                 <Textarea
-                  placeholder={activeId ? "Type a reply…" : "Select a conversation…"}
+                  placeholder={
+                    activeId ? "Type a reply…" : "Select a conversation…"
+                  }
                   autosize
                   minRows={1}
                   maxRows={4}
@@ -264,14 +476,31 @@ export default function CoachFloatingInbox() {
                   disabled={!canType || sending}
                   style={{ flex: 1 }}
                 />
+                <ActionIcon
+                  variant="light"
+                  radius="xl"
+                  onClick={handleAttachClick}
+                  disabled={!canType || sending}
+                >
+                  <IconPaperclip size={18} />
+                </ActionIcon>
                 <Button
                   onClick={handleSend}
                   loading={sending}
-                  disabled={!canType || input.trim().length === 0}
+                  disabled={
+                    !canType || (!input.trim() && !attachmentFile)
+                  }
                   rightSection={<IconSend size={16} />}
                 >
                   Send
                 </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  style={{ display: "none" }}
+                  onChange={handleFileChange}
+                />
               </Group>
             </Stack>
           </Paper>
