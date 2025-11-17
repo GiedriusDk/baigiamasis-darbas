@@ -26,4 +26,8 @@ class Photo extends Model
     {
         return $this->belongsTo(ProgressEntry::class, 'entry_id');
     }
+    public function getUrlAttribute()
+    {
+        return config('app.url') . '/storage/' . ltrim($this->path, '/');
+    }
 }

@@ -13,6 +13,8 @@ import {
   FileInput,
   TextInput,
   Select,
+  ActionIcon,
+  Modal,
 } from "@mantine/core";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -24,6 +26,7 @@ import {
   listGoals,
   createGoal,
   updateGoal,
+  deletePhoto,
 } from "../../api/progress";
 import {
   LineChart,
@@ -34,6 +37,11 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts";
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconTrash,
+} from "@tabler/icons-react";
 
 export default function MetricDetailsPage() {
   const { id } = useParams();
@@ -59,9 +67,33 @@ export default function MetricDetailsPage() {
   const [goalDirection, setGoalDirection] = useState("at_most");
   const [savingGoal, setSavingGoal] = useState(false);
 
+  const [previewPhoto, setPreviewPhoto] = useState(null);
+
+  const movePhoto = (photoId, direction) => {
+    setPhotos((prev) => {
+      const idx = prev.findIndex((p) => p.id === photoId);
+      if (idx === -1) return prev;
+      const newIndex = idx + direction;
+      if (newIndex < 0 || newIndex >= prev.length) return prev;
+      const copy = [...prev];
+      const [item] = copy.splice(idx, 1);
+      copy.splice(newIndex, 0, item);
+      return copy;
+    });
+  };
+
+  const handleDeletePhoto = async (photoId) => {
+    const ok = window.confirm("Delete this photo?");
+    if (!ok) return;
+    await deletePhoto(photoId);
+    setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+  };
+
   const chartData = useMemo(() => {
     const arr = [...entries];
-    arr.sort((a, b) => (a.recorded_at || "").localeCompare(b.recorded_at || ""));
+    arr.sort((a, b) =>
+      (a.recorded_at || "").localeCompare(b.recorded_at || "")
+    );
     return arr.map((e) => ({
       date: (e.recorded_at || "").slice(0, 10),
       value: e.value,
@@ -71,25 +103,19 @@ export default function MetricDetailsPage() {
 
   const yDomain = useMemo(() => {
     if (!chartData.length) return ["auto", "auto"];
-
     const values = chartData
       .map((p) => Number(p.value))
       .filter((v) => !Number.isNaN(v));
-
     if (!values.length) return ["auto", "auto"];
-
     const min = Math.min(...values);
     const max = Math.max(...values);
     const span = max - min;
-
     const padding =
       span === 0
-        ? Math.max(1, Math.abs(max || 1) * 0.1) 
-        : span * 0.2;                            
-
+        ? Math.max(1, Math.abs(max || 1) * 0.1)
+        : span * 0.2;
     const lower = min - padding;
     const upper = max + padding;
-
     return [lower, upper];
   }, [chartData]);
 
@@ -97,17 +123,20 @@ export default function MetricDetailsPage() {
     setLoading(true);
     try {
       const m = await getMetric(metricId, { include_latest: 1 });
+      const metricData = m?.data ?? m;
       const e = await listEntries({ paginate: 0, metric_id: metricId });
-      const first = (e?.data ?? e)[0];
+      const entriesData = e?.data ?? e ?? [];
+      const first = entriesData[0];
       const p = first
         ? await listEntryPhotos(first.id).catch(() => ({ data: [] }))
         : { data: [] };
-
-      const g = await listGoals({ metric_id: metricId }).catch(() => ({ data: [] }));
+      const g = await listGoals({ metric_id: metricId }).catch(() => ({
+        data: [],
+      }));
       const activeGoal = (g?.data ?? g ?? [])[0] ?? null;
 
-      setMetric(m?.data ?? m);
-      setEntries(e?.data ?? e ?? []);
+      setMetric(metricData);
+      setEntries(entriesData);
       setPhotos(p?.data ?? []);
       setGoal(activeGoal);
 
@@ -116,7 +145,9 @@ export default function MetricDetailsPage() {
         setGoalValue(activeGoal.target_value ?? null);
         setGoalDirection(activeGoal.direction || "at_most");
       } else {
-        setGoalTitle(metric?.name ? `My ${metric.name} goal` : "My goal");
+        setGoalTitle(
+          metricData?.name ? `My ${metricData.name} goal` : "My goal"
+        );
         setGoalValue(null);
         setGoalDirection("at_most");
       }
@@ -161,7 +192,9 @@ export default function MetricDetailsPage() {
     try {
       const payload = {
         metric_id: metricId,
-        title: goalTitle || (metric?.name ? `My ${metric.name} goal` : "My goal"),
+        title:
+          goalTitle ||
+          (metric?.name ? `My ${metric.name} goal` : "My goal"),
         target_value: Number(goalValue),
         unit: metric?.unit || null,
         direction: goalDirection,
@@ -365,6 +398,7 @@ export default function MetricDetailsPage() {
         <Title order={4} mb="sm">
           Progress photos
         </Title>
+
         <Group align="end">
           <FileInput
             value={file}
@@ -377,22 +411,104 @@ export default function MetricDetailsPage() {
             Upload
           </Button>
         </Group>
-        <Group mt="md">
-          {photos.map((p) => (
-            <img
-              key={p.id}
-              src={p.url}
-              alt=""
-              style={{
-                width: 160,
-                height: 160,
-                objectFit: "cover",
-                borderRadius: 12,
-              }}
-            />
-          ))}
+
+        <Group mt="md" align="flex-start">
+          {photos.map((p, index) => {
+            const dateStr = (() => {
+              const raw = p.taken_at || p.created_at;
+              if (!raw) return "";
+              const d = new Date(raw);
+              if (Number.isNaN(d.getTime())) return "";
+              return d.toLocaleDateString();
+            })();
+
+            const canMoveLeft = index > 0;
+            const canMoveRight = index < photos.length - 1;
+
+            return (
+              <Card
+                key={p.id}
+                withBorder
+                shadow="sm"
+                radius="md"
+                style={{ width: 180 }}
+              >
+                <img
+                  src={p.url}
+                  alt=""
+                  onClick={() => setPreviewPhoto(p)}
+                  style={{
+                    width: "100%",
+                    height: 160,
+                    objectFit: "cover",
+                    borderRadius: 10,
+                    marginBottom: 8,
+                    cursor: "pointer",
+                  }}
+                />
+
+                <Group justify="space-between" align="center" mb={4}>
+                  <Text size="xs" c="dimmed">
+                    {dateStr || "—"}
+                  </Text>
+                  <Group gap={4}>
+                    <ActionIcon
+                      size="xs"
+                      variant="subtle"
+                      onClick={() => movePhoto(p.id, -1)}
+                      disabled={!canMoveLeft}
+                    >
+                      <IconArrowLeft size={14} />
+                    </ActionIcon>
+                    <ActionIcon
+                      size="xs"
+                      variant="subtle"
+                      onClick={() => movePhoto(p.id, +1)}
+                      disabled={!canMoveRight}
+                    >
+                      <IconArrowRight size={14} />
+                    </ActionIcon>
+                    <ActionIcon
+                      size="xs"
+                      variant="subtle"
+                      color="red"
+                      onClick={() => handleDeletePhoto(p.id)}
+                    >
+                      <IconTrash size={14} />
+                    </ActionIcon>
+                  </Group>
+                </Group>
+              </Card>
+            );
+          })}
+
+          {photos.length === 0 && (
+            <Text size="sm" c="dimmed">
+              No photos yet.
+            </Text>
+          )}
         </Group>
       </Card>
+
+      <Modal
+        opened={!!previewPhoto}
+        onClose={() => setPreviewPhoto(null)}
+        title="Photo preview"
+        size="lg"
+        centered
+      >
+        {previewPhoto && (
+          <img
+            src={previewPhoto.url}
+            alt=""
+            style={{
+              width: "100%",
+              height: "auto",
+              borderRadius: 12,
+            }}
+          />
+        )}
+      </Modal>
     </Stack>
   );
 }

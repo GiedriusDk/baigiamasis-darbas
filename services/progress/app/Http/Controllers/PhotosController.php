@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 
+
 class PhotosController extends Controller
 {
     protected function me(Request $r): int
@@ -17,11 +18,25 @@ class PhotosController extends Controller
         return (int)($u['id'] ?? 0);
     }
 
+
     public function index(Request $r, Entry $entry)
     {
         $me = $this->me($r);
         if ($entry->user_id !== $me) return response()->json(['message'=>'Forbidden'], 403);
-        return response()->json(['data' => $entry->photos()->orderByDesc('id')->get()]);
+
+        $photos = $entry->photos()->orderByDesc('id')->get()->map(function ($p) {
+            return [
+                'id'         => $p->id,
+                'entry_id'   => $p->entry_id,
+                'url'        => $p->url,                 // accessor, kaip jau turi
+                'path'       => $p->path,
+                'pose'       => $p->pose,
+                'taken_at'   => $p->taken_at,
+                'created_at' => $p->created_at?->toIso8601String(),
+            ];
+        });
+
+        return response()->json(['data' => $photos]);
     }
 
     public function store(Request $r)
@@ -54,7 +69,17 @@ class PhotosController extends Controller
             'taken_at' => $data['taken_at'] ?? null,
         ]);
 
-        return response()->json(['data' => $photo], 201);
+        return response()->json([
+            'data' => [
+                'id'         => $photo->id,
+                'entry_id'   => $photo->entry_id,
+                'url'        => $photo->url,
+                'path'       => $photo->path,
+                'pose'       => $photo->pose,
+                'taken_at'   => $photo->taken_at,
+                'created_at' => $photo->created_at?->toIso8601String(),
+            ]
+        ], 201);
     }
 
     public function destroy(Request $r, Photo $photo)
