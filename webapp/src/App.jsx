@@ -41,6 +41,8 @@ import MetricDetailsPage from './pages/Progress/MetricDetailsPage.jsx';
 import GoalsPage from './pages/Progress/GoalsPage.jsx';
 
 import ForumsPage from "./pages/ForumsPage.jsx";
+import UserPlanBuilder from './pages/UserPlanBuilder.jsx';
+
 
 setChatDebug(true);
 function Home() {
@@ -133,6 +135,7 @@ function AppInner() {
     if (ready && user) presenceTouch().catch(() => {});
   }, [location.pathname, ready, user]);
 
+  
   useEffect(() => {
     function onFocus() {
       if (ready && user) presenceTouch().catch(() => {});
@@ -167,6 +170,7 @@ function AppInner() {
             <>
             <NavLink component={Link} to="/plans" label="Generate Plan" active={location.pathname === '/plans'} />
             <NavLink component={Link} to="/my" label="My plan" active={location.pathname === '/my'} />
+            <NavLink component={Link} to="/plan-builder" label="Plan Builder" active={location.pathname === '/plan-builder'} />
             <NavLink
               component={Link}
               to="/progress"
@@ -220,6 +224,7 @@ function AppInner() {
 
           <Route path="/plans" element={<RequireAuth><PlannerPage /></RequireAuth>} />
           <Route path="/my" element={<RequireAuth><MyPlanPage /></RequireAuth>} />
+          <Route path="/plan-builder" element={<RequireAuth><UserPlanBuilder /></RequireAuth>} />
 
           <Route path="/coach/:id/plans" element={<CoachPublicRoute />} />
           <Route path="/coach/plans/manage" element={<CoachPlansManage />} />

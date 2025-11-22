@@ -74,3 +74,61 @@ export async function searchExercises({ q, equipment, muscles, page = 1, per_pag
   if (!r.ok) throw new Error(raw || `HTTP ${r.status}`);
   return raw ? JSON.parse(raw) : { data: [] };
 }
+
+export function listWorkouts(planId) {
+  return request(`/plans/${planId}/workouts`, {
+    headers: authHeaders(),
+  });
+}
+
+export function createWorkout(planId, payload) {
+  return request(`/plans/${planId}/workouts`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateWorkout(workoutId, payload) {
+  return request(`/workouts/${workoutId}`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteWorkout(workoutId) {
+  return request(`/workouts/${workoutId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+}
+
+export function listWorkoutExercises(workoutId) {
+  return request(`/workouts/${workoutId}/exercises`, {
+    headers: authHeaders(),
+  });
+}
+
+export function createWorkoutExercise(workoutId, payload) {
+  return request(`/workouts/${workoutId}/exercises`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateWorkoutExercise(workoutId, workoutExerciseId, payload) {
+  return request(`/workouts/${workoutId}/exercises/${workoutExerciseId}`, {
+    method: "PUT",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteWorkoutExercise(workoutId, workoutExerciseId) {
+  return request(`/workouts/${workoutId}/exercises/${workoutExerciseId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+}

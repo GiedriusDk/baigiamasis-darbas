@@ -10,6 +10,42 @@ use Illuminate\Http\Request;
 
 class WorkoutExerciseController extends Controller
 {
+    public function index(Request $r, Workout $workout, CatalogService $catalog)
+    {
+        $this->assertOwnsWorkout($r, $workout);
+
+        $items = $workout->exercises()
+            ->orderBy('order')
+            ->get();
+
+        $ids = $items->pluck('exercise_id')->filter()->unique()->values()->all();
+        $details = [];
+
+        if ($ids) {
+            $details = collect($catalog->getExercisesByIds($ids))->keyBy('id');
+        }
+
+        $data = $items->map(function (WorkoutExercise $we) use ($details) {
+            $row = $we->exercise_id
+                ? ($details[$we->exercise_id] ?? null)
+                : null;
+
+            return [
+                'id'               => $we->id,
+                'workout_id'       => $we->workout_id,
+                'exercise_id'      => $we->exercise_id,
+                'order'            => $we->order,
+                'sets'             => $we->sets,
+                'rep_min'          => $we->rep_min,
+                'rep_max'          => $we->rep_max,
+                'rest_sec'         => $we->rest_sec,
+                'catalog_exercise' => $row,
+            ];
+        });
+
+        return response()->json(['data' => $data]);
+    }
+
     protected function assertOwnsWorkout(Request $r, Workout $workout): void
     {
         $auth   = $r->attributes->get('auth_user');
@@ -20,6 +56,118 @@ class WorkoutExerciseController extends Controller
             abort(403, 'Forbidden');
         }
     }
+
+    // ---------- CRUD ----------
+
+    public function store(Request $r, Workout $workout, CatalogService $catalog)
+    {
+        $this->assertOwnsWorkout($r, $workout);
+
+        $data = $r->validate([
+            'exercise_id' => ['required', 'integer', 'min:1'],
+            'order'       => ['nullable', 'integer', 'min:0'],
+            'sets'        => ['nullable', 'integer', 'min:1', 'max:20'],
+            'rep_min'     => ['nullable', 'integer', 'min:1', 'max:100'],
+            'rep_max'     => ['nullable', 'integer', 'min:1', 'max:100'],
+            'rest_sec'    => ['nullable', 'integer', 'min:10', 'max:600'],
+        ]);
+
+        $exerciseId = (int)$data['exercise_id'];
+
+        if (! $catalog->getExercise($exerciseId)) {
+            return response()->json(['message' => 'Exercise not found in catalog'], 422);
+        }
+
+        $exists = WorkoutExercise::where('workout_id', $workout->id)
+            ->where('exercise_id', $exerciseId)
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['message' => 'Already in this workout'], 422);
+        }
+
+        $maxOrder = (int)WorkoutExercise::where('workout_id', $workout->id)->max('order');
+        $order    = $data['order'] ?? ($maxOrder + 1);
+
+        $we = WorkoutExercise::create([
+            'workout_id'  => $workout->id,
+            'exercise_id' => $exerciseId,
+            'order'       => $order,
+            'sets'        => $data['sets'] ?? 3,
+            'rep_min'     => $data['rep_min'] ?? 8,
+            'rep_max'     => $data['rep_max'] ?? 12,
+            'rest_sec'    => $data['rest_sec'] ?? 60,
+        ]);
+
+        $cat = $catalog->getExercise($exerciseId);
+
+        return response()->json([
+            'data' => [
+                'id'               => $we->id,
+                'workout_id'       => $we->workout_id,
+                'exercise_id'      => $we->exercise_id,
+                'order'            => $we->order,
+                'sets'             => $we->sets,
+                'rep_min'          => $we->rep_min,
+                'rep_max'          => $we->rep_max,
+                'rest_sec'         => $we->rest_sec,
+                'catalog_exercise' => $cat,
+            ],
+        ], 201);
+    }
+
+    public function update(Request $r, Workout $workout, WorkoutExercise $workoutExercise, CatalogService $catalog)
+    {
+        $this->assertOwnsWorkout($r, $workout);
+
+        if ($workoutExercise->workout_id !== $workout->id) {
+            abort(404);
+        }
+
+        $data = $r->validate([
+            'sets'     => ['sometimes', 'integer', 'min:1', 'max:20'],
+            'rep_min'  => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'rep_max'  => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'rest_sec' => ['sometimes', 'integer', 'min:10', 'max:600'],
+            'order'    => ['sometimes', 'integer', 'min:0'],
+        ]);
+
+        $workoutExercise->fill($data);
+        $workoutExercise->save();
+
+        $cat = $workoutExercise->exercise_id
+            ? $catalog->getExercise((int)$workoutExercise->exercise_id)
+            : null;
+
+        return response()->json([
+            'data' => [
+                'id'               => $workoutExercise->id,
+                'workout_id'       => $workoutExercise->workout_id,
+                'exercise_id'      => $workoutExercise->exercise_id,
+                'order'            => $workoutExercise->order,
+                'sets'             => $workoutExercise->sets,
+                'rep_min'          => $workoutExercise->rep_min,
+                'rep_max'          => $workoutExercise->rep_max,
+                'rest_sec'         => $workoutExercise->rest_sec,
+                'catalog_exercise' => $cat,
+            ],
+        ]);
+    }
+
+    public function destroy(Request $r, Workout $workout, WorkoutExercise $workoutExercise)
+    {
+        $this->assertOwnsWorkout($r, $workout);
+
+        if ($workoutExercise->workout_id !== $workout->id) {
+            abort(404);
+        }
+
+        $workoutExercise->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    // ---------- Alternatives / swap / search ----------
 
     public function alternatives(Request $r, Workout $workout, int $order, CatalogService $catalog)
     {
@@ -43,7 +191,7 @@ class WorkoutExerciseController extends Controller
         $params = [
             'muscles'   => $wantMuscle ? $wantMuscle : null,
             'equipment' => $equipmentFilter === 'gym' ? null : $equipmentFilter,
-            'per_page'  => $limit * 3,   // atsinešam daugiau ir profilttruojam lokaliai
+            'per_page'  => $limit * 3,
             'page'      => 1,
         ];
         $candidates = $catalog->exercises($params);

@@ -43,7 +43,9 @@ class PlanController extends Controller
     {
         $authUser = $r->attributes->get('auth_user');
         $userId   = $authUser['id'] ?? null;
-        if (!$userId) return response()->json(['message' => 'Unauthenticated.'], 401);
+        if (!$userId) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
 
         $defaults = [];
         try {
@@ -62,6 +64,7 @@ class PlanController extends Controller
             'injuries'          => 'nullable|array',
             'injuries.*'        => 'string|max:40',
             'save_as_defaults'  => 'sometimes|boolean',
+            'source'            => 'nullable|string|in:manual,generated',
         ]);
 
         $merged = [
@@ -84,12 +87,14 @@ class PlanController extends Controller
                     'injuries'          => array_values(array_unique($merged['injuries'] ?? [])),
                 ];
                 $profiles->updateProfile($payload, (string) $r->bearerToken());
+
                 return response()->json([
                     'message' => 'Profile defaults updated successfully',
                     'updated' => $payload,
                 ], 200);
             } catch (\Throwable $e) {
                 report($e);
+
                 return response()->json([
                     'message' => 'Failed to update profile defaults',
                     'error'   => app()->hasDebugModeEnabled() ? $e->getMessage() : null,
@@ -98,7 +103,10 @@ class PlanController extends Controller
         }
 
         DB::beginTransaction();
+
         try {
+            $source = $data['source'] ?? 'generated';
+
             $plan = Plan::create([
                 'user_id'           => $userId,
                 'goal'              => $merged['goal'],
@@ -108,14 +116,20 @@ class PlanController extends Controller
                 'session_minutes'   => $merged['session_minutes'],
                 'equipment'         => $merged['equipment'],
                 'injuries'          => array_values($merged['injuries'] ?? []),
+                'source'            => $source,
             ]);
+
+            if ($source === 'manual') {
+                DB::commit();
+                return response()->json($plan, 201);
+            }
 
             $template = $splitGen->generate(
                 $merged['goal'],
                 $merged['sessions_per_week'],
                 $merged['equipment'],
                 $merged['session_minutes'],
-                $merged['injuries']
+                $merged['injuries'],
             );
 
             if (!$template) {
@@ -147,15 +161,18 @@ class PlanController extends Controller
 
             DB::commit();
             $plan->load('workouts.exercises');
+
             return response()->json($plan, 201);
         } catch (\Throwable $e) {
             DB::rollBack();
+
             if (config('app.debug')) {
                 return response()->json([
                     'message' => 'Plan generation failed',
                     'error'   => $e->getMessage(),
                 ], 500);
             }
+
             return response()->json(['message' => 'Plan generation failed'], 500);
         }
     }
