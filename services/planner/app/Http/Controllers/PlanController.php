@@ -65,6 +65,7 @@ class PlanController extends Controller
             'injuries.*'        => 'string|max:40',
             'save_as_defaults'  => 'sometimes|boolean',
             'source'            => 'nullable|string|in:manual,generated',
+            'solo_only'         => 'nullable|boolean',
         ]);
 
         $merged = [
@@ -117,6 +118,7 @@ class PlanController extends Controller
                 'equipment'         => $merged['equipment'],
                 'injuries'          => array_values($merged['injuries'] ?? []),
                 'source'            => $source,
+                'solo_only'         => array_key_exists('solo_only', $data) ? (bool) $data['solo_only'] : true,
             ]);
 
             if ($source === 'manual') {
@@ -130,6 +132,7 @@ class PlanController extends Controller
                 $merged['equipment'],
                 $merged['session_minutes'],
                 $merged['injuries'],
+                (bool) ($data['solo_only'] ?? true)
             );
 
             if (!$template) {

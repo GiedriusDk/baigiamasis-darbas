@@ -9,14 +9,19 @@ use App\Services\CatalogService;
 class SplitGenerator
 {
     public function __construct(protected CatalogService $catalog) {}
+    protected array $usedIds = [];
+    protected array $usedNames = [];
 
     public function generate(
         string $goal,
         int $sessions,
         ?string $equipment = null,
         int $durationMin = 60,
-        array $injuries = []
+        array $injuries = [],
+        bool $soloOnly = true
     ): array {
+        $this->usedIds = [];
+        $this->usedNames = [];
         $split = DB::table('splits')
             ->where('goal', $goal)
             ->where('sessions_per_week', $sessions)
@@ -52,6 +57,11 @@ class SplitGenerator
 
                 if (!$pool) continue;
 
+                if ($soloOnly) {
+                    $pool = array_values(array_filter($pool, fn ($ex) => $this->isSoloFriendly($ex)));
+                    if (!$pool) continue;
+                }
+
                 $pool = array_values(array_filter($pool, fn ($ex) => $this->isSafeForInjuries($ex, $banned)));
                 if (!$pool) continue;
 
@@ -61,13 +71,28 @@ class SplitGenerator
                 $subset = [];
                 foreach ($pool as $cand) {
                     if (count($subset) >= (int)$slot->count) break;
+
                     $id  = (string)($cand['id'] ?? '');
                     $nm  = Str::lower(trim((string)($cand['name'] ?? $cand['title'] ?? '')));
+
+                    // ❌ jau naudotas bet kur plane
+                    if ($id !== '' && isset($this->usedIds[$id])) continue;
+                    if ($nm !== '' && isset($this->usedNames[$nm])) continue;
+
+                    // ❌ jau naudotas tos dienos viduje
                     if ($id !== '' && isset($alreadyIds[$id])) continue;
                     if ($nm !== '' && isset($alreadyNames[$nm])) continue;
+
                     $subset[] = $cand;
-                    if ($id !== '') $alreadyIds[$id] = true;
-                    if ($nm !== '') $alreadyNames[$nm] = true;
+
+                    if ($id !== '') {
+                        $alreadyIds[$id] = true;
+                        $this->usedIds[$id] = true;
+                    }
+                    if ($nm !== '') {
+                        $alreadyNames[$nm] = true;
+                        $this->usedNames[$nm] = true;
+                    }
                 }
 
                 foreach ($subset as $ex) {
@@ -159,8 +184,11 @@ class SplitGenerator
         $spent  = $this->totalSeconds($picked, $goal);
         if ($spent >= $budget) return $picked;
 
-        $alreadyIds   = [];
-        $alreadyNames = [];
+        // Pradedam nuo globaliai naudotų
+        $alreadyIds   = $this->usedIds;
+        $alreadyNames = $this->usedNames;
+
+        // ir dar kartą praeinam per esamus picked (šiaip jau turėtų sutapti, bet saugiai)
         foreach ($picked as $ex) {
             $id = (string)($ex['id'] ?? '');
             $nm = Str::lower(trim((string)($ex['name'] ?? '')));
@@ -178,50 +206,85 @@ class SplitGenerator
             $counts[$t] = ($counts[$t] ?? 0) + 1;
         }
 
-        $tags  = array_keys($slotPools);
-        $idx   = array_fill_keys($tags, 0);
-        $added = 0;
+        $tags = array_keys($slotPools);
+        // random tvarka per tag'us
+        shuffle($tags);
 
+        $added = 0;
         $loops = 0;
+
         while ($added < $maxExtra && count($picked) < $maxTotal && $spent < $budget && $loops < 100) {
             $loops++;
+
             foreach ($tags as $t) {
-                if (isset($maxPerTag[$t]) && (($counts[$t] ?? 0) >= $maxPerTag[$t])) continue;
+                if (isset($maxPerTag[$t]) && (($counts[$t] ?? 0) >= $maxPerTag[$t])) {
+                    continue;
+                }
 
                 $pool = $slotPools[$t] ?? [];
                 if (!$pool) continue;
 
-                $cand = $pool[$idx[$t] % count($pool)];
-                $idx[$t]++;
+                // random tvarka per kandidatų pool'ą
+                $poolShuffled = $pool;
+                shuffle($poolShuffled);
 
-                if (!$this->isSafeForInjuries($cand, $banned)) continue;
+                $chosen = null;
 
-                $id = (string)($cand['id'] ?? '');
-                $nm = Str::lower(trim((string)($cand['name'] ?? $cand['title'] ?? '')));
-                if ($id !== '' && isset($alreadyIds[$id])) continue;
-                if ($nm !== '' && isset($alreadyNames[$nm])) continue;
+                foreach ($poolShuffled as $cand) {
+                    if (!$this->isSafeForInjuries($cand, $banned)) {
+                        continue;
+                    }
 
-                $ex = [
-                    'id'        => $cand['id'],
-                    'name'      => $cand['name'] ?? 'Exercise',
-                    'sets'      => 3,
-                    'rep_min'   => 8,
-                    'rep_max'   => 12,
-                    'rest_sec'  => 60,
-                    '_meta_tag' => $t,
-                ];
+                    $id = (string)($cand['id'] ?? '');
+                    $nm = Str::lower(trim((string)($cand['name'] ?? $cand['title'] ?? '')));
 
-                $need = $this->estimateExerciseSeconds($ex, $goal) + 20;
-                if ($spent + $need > $budget) continue;
+                    if ($id !== '' && isset($alreadyIds[$id])) continue;
+                    if ($nm !== '' && isset($alreadyNames[$nm])) continue;
+
+                    $ex = [
+                        'id'        => $cand['id'],
+                        'name'      => $cand['name'] ?? 'Exercise',
+                        'sets'      => 3,
+                        'rep_min'   => 8,
+                        'rep_max'   => 12,
+                        'rest_sec'  => 60,
+                        '_meta_tag' => $t,
+                    ];
+
+                    $need = $this->estimateExerciseSeconds($ex, $goal) + 20;
+                    if ($spent + $need > $budget) {
+                        continue;
+                    }
+
+                    $chosen = [$ex, $id, $nm];
+                    break;
+                }
+
+                if (!$chosen) {
+                    // šitam tag'ui tinkančių nebėra – einam prie kito
+                    continue;
+                }
+
+                [$ex, $id, $nm] = $chosen;
 
                 $picked[] = $ex;
-                $alreadyIds[$id] = true;
-                if ($nm !== '') $alreadyNames[$nm] = true;
+
+                if ($id !== '') {
+                    $alreadyIds[$id] = true;
+                    $this->usedIds[$id] = true;
+                }
+                if ($nm !== '') {
+                    $alreadyNames[$nm] = true;
+                    $this->usedNames[$nm] = true;
+                }
+
                 $counts[$t] = ($counts[$t] ?? 0) + 1;
-                $spent += $need;
+                $spent += $this->estimateExerciseSeconds($ex, $goal) + 20;
                 $added++;
 
-                if ($added >= $maxExtra || count($picked) >= $maxTotal || $spent >= $budget) break;
+                if ($added >= $maxExtra || count($picked) >= $maxTotal || $spent >= $budget) {
+                    break;
+                }
             }
         }
 
@@ -307,6 +370,22 @@ class SplitGenerator
             if ((isset($banned['shoulders']) || isset($banned['delts']) || isset($banned['deltoids'])) && preg_match($shoulderRx, $name)) return false;
             if ((isset($banned['back']) || isset($banned['lats']) || isset($banned['upper back']) || isset($banned['lower back'])) && preg_match($backRx, $name)) return false;
             if ((isset($banned['legs']) || isset($banned['quads']) || isset($banned['hamstrings']) || isset($banned['glutes']) || isset($banned['calves'])) && preg_match($legsRx, $name)) return false;
+        }
+
+        return true;
+    }
+
+    protected function isSoloFriendly(array $ex): bool
+    {
+        $equip = strtolower(trim((string)($ex['equipment'] ?? '')));
+
+        if ($equip === 'assisted' || str_contains($equip, 'assisted')) {
+            return false;
+        }
+
+        $name = strtolower((string)($ex['name'] ?? $ex['title'] ?? ''));
+        if ($name !== '' && str_contains($name, 'assisted')) {
+            return false;
         }
 
         return true;

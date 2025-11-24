@@ -2,10 +2,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Paper, Title, Text, Group, Button, Select, NumberInput, Stack,
-  SegmentedControl, Badge, Divider, Alert, Skeleton, Grid, Card, Image, MultiSelect } from "@mantine/core";
+  SegmentedControl, Badge, Divider, Alert, Skeleton, Grid, Card, Image, MultiSelect, Checkbox } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
 import { createPlan, getPlan } from "../api/planner";
 import { notifications } from "@mantine/notifications";
+
 
 async function fetchProfileDefaults(token) {
   const r = await fetch("/api/profiles/user/profile", {
@@ -65,6 +66,7 @@ export default function PlannerPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [plan, setPlan] = useState(null);
+  const [soloOnly, setSoloOnly] = useState(true);
 
   const token = useMemo(() => localStorage.getItem("auth_token") || "", []);
 
@@ -103,6 +105,7 @@ export default function PlannerPage() {
        weeks,
        session_minutes: sessionMin,
        injuries,
+       solo_only: soloOnly ? 1 : 0,
      })
    );
    if (!created?.id) throw new Error("Failed to create plan");
@@ -129,6 +132,7 @@ export default function PlannerPage() {
         session_minutes: sessionMin,
         injuries,
         save_as_defaults: true,
+        solo_only: soloOnly ? 1 : 0,
       });
 
       setPlan(null);
@@ -218,6 +222,15 @@ export default function PlannerPage() {
               searchable
               clearable
               placeholder="Select all that apply"
+            />
+          </Grid.Col>
+
+          <Grid.Col span={{ base: 12, md: 4 }}>
+            <Checkbox
+              mt="lg"
+              label="Solo only (avoid assisted exercises)"
+              checked={soloOnly}
+              onChange={(e) => setSoloOnly(e.currentTarget.checked)}
             />
           </Grid.Col>
         </Grid>
@@ -334,6 +347,8 @@ function MiniPlan({ plan }) {
                   )}
                 </Stack>
               )}
+
+              
             </Card>
           </Grid.Col>
         ))}
