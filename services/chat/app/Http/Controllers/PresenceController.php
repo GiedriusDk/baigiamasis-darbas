@@ -11,13 +11,11 @@ class PresenceController extends Controller
 {
     public function status(Request $r)
     {
-        // 1) pirmiausia nuimame pasenusius
         $timeout = (int) config('chat.presence_timeout', 60);
         ChatStatus::where('is_online', true)
             ->where('last_seen_at', '<', now()->subSeconds($timeout))
             ->update(['is_online' => false]);
 
-        // 2) grąžiname prašytų ID last_seen_at (arba ir is_online, jei reikia)
         $ids = collect(explode(',', (string) $r->query('ids', '')))
             ->filter()->map('intval')->unique()->all();
 
@@ -27,7 +25,7 @@ class PresenceController extends Controller
             ->map(fn($s) => [
                 'user_id'     => $s->user_id,
                 'is_online'   => (bool) $s->is_online,
-                'last_seen_at'=> $s->last_seen_at?->toISOString(),
+                'last_seen_at' => $s->last_seen_at?->toIso8601String(),
             ]);
 
         return response()->json(['data' => $rows]);
@@ -35,7 +33,6 @@ class PresenceController extends Controller
 
     public function touch(Request $r)
     {
-        // atnaujinam savo įrašą – čia kaip turėjai
         $uid = (int) $r->user()->id;
         ChatStatus::updateOrCreate(
             ['user_id' => $uid],

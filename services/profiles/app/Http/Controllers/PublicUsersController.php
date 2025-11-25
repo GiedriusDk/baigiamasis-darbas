@@ -13,7 +13,6 @@ class PublicUsersController extends Controller
     {
         if (!$path) return $fallback;
 
-        // Jei jau pilnas URL – grąžinam tokį, koks yra
         if (filter_var($path, FILTER_VALIDATE_URL)) {
             return $path;
         }
@@ -21,8 +20,6 @@ class PublicUsersController extends Controller
         $p = parse_url($path, PHP_URL_PATH) ?: $path;
         $p = ltrim($p, '/');
 
-        // Šita eilutė pašalina viską iki „public/“
-        // pvz: profiles/storage/public/... -> ...
         $p = preg_replace('#^(profiles/)?storage/public/#i', '', $p);
         $p = preg_replace('#^public/#i', '', $p);
 
@@ -33,10 +30,8 @@ class PublicUsersController extends Controller
     {
         $userId   = (int) $id;
 
-        // bandome rasti vietinį user profile (avatar_path ir pan.)
         $local = UserProfile::where('user_id', $userId)->first();
 
-        // pasiimame bazinius duomenis iš AUTH serviso
         $authBase = rtrim(config('services.auth.base'), '/');
         $name = null;
         $authAvatar = null;
@@ -54,7 +49,6 @@ class PublicUsersController extends Controller
                 $email = $resp->json('email');
             }
         } catch (\Throwable $e) {
-            // paliekam tuščia, grąžinsim ką turim
         }
 
         return response()->json([

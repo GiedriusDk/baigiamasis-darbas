@@ -3,6 +3,8 @@ import { getToken } from './auth';
 
 const BASE = '/api/profiles';
 
+
+
 function authHeaders(extra = {}) {
   const t = getToken();
   return {
@@ -153,4 +155,21 @@ export async function updateProfileDefaults(payload) {
   try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
   if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
   return data;
+}
+
+export async function getClientProfileForCoach(userId) {
+  const res = await fetch(`/api/profiles/coach/clients/${userId}`, {
+    method: "GET",
+    headers: authHeaders({ Accept: "application/json" }),
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    let data;
+    try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+    throw new Error(data?.message || "Failed to load client profile");
+  }
+
+  return res.json();
 }

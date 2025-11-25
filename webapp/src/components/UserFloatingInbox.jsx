@@ -206,6 +206,18 @@ export default function UserFloatingInbox() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  function timeAgo(date) {
+    const d = new Date(date);
+    const diff = (Date.now() - d.getTime()) / 1000;
+
+    if (diff < 60) return "just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
+
+    return d.toLocaleDateString(); 
+  }
+
   if (!ready || !user) return null;
 
   const activeConv = convos.find((c) => c.id === activeId) || null;
@@ -305,14 +317,21 @@ export default function UserFloatingInbox() {
                               {sub}
                             </Text>
                           </div>
-                          <Badge
-                            size="xs"
-                            variant="light"
-                            ml="auto"
-                            color={meta?.online ? "green" : "red"}
-                          >
-                            {meta?.online ? "ONLINE" : "OFFLINE"}
-                          </Badge>
+                          <Group gap={4} ml="auto">
+                            <Badge
+                              size="xs"
+                              variant="light"
+                              color={meta?.online ? "green" : "red"}
+                            >
+                              {meta?.online ? "ONLINE" : "OFFLINE"}
+                            </Badge>
+
+                            {!meta?.online && meta?.last_seen_at && (
+                              <Text size="xs" c="dimmed">
+                                {timeAgo(meta.last_seen_at)}
+                              </Text>
+                            )}
+                          </Group>
                         </Group>
                       </Card>
                     );
@@ -350,9 +369,12 @@ export default function UserFloatingInbox() {
                         >
                           {activeCoach?.online ? "ONLINE" : "OFFLINE"}
                         </Badge>
-                        <Text size="xs" c="dimmed">
-                          coach #{activeCoachId}
-                        </Text>
+
+                        {!activeCoach?.online && activeCoach?.last_seen_at && (
+                          <Text size="xs" c="dimmed">
+                            {timeAgo(activeCoach.last_seen_at)}
+                          </Text>
+                        )}
                       </Group>
                     )}
                   </div>

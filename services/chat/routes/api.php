@@ -5,6 +5,7 @@ use App\Http\Controllers\ConversationsController;
 use App\Http\Controllers\MessagesController;
 use App\Http\Controllers\PresenceController;
 use App\Http\Controllers\ForumController;
+use App\Http\Controllers\CoachClientLinkController;
 
 Route::middleware(['auth.via', 'chat.presence'])->group(function () {
     Route::get('/conversations', [ConversationsController::class, 'index']);
@@ -23,4 +24,8 @@ Route::middleware(['auth.via'])->group(function () {
     Route::get('/forums', [ForumController::class, 'rooms']);
     Route::get('/forums/{room}/messages', [ForumController::class, 'messages']);
     Route::post('/forums/{room}/messages', [ForumController::class, 'send']);
+});
+Route::middleware(['auth.via:coach'])->group(function () {
+    Route::get('/coach/clients', [CoachClientLinkController::class, 'list']);
+    Route::get('/coach/clients/{userId}', [CoachClientLinkController::class, 'check']);
 });

@@ -101,6 +101,7 @@ export function deletePhoto(photoId) {
   return request(`/photos/${photoId}`, { method: 'DELETE', headers: authHeaders() });
 }
 
+
 /* ---------- Goals & check-ins ---------- */
 
 export function listGoals(params = {}) {

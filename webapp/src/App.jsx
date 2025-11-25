@@ -42,6 +42,7 @@ import GoalsPage from './pages/Progress/GoalsPage.jsx';
 
 import ForumsPage from "./pages/ForumsPage.jsx";
 import UserPlanBuilder from './pages/UserPlanBuilder.jsx';
+import CoachClientsPage from './pages/CoachClientsPage.jsx';
 
 
 setChatDebug(true);
@@ -193,6 +194,8 @@ function AppInner() {
               <NavLink component={Link} to="/coach/plans/manage" label="Manage plans" active={location.pathname.startsWith('/coach/plans/manage')}/>
               {/* <NavLink component={Link} to={`/coach/${user?.id}/plans`} label="Public plans" active={location.pathname.startsWith(`/coach/${user?.id}/plans`)} /> */}
               <NavLink component={Link} to="/coach/profile" label="Profile" active={location.pathname.startsWith('/coach/profile')} />
+              <NavLink component={Link} to="/coach/clients" label="My clients" active={location.pathname.startsWith('/coach/clients')} />
+              
             </>
           )}
 
@@ -241,7 +244,7 @@ function AppInner() {
           <Route path="/progress/metrics" element={<RequireAuth><MetricsPage /></RequireAuth>} />
           <Route path="/progress/metric/:id" element={<RequireAuth><MetricDetailsPage /></RequireAuth>} />
           <Route path="/progress/goals" element={<RequireAuth><GoalsPage /></RequireAuth>} />
-
+          <Route path="/coach/clients" element={<RequireAuth><CoachClientsPage /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell.Main>

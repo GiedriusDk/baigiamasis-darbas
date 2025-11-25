@@ -2,7 +2,7 @@ import { getToken } from './auth';
 
 const CHAT_BASE     = '/api/chat';
 const PROFILES_BASE = '/api/profiles/coach/public';
-const USERS_PUBLIC  = '/api/profiles/user/public'; 
+const USERS_PUBLIC  = '/api/profiles/user/public';
 
 let CHAT_DEBUG = false;
 export function setChatDebug(on = true) { CHAT_DEBUG = !!on; }
@@ -131,7 +131,6 @@ export async function getPresenceStatus(ids = []) {
   return map;
 }
 
-
 export function listForumRooms() {
   return request(`${CHAT_BASE}/forums`, {
     headers: authHeaders({ Accept: 'application/json' }),
@@ -154,7 +153,7 @@ export function sendForumMessage(roomId, { message, attachmentFile = null }) {
 
     return request(`${CHAT_BASE}/forums/${roomId}/messages`, {
       method: "POST",
-      headers: authHeaders(), // be Content-Type
+      headers: authHeaders(),
       body: fd,
     });
   }
@@ -163,5 +162,17 @@ export function sendForumMessage(roomId, { message, attachmentFile = null }) {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ message }),
+  });
+}
+
+export async function getCoachClients() {
+  return request('/api/chat/coach/clients', {
+    headers: authHeaders({ Accept: 'application/json' })
+  });
+}
+
+export function getCoachClientProfile(userId) {
+  return request(`/api/profiles/coach/clients/${userId}`, {
+    headers: authHeaders({ Accept: 'application/json' })
   });
 }

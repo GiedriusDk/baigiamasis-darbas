@@ -32,6 +32,7 @@ import {
   getMessages,
   sendMessage,
   getUserPublicProfile,
+  getPresenceStatus,
 } from "../api/chat";
 
 export default function CoachFloatingInbox() {
@@ -51,7 +52,6 @@ export default function CoachFloatingInbox() {
   const scrollRef = useRef(null);
   const canType = !!(ready && user && activeId);
 
-  // attachment
   const [attachmentFile, setAttachmentFile] = useState(null);
   const [attachmentName, setAttachmentName] = useState("");
   const fileInputRef = useRef(null);
@@ -72,7 +72,8 @@ export default function CoachFloatingInbox() {
     const need = ids.filter((id) => !userMeta[id]);
     if (!need.length) return;
 
-    const fetched = await Promise.all(
+    // 1) Vartotojų profiliai (vardas, avataras)
+    const profiles = await Promise.all(
       need.map(async (id) => {
         try {
           const d = await getUserPublicProfile(id);
@@ -81,16 +82,27 @@ export default function CoachFloatingInbox() {
             [d?.first_name, d?.last_name].filter(Boolean).join(" ") ||
             `User #${id}`;
           const avatar = d?.avatar_url || d?.avatar_path || "";
-          const online = !!(d?.is_online ?? false);
-          return [id, { name, avatar, online }];
+          return [id, { name, avatar }];
         } catch {
-          return [id, { name: `User #${id}`, avatar: "", online: false }];
+          return [id, { name: `User #${id}`, avatar: "" }];
         }
       })
     );
 
+    // 2) Presence info (is_online + last_seen_at) iš /presence
+    const presence = await getPresenceStatus(need).catch(() => ({}));
+
+    // 3) Sujungiame į vieną objektą
     const patch = {};
-    fetched.forEach(([id, meta]) => (patch[id] = meta));
+    profiles.forEach(([id, base]) => {
+      const rec = presence[id] || {};
+      patch[id] = {
+        ...base,
+        online: !!rec.is_online,
+        last_seen_at: rec.last_seen_at || null,
+      };
+    });
+
     setUserMeta((m) => ({ ...m, ...patch }));
   }
 
@@ -173,6 +185,20 @@ export default function CoachFloatingInbox() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  function timeAgo(date) {
+    if (!date) return "";
+
+    const d = new Date(date);
+    const diff = (Date.now() - d.getTime()) / 1000; // sec
+
+    if (diff < 60) return "just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
+
+    return d.toLocaleDateString();
+  }
+
   if (!ready || !user) return null;
   const isCoach = !!user?.roles?.some((r) => r.name === "coach");
   if (!isCoach) return null;
@@ -222,7 +248,6 @@ export default function CoachFloatingInbox() {
               gap: 8,
             }}
           >
-            {/* Kairė – sąrašas */}
             <Stack
               gap="xs"
               p="xs"
@@ -276,14 +301,23 @@ export default function CoachFloatingInbox() {
                             </Text>
                           </div>
                           <Group gap={6} ml="auto">
-                            {meta?.online && (
-                              <Badge size="xs" color="green" variant="light">
-                                ONLINE
-                              </Badge>
+                            {meta && (
+                              <>
+                                <Badge
+                                  size="xs"
+                                  variant="light"
+                                  color={meta.online ? "green" : "red"}
+                                >
+                                  {meta.online ? "ONLINE" : "OFFLINE"}
+                                </Badge>
+
+                                {!meta.online && meta.last_seen_at && (
+                                  <Text size="xs" c="dimmed">
+                                    {timeAgo(meta.last_seen_at)}
+                                  </Text>
+                                )}
+                              </>
                             )}
-                            <Badge size="xs" variant="light">
-                              coach #{c.coach_id}
-                            </Badge>
                           </Group>
                         </Group>
                       </Card>
@@ -298,7 +332,6 @@ export default function CoachFloatingInbox() {
               </ScrollArea>
             </Stack>
 
-            {/* Dešinė – pokalbis */}
             <Stack p="xs" gap="xs" style={{ minWidth: 0, minHeight: 0 }}>
               <Group justify="space-between">
                 <Group gap="sm">
@@ -317,15 +350,18 @@ export default function CoachFloatingInbox() {
                     </Title>
                     {activeUser && (
                       <Group gap={6}>
-                        {activeUser.online && (
-                          <Badge size="xs" color="green" variant="light">
-                            ONLINE
-                          </Badge>
-                        )}
-                        {activeUserId && (
-                          <Badge size="xs" variant="light">
-                            user #{activeUserId}
-                          </Badge>
+                        <Badge
+                          size="xs"
+                          variant="light"
+                          color={activeUser.online ? "green" : "red"}
+                        >
+                          {activeUser.online ? "ONLINE" : "OFFLINE"}
+                        </Badge>
+
+                        {!activeUser.online && activeUser.last_seen_at && (
+                          <Text size="xs" c="dimmed">
+                            {timeAgo(activeUser.last_seen_at)}
+                          </Text>
                         )}
                       </Group>
                     )}

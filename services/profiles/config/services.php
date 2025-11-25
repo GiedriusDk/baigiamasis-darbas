@@ -43,5 +43,11 @@ return [
     'catalog' => [
         'base' => env('CATALOG_BASE', 'http://gateway/catalog/api'),
     ],
+    'chat' => [
+        'base' => env('CHAT_BASE', 'http://gateway/chat/api'),
+    ],
+    'payments' => [
+        'base' => env('PAYMENTS_BASE', 'http://gateway/payments/api'),
+    ],
 
 ];
