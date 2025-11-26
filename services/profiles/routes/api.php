@@ -8,6 +8,10 @@ use App\Http\Controllers\CoachPublicController;
 use App\Http\Controllers\PublicUsersController;
 use App\Http\Controllers\CoachClientProfileController;
 
+use App\Http\Controllers\Admin\AdminProfilesController;
+use App\Http\Controllers\Admin\AdminCoachController;
+use App\Http\Controllers\Admin\AdminExerciseController;
+
 Route::middleware('auth.via:coach')->prefix('coach')->group(function () {
 
     Route::get('clients/{userId}', [CoachClientProfileController::class, 'show']);
@@ -45,3 +49,19 @@ Route::prefix('user/public')->group(function () {
     Route::get('{id}', [PublicUsersController::class, 'show']);
 });
 
+Route::middleware('auth.via:admin')->prefix('admin')->group(function () {
+    Route::get('users', [AdminProfilesController::class, 'index']);
+    Route::get('users/{id}', [AdminProfilesController::class, 'show']);
+    Route::put('users/{id}', [AdminProfilesController::class, 'update']);
+    Route::delete('users/{id}', [AdminProfilesController::class, 'destroy']);
+
+    Route::get('coaches', [AdminCoachController::class, 'index']);
+    Route::get('coaches/{id}', [AdminCoachController::class, 'show']);
+    Route::put('coaches/{id}', [AdminCoachController::class, 'update']);
+    Route::delete('coaches/{id}', [AdminCoachController::class, 'destroy']);
+
+    Route::get('exercises', [AdminExerciseController::class, 'index']);
+    Route::get('exercises/{id}', [AdminExerciseController::class, 'show']);
+    Route::put('exercises/{id}', [AdminExerciseController::class, 'update']);
+    Route::delete('exercises/{id}', [AdminExerciseController::class, 'destroy']);
+});

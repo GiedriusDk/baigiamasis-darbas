@@ -181,3 +181,72 @@ export async function addEntryBySlug(slug, { value, date, note, source, value_js
   const r = await createEntry(payload);
   return r?.data ?? r;
 }
+
+
+async function adminProgressRequest(path, { method = "GET", headers = {}, body } = {}) {
+  const token = typeof getToken === "function" ? getToken() : null;
+
+  const finalHeaders = {
+    Accept: "application/json",
+    ...(token ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` } : {}),
+    ...headers,
+  };
+
+  const res = await fetch(`/api/progress/admin${path}`, {
+    method,
+    headers: finalHeaders,
+    body,
+  });
+
+  const text = await res.text().catch(() => "");
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: text };
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
+export function adminListProgressGoals() {
+  return adminProgressRequest("/progress-goals");
+}
+
+
+export function adminUpdateProgressGoal(id, payload) {
+  return adminProgressRequest(`/progress-goals/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function adminDeleteProgressGoal(id) {
+  return adminProgressRequest(`/progress-goals/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function adminListProgressEntries() {
+  return adminProgressRequest("/progress-entries");
+}
+
+export function adminGetProgressEntry(id) {
+  return adminProgressRequest(`/progress-entries/${id}`);
+}
+
+export function adminUpdateProgressEntry(id, payload) {
+  return adminProgressRequest(`/progress-entries/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function adminDeleteProgressEntry(id) {
+  return adminProgressRequest(`/progress-entries/${id}`, { method: "DELETE" });
+}

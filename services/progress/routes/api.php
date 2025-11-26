@@ -7,6 +7,9 @@ use App\Http\Controllers\PhotosController;
 use App\Http\Controllers\GoalsController;
 use App\Http\Controllers\GoalCheckinsController;
 
+use App\Http\Controllers\Admin\AdminProgressGoalsController;
+use App\Http\Controllers\Admin\AdminProgressEntriesController;
+
 Route::middleware(['auth.via'])->group(function () {
 
     Route::prefix('metrics')->group(function () {
@@ -44,4 +47,18 @@ Route::middleware(['auth.via'])->group(function () {
         Route::delete('{goal}/checkins/{checkin}', [GoalCheckinsController::class, 'destroy']);
     });
 
+});
+
+
+
+Route::middleware('auth.via:admin')->prefix('admin')->group(function () {
+    Route::get('progress-goals', [AdminProgressGoalsController::class, 'index']);
+    Route::get('progress-goals/{id}', [AdminProgressGoalsController::class, 'show']);
+    Route::put('progress-goals/{id}', [AdminProgressGoalsController::class, 'update']);
+    Route::delete('progress-goals/{id}', [AdminProgressGoalsController::class, 'destroy']);
+
+    Route::get('progress-entries', [AdminProgressEntriesController::class, 'index']);
+    Route::get('progress-entries/{id}', [AdminProgressEntriesController::class, 'show']);
+    Route::put('progress-entries/{id}', [AdminProgressEntriesController::class, 'update']);
+    Route::delete('progress-entries/{id}', [AdminProgressEntriesController::class, 'destroy']);
 });

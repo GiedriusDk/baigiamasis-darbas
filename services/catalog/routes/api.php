@@ -4,6 +4,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\Admin\EnsureAdminController;
+use App\Http\Controllers\Admin\AdminCatalogController;
+
 Route::get('/exercises', function (Request $r) {
     $per  = max(1, min((int) $r->query('per_page', 24), 60));
     $page = max(1, (int) $r->query('page', 1));
@@ -224,4 +227,21 @@ Route::get('/exercises/shared/{id}', function (int $id) {
     $row->instructions       = $row->instructions       ? json_decode($row->instructions, true)       : [];
 
     return ['data' => $row];
+});
+
+
+Route::middleware('auth.via:admin')->prefix('admin')->group(function () {
+    Route::get('/exercises', [AdminCatalogController::class, 'listExercises']);
+    Route::put('/exercises/{id}', [AdminCatalogController::class, 'updateExercise']);
+    Route::delete('/exercises/{id}', [AdminCatalogController::class, 'deleteExercise']);
+
+    Route::get('/equipments', [AdminCatalogController::class, 'listEquipments']);
+    Route::post('/equipments', [AdminCatalogController::class, 'createEquipment']);
+    Route::put('/equipments/{id}', [AdminCatalogController::class, 'updateEquipment']);
+    Route::delete('/equipments/{id}', [AdminCatalogController::class, 'deleteEquipment']);
+
+    Route::get('/muscles', [AdminCatalogController::class, 'listMuscles']);
+    Route::post('/muscles', [AdminCatalogController::class, 'createMuscle']);
+    Route::put('/muscles/{id}', [AdminCatalogController::class, 'updateMuscle']);
+    Route::delete('/muscles/{id}', [AdminCatalogController::class, 'deleteMuscle']);
 });

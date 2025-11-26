@@ -6,6 +6,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Admin\AdminUsersController;
+
 
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
@@ -29,6 +31,13 @@ Route::prefix('auth')->group(function () {
         'last_name'  => $u->last_name,
     ];
 });
+
+    Route::prefix('admin')->group(function () {
+        Route::get('users',        [AdminUsersController::class, 'index']);
+        Route::get('users/{id}',   [AdminUsersController::class, 'show']);
+        Route::put('users/{id}',   [AdminUsersController::class, 'update']);
+        Route::delete('users/{id}',[AdminUsersController::class, 'destroy']);
+    });
 });
 
 Route::middleware('auth:api')->get('/users/{id}', function ($id, \Illuminate\Http\Request $r) {

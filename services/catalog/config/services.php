@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+
+    'auth' => [
+        'base' => env('AUTH_BASE', 'http://gateway/api/auth'),
+    ],
 ];

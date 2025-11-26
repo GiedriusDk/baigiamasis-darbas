@@ -132,3 +132,84 @@ export function deleteWorkoutExercise(workoutId, workoutExerciseId) {
     headers: authHeaders(),
   });
 }
+
+
+
+// --- ADMIN PLANNER API ---
+
+const ADMIN_BASE = "/api/planner/admin";
+
+function adminPlannerRequest(path, options = {}) {
+  const token = getToken();
+  const headers = {
+    Accept: "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
+  };
+
+  return fetch(`${ADMIN_BASE}${path}`, {
+    method: options.method || "GET",
+    headers,
+    body: options.body || null,
+  }).then(async (res) => {
+    const text = await res.text();
+    let data;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = { message: text };
+    }
+    if (!res.ok) {
+      throw new Error(data?.message || "Request failed");
+    }
+    return data;
+  });
+}
+
+/* Admin workouts */
+
+export function adminListWorkouts() {
+  return adminPlannerRequest("/workouts");
+}
+
+export function adminGetWorkout(id) {
+  return adminPlannerRequest(`/workouts/${id}`);
+}
+
+export function adminUpdateWorkout(id, payload) {
+  return adminPlannerRequest(`/workouts/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function adminSyncWorkoutExercises(id, items) {
+  return adminPlannerRequest(`/workouts/${id}/exercises`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items }),
+  });
+}
+
+export function adminDeleteWorkout(id) {
+  return adminPlannerRequest(`/workouts/${id}`, { method: "DELETE" });
+}
+
+/* Admin splits */
+
+export function adminListSplits() {
+  return adminPlannerRequest("/splits");
+}
+
+export function adminUpdateSplit(id, payload) {
+  return adminPlannerRequest(`/splits/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function adminDeleteSplit(id) {
+  return adminPlannerRequest(`/splits/${id}`, { method: "DELETE" });
+}

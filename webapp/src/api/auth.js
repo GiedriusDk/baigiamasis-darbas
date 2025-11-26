@@ -95,3 +95,26 @@ export async function getPublicUser(id) {
   if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
   return data;
 }
+
+export async function adminListUsers() {
+  return req('/admin/users', { method: 'GET' });
+}
+
+export async function adminGetUser(id) {
+  return req(`/admin/users/${id}`, { method: 'GET' });
+}
+
+// atnaujinti vartotoją (naudojama Edit modale)
+export async function adminUpdateUser(id, payload) {
+  return req(`/admin/users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+// ištrinti vartotoją
+export async function adminDeleteUser(id) {
+  return req(`/admin/users/${id}`, {
+    method: "DELETE",
+  });
+}

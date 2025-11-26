@@ -7,6 +7,10 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\PublicProductsController;
 use App\Http\Controllers\InternalAccessController;
 
+use App\Http\Controllers\Admin\AdminOrdersController;
+use App\Http\Controllers\Admin\AdminPaymentsController;
+use App\Http\Controllers\Admin\AdminProductsController;
+
 Route::prefix('')->group(function () {
     Route::get('products', [ProductsController::class, 'index']);
 
@@ -38,4 +42,19 @@ Route::prefix('public')->group(function () {
 Route::prefix('internal')->middleware('auth.via')->group(function () {
     Route::get('owned-coaches', [InternalAccessController::class, 'ownedCoaches']);
     Route::get('can-chat',      [InternalAccessController::class, 'canChat']);
+});
+
+
+Route::middleware('auth.via:admin')->prefix('admin')->group(function () {
+    Route::get('orders', [AdminOrdersController::class, 'index']);
+    Route::get('orders/{id}', [AdminOrdersController::class, 'show']);
+    Route::put('orders/{id}', [AdminOrdersController::class, 'update']);
+
+    Route::get('payments', [AdminPaymentsController::class, 'index']);
+    Route::get('payments/{id}', [AdminPaymentsController::class, 'show']);
+    Route::put('payments/{id}', [AdminPaymentsController::class, 'update']);
+
+    Route::get('products', [AdminProductsController::class, 'index']);
+    Route::get('products/{id}', [AdminProductsController::class, 'show']);
+    Route::put('products/{id}', [AdminProductsController::class, 'update']);
 });

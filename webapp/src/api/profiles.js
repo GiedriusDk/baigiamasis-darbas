@@ -173,3 +173,89 @@ export async function getClientProfileForCoach(userId) {
 
   return res.json();
 }
+
+
+const ADMIN_BASE = "/api/profiles/admin";
+
+async function adminRequest(path, { method = "GET", headers = {}, body } = {}) {
+  const res = await fetch(`${ADMIN_BASE}${path}`, {
+    method,
+    headers: authHeaders(headers),
+    body,
+    credentials: "include",
+  });
+
+  const text = await res.text().catch(() => "");
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: text };
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.message || `HTTP ${res.status}`);
+  }
+
+  return data;
+}
+
+export function adminListProfiles() {
+  return adminRequest("/users", { method: "GET" });
+}
+
+export function adminGetUserProfile(id) {
+  return adminRequest(`/users/${id}`, { method: "GET" });
+}
+
+export function adminUpdateProfile(userId, payload) {
+  return adminRequest(`/users/${userId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function adminDeleteProfile(userId) {
+  return adminRequest(`/users/${userId}`, {
+    method: "DELETE",
+  });
+}
+
+
+export function adminListCoachProfiles() {
+  return adminRequest("/coaches", {});
+}
+
+export function adminUpdateCoachProfile(id, payload) {
+  return adminRequest(`/coaches/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function adminDeleteCoachProfile(id) {
+  return adminRequest(`/coaches/${id}`, {
+    method: "DELETE",
+  });
+}
+
+
+export function adminListCoachExercises() {
+  return adminRequest("/exercises");
+}
+
+
+export function adminUpdateCoachExercise(id, payload) {
+  return adminRequest(`/exercises/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export function adminDeleteCoachExercise(id) {
+  return adminRequest(`/exercises/${id}`, {
+    method: "DELETE",
+  });
+}

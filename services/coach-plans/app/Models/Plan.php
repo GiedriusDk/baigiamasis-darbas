@@ -14,11 +14,16 @@ class Plan extends Model
 
     public function weeks()
     {
-        return $this->hasMany(PlanWeek::class)->orderBy('week_number');
+        return $this->hasMany(PlanWeek::class, 'plan_id');
     }
 
-    public function days()
+    public function product()
     {
-        return $this->hasMany(PlanDay::class);
+        return $this->belongsTo(\App\Models\Product::class, 'product_id');
+    }
+
+    public function coach()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'coach_id');
     }
 }

@@ -10,6 +10,7 @@ class UserProfile extends Model
 
     protected $fillable = [
         'user_id',
+        'city',
         'sex',
         'birth_date',
         'height_cm',
@@ -36,4 +37,8 @@ class UserProfile extends Model
         'injuries'         => 'array',
         'preferences'       => 'array',
     ];
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 }

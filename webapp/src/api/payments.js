@@ -189,3 +189,69 @@ export async function ownedCoaches() {
   if (!r.ok) throw new Error('owned-coaches failed');
   return await r.json();
 }
+
+
+// --- ADMIN PAYMENTS API (orders moderation) ---
+
+const PAYMENTS_ADMIN_BASE = '/api/payments/admin';
+
+async function adminPaymentsRequest(path, { method = 'GET', headers = {}, body } = {}) {
+  const res = await fetch(`${PAYMENTS_ADMIN_BASE}${path}`, {
+    method,
+    headers: authHeaders(headers),
+    body,
+    credentials: 'include',
+  });
+
+  const text = await res.text().catch(() => '');
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: text };
+  }
+
+  if (!res.ok) {
+    const err = new Error(data?.message || data?.error || `HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+
+  return data;
+}
+
+export function adminListOrders() {
+  return adminPaymentsRequest('/orders');
+}
+
+export function adminGetOrder(id) {
+  return adminPaymentsRequest(`/orders/${id}`);
+}
+
+export function adminUpdateOrder(id, payload) {
+  return adminPaymentsRequest(`/orders/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+
+export function adminListProducts() {
+  return adminPaymentsRequest('/products');
+}
+
+
+export function adminUpdateProduct(id, payload) {
+  return adminPaymentsRequest(`/products/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function adminDeleteProduct(id) {
+  return adminPaymentsRequest(`/products/${id}`, {
+    method: 'DELETE',
+  });
+}

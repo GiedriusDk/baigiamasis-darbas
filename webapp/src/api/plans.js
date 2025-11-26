@@ -101,3 +101,63 @@ export function getPublicPlan(productId) {
 export function getPublicDayExercises(productId, dayId) {
   return request(`${PUBLIC_BASE}/products/${productId}/days/${dayId}/exercises`, { headers: { Accept: 'application/json' } });
 }
+
+
+
+async function coachPlansAdminRequest(
+  path,
+  { method = "GET", headers = {}, body } = {}
+) {
+  const token = getToken ? getToken() : localStorage.getItem("auth_token");
+
+  const finalHeaders = {
+    Accept: "application/json",
+    ...(token
+      ? { Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}` }
+      : {}),
+    ...headers,
+  };
+
+  const res = await fetch(`/api/coach-plans/admin${path}`, {
+    method,
+    headers: finalHeaders,
+    body,
+    credentials: "include",
+  });
+
+  const text = await res.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: text };
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+  }
+
+  return data;
+}
+
+export function adminListPlans() {
+  return coachPlansAdminRequest("/plans");
+}
+
+export function adminGetPlan(id) {
+  return coachPlansAdminRequest(`/plans/${id}`);
+}
+
+export function adminUpdatePlan(id, payload) {
+  return coachPlansAdminRequest(`/plans/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function adminDeletePlan(id) {
+  return coachPlansAdminRequest(`/plans/${id}`, {
+    method: "DELETE",
+  });
+}

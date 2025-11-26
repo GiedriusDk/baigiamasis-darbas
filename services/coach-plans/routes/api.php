@@ -6,6 +6,8 @@ use App\Http\Controllers\PlanWeekController;
 use App\Http\Controllers\PlanDayController;
 use App\Http\Controllers\PlanDayExercisesController;
 
+use App\Http\Controllers\Admin\AdminPlansController;
+
 Route::middleware(['auth.via:coach'])->group(function () {
 
     Route::get('/products/{productId}/plan', [PlanController::class, 'showByProduct']);
@@ -25,4 +27,10 @@ Route::middleware(['auth.via:coach'])->group(function () {
 Route::prefix('public')->group(function () {
     Route::get('/products/{productId}/plan', [PlanController::class, 'publicShow']);
     Route::get('/products/{productId}/days/{day}/exercises', [PlanDayExercisesController::class, 'publicIndex']);
+});
+
+
+Route::middleware('auth.via:admin')->prefix('admin')->group(function () {
+    Route::get('plans', [AdminPlansController::class, 'index']);
+    Route::get('plans/{id}', [AdminPlansController::class, 'show']);
 });

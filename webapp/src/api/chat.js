@@ -176,3 +176,70 @@ export function getCoachClientProfile(userId) {
     headers: authHeaders({ Accept: 'application/json' })
   });
 }
+
+
+
+
+async function adminChatRequest(path, { method = "GET", headers = {}, body } = {}) {
+  const token = getToken();
+
+  const finalHeaders = {
+    Accept: "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...headers,
+  };
+
+  const res = await fetch(`/api/chat/admin${path}`, {
+    method,
+    headers: finalHeaders,
+    body,
+  });
+
+  const text = await res.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { message: text };
+  }
+
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+  }
+
+  return data;
+}
+
+export function adminListChatRooms() {
+  return adminChatRequest("/rooms");
+}
+
+export function adminUpdateChatRoom(id, payload) {
+  return adminChatRequest(`/rooms/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function adminDeleteChatRoom(id) {
+  return adminChatRequest(`/rooms/${id}`, { method: "DELETE" });
+}
+
+
+export function adminListChatMessages(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return adminChatRequest(`/messages${qs ? `?${qs}` : ""}`);
+}
+
+export function adminUpdateChatMessage(id, payload) {
+  return adminChatRequest(`/messages/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function adminDeleteChatMessage(id) {
+  return adminChatRequest(`/messages/${id}`, { method: "DELETE" });
+}

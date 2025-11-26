@@ -29,6 +29,11 @@ class PlanDayExercise extends Model
 
     public function plan()
     {
-        return $this->belongsTo(Plan::class);
+        return $this->belongsTo(Plan::class, 'plan_id');
+    }
+
+    public function exercise()
+    {
+        return $this->belongsTo(\App\Models\CoachExercise::class, 'exercise_id');
     }
 }

@@ -7,6 +7,9 @@ use App\Http\Controllers\PlanController;
 use App\Http\Controllers\WorkoutController;
 use App\Http\Controllers\WorkoutExerciseController;
 
+use App\Http\Controllers\Admin\AdminWorkoutController;
+use App\Http\Controllers\Admin\AdminSplitController;
+
 Route::middleware('auth.via')->get('/me', function (Request $r) {
     return response()->json($r->attributes->get('auth_user'));
 });
@@ -32,4 +35,17 @@ Route::middleware('auth.via')->group(function () {
     Route::get('/workouts/{workout}/exercises/{order}/alternatives', [WorkoutExerciseController::class, 'alternatives']);
     Route::patch('/workouts/{workout}/exercises/{order}', [WorkoutExerciseController::class, 'swap']);
     Route::get('/exercises/search', [WorkoutExerciseController::class, 'search']);
+});
+
+Route::middleware('auth.via:admin')->prefix('admin')->group(function () {
+    
+    Route::get('workouts',       [AdminWorkoutController::class, 'index']);
+    Route::get('workouts/{id}',  [AdminWorkoutController::class, 'show']);
+    Route::put('workouts/{id}',  [AdminWorkoutController::class, 'update']);
+    Route::delete('workouts/{id}', [AdminWorkoutController::class, 'destroy']);
+
+    Route::get('splits',       [AdminSplitController::class, 'index']);
+    Route::get('splits/{id}',  [AdminSplitController::class, 'show']);
+    Route::put('splits/{id}',  [AdminSplitController::class, 'update']);
+    Route::delete('splits/{id}', [AdminSplitController::class, 'destroy']);
 });

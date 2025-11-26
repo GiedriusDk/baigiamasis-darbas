@@ -3,7 +3,7 @@ import {
   AppShell, Burger, Group, NavLink, ScrollArea, Title,
   Menu, Avatar, Loader, Button
 } from '@mantine/core';
-import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, Navigate, useParams } from 'react-router-dom';
 
 import { AuthProvider, useAuth } from './auth/useAuth';
 
@@ -23,7 +23,6 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import PlannerPage from "./pages/PlannerPage.jsx";
 import MyPlanPage from "./pages/MyPlanPage.jsx";
 
-import { useParams } from "react-router-dom";
 import CoachPlansPublic from "./pages/CoachPlansPublic";
 import CoachPlansManage from "./pages/CoachPlansManage";
 import PaymentsSuccess from "./pages/PaymentsSuccess";
@@ -44,8 +43,11 @@ import ForumsPage from "./pages/ForumsPage.jsx";
 import UserPlanBuilder from './pages/UserPlanBuilder.jsx';
 import CoachClientsPage from './pages/CoachClientsPage.jsx';
 
+// ⬇️ naujas importas
+import AdminHomePage from "./pages/Admin/AdminHomePage.jsx";
 
 setChatDebug(true);
+
 function Home() {
   return <Title order={3}>Home</Title>;
 }
@@ -60,6 +62,26 @@ function RequireAuth({ children }) {
   const location = useLocation();
   if (!ready) return <Loader size="sm" />;
   return user ? children : <Navigate to="/login" replace state={{ from: location }} />;
+}
+
+// ⬇️ tik adminams
+function RequireAdmin({ children }) {
+  const { user, ready } = useAuth();
+  const location = useLocation();
+
+  if (!ready) return <Loader size="sm" />;
+
+  const isAdmin = !!user?.roles?.some(r => r.name === 'admin');
+
+  if (!user) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
 }
 
 function HeaderRight() {
@@ -120,7 +142,10 @@ function AppInner() {
   const [opened, setOpened] = useState(false);
   const location = useLocation();
   const { user, ready } = useAuth();
+
   const isCoach = !!user?.roles?.some(r => r.name === 'coach');
+  const isAdmin = !!user?.roles?.some(r => r.name === 'admin');
+
   const coachIdFromUrl = useMemo(() => {
     const m = location.pathname.match(/^\/coaches\/(\d+)/);
     return m ? Number(m[1]) : null;
@@ -136,7 +161,6 @@ function AppInner() {
     if (ready && user) presenceTouch().catch(() => {});
   }, [location.pathname, ready, user]);
 
-  
   useEffect(() => {
     function onFocus() {
       if (ready && user) presenceTouch().catch(() => {});
@@ -144,8 +168,8 @@ function AppInner() {
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [ready, user]);
+
   return (
-    
     <AppShell
       header={{ height: 64 }}
       navbar={{ width: 260, breakpoint: 'sm', collapsed: { mobile: !opened } }}
@@ -165,25 +189,23 @@ function AppInner() {
         <ScrollArea type="always" offsetScrollbars>
           <NavLink component={Link} to="/" label="Home" active={location.pathname === '/'} />
           <NavLink component={Link} to="/exercises" label="Exercises" active={location.pathname.startsWith('/exercises')} />
-        
 
           {ready && !isCoach && (
             <>
-            <NavLink component={Link} to="/plans" label="Generate Plan" active={location.pathname === '/plans'} />
-            <NavLink component={Link} to="/my" label="My plan" active={location.pathname === '/my'} />
-            <NavLink component={Link} to="/plan-builder" label="Plan Builder" active={location.pathname === '/plan-builder'} />
-            <NavLink
-              component={Link}
-              to="/progress"
-              label="Progress"
-              active={location.pathname === '/progress'}
-            />
+              <NavLink component={Link} to="/plans" label="Generate Plan" active={location.pathname === '/plans'} />
+              <NavLink component={Link} to="/my" label="My plan" active={location.pathname === '/my'} />
+              <NavLink component={Link} to="/plan-builder" label="Plan Builder" active={location.pathname === '/plan-builder'} />
+              <NavLink
+                component={Link}
+                to="/progress"
+                label="Progress"
+                active={location.pathname === '/progress'}
+              />
             </>
           )}
 
+          <NavLink component={Link} to="/coaches" label="Coaches" active={location.pathname.startsWith('/coaches')} />
 
-
-            <NavLink component={Link} to="/coaches" label="Coaches" active={location.pathname.startsWith('/coaches')} />
           {ready && !isCoach && (
             <NavLink component={Link} to="/profile" label="My profile" active={location.pathname.startsWith('/profile')} />
           )}
@@ -191,20 +213,26 @@ function AppInner() {
           {ready && isCoach && (
             <>
               <NavLink component={Link} to="/coach/exercises" label="Manage exercises" active={location.pathname.startsWith('/coach/exercises')} />
-              <NavLink component={Link} to="/coach/plans/manage" label="Manage plans" active={location.pathname.startsWith('/coach/plans/manage')}/>
-              {/* <NavLink component={Link} to={`/coach/${user?.id}/plans`} label="Public plans" active={location.pathname.startsWith(`/coach/${user?.id}/plans`)} /> */}
+              <NavLink component={Link} to="/coach/plans/manage" label="Manage plans" active={location.pathname.startsWith('/coach/plans/manage')} />
               <NavLink component={Link} to="/coach/profile" label="Profile" active={location.pathname.startsWith('/coach/profile')} />
               <NavLink component={Link} to="/coach/clients" label="My clients" active={location.pathname.startsWith('/coach/clients')} />
-              
             </>
           )}
 
-            
           {ready && user && (
             <>
               <NavLink component={Link} to="/forum" label="Forum" active={location.pathname === '/forum'} />
               <NavLink component={Link} to="/settings" label="Settings" active={location.pathname === '/settings'} />
             </>
+          )}
+
+          {ready && isAdmin && (
+            <NavLink
+              component={Link}
+              to="/admin"
+              label="Admin"
+              active={location.pathname.startsWith("/admin")}
+            />
           )}
         </ScrollArea>
       </AppShell.Navbar>
@@ -237,7 +265,6 @@ function AppInner() {
           <Route path="/coach/plans/:productId/builder" element={<CoachPlanEditor />} />
           <Route path="/plans/:productId/" element={<PlanViewPage />} />
 
-          
           <Route path="/forum" element={<RequireAuth><ForumsPage /></RequireAuth>} />
 
           <Route path="/progress" element={<RequireAuth><ProgressHome /></RequireAuth>} />
@@ -245,6 +272,17 @@ function AppInner() {
           <Route path="/progress/metric/:id" element={<RequireAuth><MetricDetailsPage /></RequireAuth>} />
           <Route path="/progress/goals" element={<RequireAuth><GoalsPage /></RequireAuth>} />
           <Route path="/coach/clients" element={<RequireAuth><CoachClientsPage /></RequireAuth>} />
+
+          {/* Admin routas */}
+          <Route
+            path="/admin"
+            element={
+              <RequireAdmin>
+                <AdminHomePage />
+              </RequireAdmin>
+            }
+          />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell.Main>
