@@ -104,7 +104,6 @@ export async function adminGetUser(id) {
   return req(`/admin/users/${id}`, { method: 'GET' });
 }
 
-// atnaujinti vartotoją (naudojama Edit modale)
 export async function adminUpdateUser(id, payload) {
   return req(`/admin/users/${id}`, {
     method: "PUT",
@@ -112,9 +111,10 @@ export async function adminUpdateUser(id, payload) {
   });
 }
 
-// ištrinti vartotoją
 export async function adminDeleteUser(id) {
   return req(`/admin/users/${id}`, {
     method: "DELETE",
   });
 }
+
+export const adminListAuthUsers = adminListUsers;

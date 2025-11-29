@@ -1,14 +1,14 @@
-// src/pages/Admin/PlannerSplit/AdminSplitsSection.jsx
 import { useEffect, useState } from "react";
 import {
   Title,
   Text,
   Table,
   Group,
-  ActionIcon,
   Loader,
   Alert,
   Badge,
+  Stack,
+  Button,
 } from "@mantine/core";
 import { IconEye, IconPencil, IconTrash } from "@tabler/icons-react";
 
@@ -30,28 +30,22 @@ export default function AdminSplitsSection() {
   const [editSplit, setEditSplit] = useState(null);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setErr(null);
-      try {
-        const res = await adminListSplits();
-        if (!cancelled) {
-          setSplits(res.data || res || []);
-        }
-      } catch (e) {
-        if (!cancelled) setErr(e.message || "Failed to load splits");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  async function load() {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await adminListSplits();
+      const data = res?.data ?? res ?? [];
+      setSplits(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setErr(e.message || "Failed to load splits");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function handleUpdated(updated) {
     if (!updated) return;
@@ -75,13 +69,13 @@ export default function AdminSplitsSection() {
   const hasData = (splits || []).length > 0;
 
   return (
-    <>
-      <Title order={3} mb="xs">
-        Planner splits
-      </Title>
-      <Text c="dimmed" mb="md" size="sm">
-        View user workout splits with days and slots.
-      </Text>
+    <Stack gap="md">
+      <div>
+        <Title order={3}>Planner splits</Title>
+        <Text c="dimmed" size="sm" mt={4}>
+          View user workout splits with days and slots.
+        </Text>
+      </div>
 
       {loading && (
         <Group justify="center" my="lg">
@@ -89,24 +83,20 @@ export default function AdminSplitsSection() {
         </Group>
       )}
 
-      {err && (
-        <Alert color="red" mb="md">
-          {err}
-        </Alert>
-      )}
+      {err && <Alert color="red">{err}</Alert>}
 
       {!loading && !err && !hasData && (
-        <Text c="dimmed" size="sm">
-          No splits found.
-        </Text>
+        <Alert color="yellow">No splits found.</Alert>
       )}
 
       {!loading && !err && hasData && (
         <Table
           highlightOnHover
-          withTableBorder
-          withColumnBorders
-          mt="sm"
+          striped
+          withRowBorders
+          verticalSpacing="sm"
+          horizontalSpacing="lg"
+          w="100%"
         >
           <Table.Thead>
             <Table.Tr>
@@ -115,7 +105,7 @@ export default function AdminSplitsSection() {
               <Table.Th>Title</Table.Th>
               <Table.Th>Days</Table.Th>
               <Table.Th>Created</Table.Th>
-              <Table.Th style={{ width: 140 }}>Actions</Table.Th>
+              <Table.Th style={{ width: 220 }}>Actions</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -133,33 +123,36 @@ export default function AdminSplitsSection() {
                 </Table.Td>
                 <Table.Td>
                   {s.created_at
-                    ? new Date(s.created_at).toLocaleDateString()
+                    ? new Date(s.created_at).toLocaleString()
                     : "—"}
                 </Table.Td>
                 <Table.Td>
-                  <Group gap={4} justify="flex-start">
-                    <ActionIcon
-                      size="sm"
-                      variant="subtle"
+                  <Group gap={6} justify="flex-start">
+                    <Button
+                      size="xs"
+                      variant="light"
+                      leftSection={<IconEye size={14} />}
                       onClick={() => setViewSplit(s)}
                     >
-                      <IconEye size={16} />
-                    </ActionIcon>
-                    <ActionIcon
-                      size="sm"
+                      View
+                    </Button>
+                    <Button
+                      size="xs"
                       variant="subtle"
+                      leftSection={<IconPencil size={14} />}
                       onClick={() => setEditSplit(s)}
                     >
-                      <IconPencil size={16} />
-                    </ActionIcon>
-                    <ActionIcon
-                      size="sm"
-                      variant="subtle"
+                      Edit
+                    </Button>
+                    <Button
+                      size="xs"
                       color="red"
+                      variant="subtle"
+                      leftSection={<IconTrash size={14} />}
                       onClick={() => handleDelete(s)}
                     >
-                      <IconTrash size={16} />
-                    </ActionIcon>
+                      Delete
+                    </Button>
                   </Group>
                 </Table.Td>
               </Table.Tr>
@@ -181,6 +174,6 @@ export default function AdminSplitsSection() {
         onUpdated={handleUpdated}
         onSaveApi={adminUpdateSplit}
       />
-    </>
+    </Stack>
   );
 }

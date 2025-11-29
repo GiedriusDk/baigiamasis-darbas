@@ -105,7 +105,9 @@ export default function AdminProgressEntryEditModal({
           <NumberInput
             label="Value"
             value={form.value}
-            onChange={(value) => setForm((f) => ({ ...f, value }))}
+            onChange={(value) =>
+              setForm((f) => ({ ...f, value }))
+            }
             precision={2}
           />
         </Group>

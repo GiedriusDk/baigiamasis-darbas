@@ -1,4 +1,3 @@
-// src/api/progress.js
 import { getToken } from './auth';
 
 const BASE = '/api/progress';
@@ -249,4 +248,11 @@ export function adminUpdateProgressEntry(id, payload) {
 
 export function adminDeleteProgressEntry(id) {
   return adminProgressRequest(`/progress-entries/${id}`, { method: "DELETE" });
+}
+
+export function adminListProgressMetrics() {
+  return request("/metrics", {
+    method: "GET",
+    headers: authHeaders(),
+  });
 }

@@ -1,4 +1,3 @@
-// webapp/src/api/admin.js
 import { getToken } from './auth';
 
 const ADMIN_BASE = '/api/auth/admin';

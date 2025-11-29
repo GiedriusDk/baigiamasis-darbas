@@ -93,7 +93,6 @@ async function catalogAdminRequest(
 
 /* ------------------- EXERCISES ------------------- */
 
-// čia jau su pagination: page + perPage + optional q
 export function adminListExercises({ page = 1, perPage = 50, q = "" } = {}) {
   const params = new URLSearchParams();
   params.set("page", String(page));

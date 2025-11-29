@@ -1,88 +1,86 @@
 import { useEffect, useState } from "react";
 import {
+  Title,
   Text,
   Table,
   Loader,
   Alert,
   Group,
-  Paper,
-  Button,
   Badge,
+  Stack,
+  Button,
+  Pagination,
 } from "@mantine/core";
+import { IconEye, IconPencil, IconTrash } from "@tabler/icons-react";
 
 import {
   adminListProgressGoals,
   adminDeleteProgressGoal,
 } from "../../../api/progress";
+import { adminListUsers } from "../../../api/auth";
 
 import AdminProgressGoalViewModal from "./AdminProgressGoalViewModal";
 import AdminProgressGoalEditModal from "./AdminProgressGoalEditModal";
 
+const PAGE_SIZE = 15;
+
 export default function AdminProgressGoalsSection() {
   const [goals, setGoals] = useState([]);
+  const [usersById, setUsersById] = useState({});
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 
-  const [viewOpen, setViewOpen] = useState(false);
   const [viewGoal, setViewGoal] = useState(null);
-
-  const [editOpen, setEditOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState(null);
 
-    async function load() {
-    setLoading(true);
-    setErr(null);
-    try {
-        const res = await adminListProgressGoals();
-
-        // Normalizuojam rezultatą į MASYVĄ
-        let list = [];
-
-        if (Array.isArray(res)) {
-        list = res;
-        } else if (Array.isArray(res?.data)) {
-        list = res.data;
-        } else if (Array.isArray(res?.data?.data)) {
-        // jeigu būtų res.data.data (pvz. paginatorius)
-        list = res.data.data;
-        }
-
-        setGoals(list);
-    } catch (e) {
-        setErr(e.message || "Failed to load progress goals");
-    } finally {
-        setLoading(false);
-    }
-    }
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     load();
   }, []);
 
-  function openView(goal) {
-    setViewGoal(goal);
-    setViewOpen(true);
-  }
+  async function load() {
+    setLoading(true);
+    setErr(null);
+    try {
+      const [goalsRes, usersRes] = await Promise.all([
+        adminListProgressGoals(),
+        adminListUsers(),
+      ]);
 
-  function closeView() {
-    setViewOpen(false);
-    setViewGoal(null);
-  }
+      let list = [];
+      if (Array.isArray(goalsRes)) {
+        list = goalsRes;
+      } else if (Array.isArray(goalsRes?.data)) {
+        list = goalsRes.data;
+      } else if (Array.isArray(goalsRes?.data?.data)) {
+        list = goalsRes.data.data;
+      }
+      setGoals(list);
 
-  function openEdit(goal) {
-    setEditingGoal(goal);
-    setEditOpen(true);
-  }
+      const usersRaw = Array.isArray(usersRes?.data)
+        ? usersRes.data
+        : Array.isArray(usersRes)
+        ? usersRes
+        : [];
+      const usersMap = {};
+      usersRaw.forEach((u) => {
+        if (!u || u.id == null) return;
+        usersMap[u.id] = u;
+      });
+      setUsersById(usersMap);
 
-  function closeEdit() {
-    setEditOpen(false);
-    setEditingGoal(null);
+      setPage(1);
+    } catch (e) {
+      setErr(e.message || "Failed to load progress goals");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function applyUpdatedGoal(updated) {
-    setGoals(prev =>
-      prev.map(g => (g.id === updated.id ? updated : g))
-    );
+    if (!updated) return;
+    setGoals((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
   }
 
   async function handleDelete(goal) {
@@ -91,23 +89,84 @@ export default function AdminProgressGoalsSection() {
 
     try {
       await adminDeleteProgressGoal(goal.id);
-      setGoals(prev => prev.filter(g => g.id !== goal.id));
+      setGoals((prev) => prev.filter((g) => g.id !== goal.id));
     } catch (e) {
       alert(e.message || "Failed to delete");
     }
   }
 
+  function renderUserCell(userId) {
+    if (!userId) return "—";
+
+    const u = usersById[userId];
+    if (!u) {
+      return (
+        <div>
+          <Text size="sm" fw={500}>
+            User #{userId}
+          </Text>
+          <Text size="xs" c="dimmed">
+            ID: {userId}
+          </Text>
+        </div>
+      );
+    }
+
+    const fullName =
+      `${u.first_name || ""} ${u.last_name || ""}`.trim() ||
+      u.email ||
+      `User #${u.id}`;
+
+    return (
+      <div>
+        <Text size="sm" fw={500}>
+          {fullName}
+        </Text>
+        <Text size="xs" c="dimmed">
+          ID: {u.id}
+          {u.email ? ` • ${u.email}` : ""}
+        </Text>
+      </div>
+    );
+  }
+
+  const totalPages = Math.max(1, Math.ceil(goals.length / PAGE_SIZE));
+  const paginatedGoals = goals.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  );
+
   return (
-    <>
-      <Paper withBorder p="md" radius="lg" mt="lg">
-        {loading && (
-          <Group justify="center" my="lg"><Loader /></Group>
-        )}
+    <Stack gap="md">
+      <div>
+        <Title order={3}>Progress goals</Title>
+        <Text c="dimmed" size="sm" mt={4}>
+          View and manage user progress goals.
+        </Text>
+      </div>
 
-        {err && <Alert color="red">{err}</Alert>}
+      {err && <Alert color="red">{err}</Alert>}
 
-        {!loading && !err && (
-          <Table striped highlightOnHover withTableBorder>
+      {loading && (
+        <Group justify="center" my="lg">
+          <Loader />
+        </Group>
+      )}
+
+      {!loading && !err && goals.length === 0 && (
+        <Alert color="yellow">No progress goals.</Alert>
+      )}
+
+      {!loading && !err && goals.length > 0 && (
+        <>
+          <Table
+            highlightOnHover
+            striped
+            withRowBorders
+            verticalSpacing="sm"
+            horizontalSpacing="lg"
+            w="100%"
+          >
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>ID</Table.Th>
@@ -116,15 +175,15 @@ export default function AdminProgressGoalsSection() {
                 <Table.Th>Target</Table.Th>
                 <Table.Th>Deadline</Table.Th>
                 <Table.Th>Status</Table.Th>
-                <Table.Th style={{ width: 180 }}>Actions</Table.Th>
+                <Table.Th style={{ width: 260 }}>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
 
             <Table.Tbody>
-              {goals.map(goal => (
+              {paginatedGoals.map((goal) => (
                 <Table.Tr key={goal.id}>
                   <Table.Td>{goal.id}</Table.Td>
-                  <Table.Td>{goal.user_id}</Table.Td>
+                  <Table.Td>{renderUserCell(goal.user_id)}</Table.Td>
                   <Table.Td>{goal.goal_type || "—"}</Table.Td>
                   <Table.Td>
                     {goal.target_value ?? "—"} {goal.unit || ""}
@@ -136,55 +195,82 @@ export default function AdminProgressGoalsSection() {
                   </Table.Td>
                   <Table.Td>
                     <Group gap={4}>
-                      <Badge color={goal.is_active ? "green" : "gray"}>
+                      <Badge
+                        size="sm"
+                        color={goal.is_active ? "green" : "gray"}
+                        variant="light"
+                      >
                         {goal.is_active ? "Active" : "Inactive"}
                       </Badge>
-                      <Badge color={goal.is_completed ? "blue" : "gray"}>
+                      <Badge
+                        size="sm"
+                        color={goal.is_completed ? "blue" : "gray"}
+                        variant="light"
+                      >
                         {goal.is_completed ? "Done" : "Pending"}
                       </Badge>
                     </Group>
                   </Table.Td>
-
                   <Table.Td>
-                    <Group gap="xs">
-                      <Button size="xs" variant="subtle" onClick={() => openView(goal)}>
+                    <Group gap={6} justify="flex-start">
+                      <Button
+                        size="xs"
+                        variant="light"
+                        leftSection={<IconEye size={14} />}
+                        onClick={() => setViewGoal(goal)}
+                      >
                         View
                       </Button>
-
-                      <Button size="xs" variant="subtle" onClick={() => openEdit(goal)}>
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        leftSection={<IconPencil size={14} />}
+                        onClick={() => setEditingGoal(goal)}
+                      >
                         Edit
                       </Button>
-
-                      <Button size="xs" variant="subtle" color="red" onClick={() => handleDelete(goal)}>
+                      <Button
+                        size="xs"
+                        color="red"
+                        variant="subtle"
+                        leftSection={<IconTrash size={14} />}
+                        onClick={() => handleDelete(goal)}
+                      >
                         Delete
                       </Button>
                     </Group>
                   </Table.Td>
                 </Table.Tr>
               ))}
-
-              {!goals.length && (
-                <Table.Tr>
-                  <Table.Td colSpan={7}>
-                    <Text c="dimmed" ta="center">No progress goals.</Text>
-                  </Table.Td>
-                </Table.Tr>
-              )}
             </Table.Tbody>
           </Table>
-        )}
-      </Paper>
 
-      {/* View modal */}
-      <AdminProgressGoalViewModal opened={viewOpen} onClose={closeView} goal={viewGoal} />
+          {totalPages > 1 && (
+            <Group justify="flex-end" mt="md">
+              <Pagination
+                total={totalPages}
+                value={page}
+                onChange={setPage}
+                size="sm"
+                radius="xl"
+              />
+            </Group>
+          )}
+        </>
+      )}
 
-      {/* Edit modal */}
+      <AdminProgressGoalViewModal
+        opened={!!viewGoal}
+        onClose={() => setViewGoal(null)}
+        goal={viewGoal}
+      />
+
       <AdminProgressGoalEditModal
-        opened={editOpen}
-        onClose={closeEdit}
+        opened={!!editingGoal}
+        onClose={() => setEditingGoal(null)}
         goal={editingGoal}
         onUpdated={applyUpdatedGoal}
       />
-    </>
+    </Stack>
   );
 }

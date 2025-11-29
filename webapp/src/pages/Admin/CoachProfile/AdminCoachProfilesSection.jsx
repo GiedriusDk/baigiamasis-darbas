@@ -1,39 +1,92 @@
 import { useEffect, useState } from "react";
 import {
+  Title,
   Text,
   Table,
   Loader,
   Alert,
   Group,
-  Paper,
-  Button,
   Badge,
+  Stack,
+  Button,
+  Pagination,
 } from "@mantine/core";
+import { IconEye, IconPencil, IconTrash } from "@tabler/icons-react";
 
 import {
   adminListCoachProfiles,
   adminDeleteCoachProfile,
 } from "../../../api/profiles";
+import { adminListUsers } from "../../../api/auth";
 import AdminCoachProfileEditModal from "./AdminCoachProfileEditModal";
 import AdminCoachProfileViewModal from "./AdminCoachProfileViewModal";
+
+const ITEMS_PER_PAGE = 10;
+
+function normalizeList(res) {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.data?.data)) return res.data.data;
+  return [];
+}
 
 export default function AdminCoachProfilesSection() {
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 
-  const [viewOpen, setViewOpen] = useState(false);
   const [viewProfile, setViewProfile] = useState(null);
-
-  const [editOpen, setEditOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(null);
+
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    load();
+  }, []);
 
   async function load() {
     setLoading(true);
     setErr(null);
+
     try {
-      const res = await adminListCoachProfiles();
-      setProfiles(res.data || []);
+      const [coachRes, authRes] = await Promise.all([
+        adminListCoachProfiles(),
+        adminListUsers(),
+      ]);
+
+      const coachRows = normalizeList(coachRes);
+      const authRows = normalizeList(authRes);
+
+      const authById = {};
+      authRows.forEach((u) => {
+        if (!u || typeof u !== "object") return;
+        authById[u.id] = u;
+      });
+
+      const merged = coachRows.map((p) => {
+        const auth = authById[p.user_id];
+
+        const firstName = auth?.first_name ?? p.first_name ?? "";
+        const lastName = auth?.last_name ?? p.last_name ?? "";
+        const email = auth?.email ?? p.email ?? null;
+        const fullName = `${firstName} ${lastName}`.trim() || null;
+
+        return {
+          ...p,
+          _auth: auth || null,
+          _fullName: fullName,
+          _email: email,
+          _role: auth?.role ?? null,
+        };
+      });
+
+      const onlyCoaches = merged.filter((p) => {
+        if (!p._role) return true;
+        return p._role === "coach";
+      });
+
+      setProfiles(onlyCoaches);
+      setPage(1);
     } catch (e) {
       setErr(e.message || "Failed to load coach profiles");
     } finally {
@@ -41,34 +94,13 @@ export default function AdminCoachProfilesSection() {
     }
   }
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  function openView(p) {
-    setViewProfile(p);
-    setViewOpen(true);
-  }
-
-  function closeView() {
-    setViewOpen(false);
-    setViewProfile(null);
-  }
-
-  function openEdit(p) {
-    setEditingProfile(p);
-    setEditOpen(true);
-  }
-
-  function closeEdit() {
-    setEditOpen(false);
-    setEditingProfile(null);
-  }
-
   function applyUpdatedProfile(updated) {
+    if (!updated) return;
     setProfiles((prev) =>
       prev.map((p) =>
-        (p.user_id || p.id) === (updated.user_id || updated.id) ? updated : p
+        (p.user_id || p.id) === (updated.user_id || updated.id)
+          ? { ...p, ...updated }
+          : p
       )
     );
   }
@@ -90,23 +122,42 @@ export default function AdminCoachProfilesSection() {
     }
   }
 
+  const totalPages =
+    profiles.length > 0 ? Math.ceil(profiles.length / ITEMS_PER_PAGE) : 1;
+  const startIndex = (page - 1) * ITEMS_PER_PAGE;
+  const pageItems = profiles.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   return (
-    <>
-      <Paper withBorder p="md" radius="lg" mt="lg">
-        {loading && (
-          <Group justify="center" my="lg">
-            <Loader />
-          </Group>
-        )}
+    <Stack gap="md">
+      <div>
+        <Title order={3}>Coach profiles</Title>
+        <Text c="dimmed" size="sm" mt={4}>
+          View and manage coach profiles and their basic information.
+        </Text>
+      </div>
 
-        {err && (
-          <Alert color="red" mb="md">
-            {err}
-          </Alert>
-        )}
+      {err && <Alert color="red">{err}</Alert>}
 
-        {!loading && !err && (
-          <Table striped highlightOnHover withTableBorder>
+      {loading && (
+        <Group justify="center" my="lg">
+          <Loader />
+        </Group>
+      )}
+
+      {!loading && !err && profiles.length === 0 && (
+        <Alert color="yellow">No coach profiles yet.</Alert>
+      )}
+
+      {!loading && !err && profiles.length > 0 && (
+        <>
+          <Table
+            highlightOnHover
+            striped
+            withRowBorders
+            verticalSpacing="sm"
+            horizontalSpacing="lg"
+            w="100%"
+          >
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>ID</Table.Th>
@@ -116,21 +167,19 @@ export default function AdminCoachProfilesSection() {
                 <Table.Th>Experience (y.)</Table.Th>
                 <Table.Th>Specializations</Table.Th>
                 <Table.Th>Created at</Table.Th>
-                <Table.Th style={{ width: 210 }}></Table.Th>
+                <Table.Th style={{ width: 260 }}>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {profiles.map((p) => (
+              {pageItems.map((p) => (
                 <Table.Tr key={p.id}>
                   <Table.Td>{p.id}</Table.Td>
-                  <Table.Td>{p.user_id}</Table.Td>
+                  <Table.Td>{p.user_id ?? "—"}</Table.Td>
                   <Table.Td>
-                    {p.first_name || p.last_name
-                      ? `${p.first_name || ""} ${p.last_name || ""}`.trim()
-                      : p.email || "—"}
-                    {p.email && (
+                    {p._fullName || "—"}
+                    {p._email && (
                       <Text c="dimmed" fz="xs">
-                        {p.email}
+                        {p._email}
                       </Text>
                     )}
                   </Table.Td>
@@ -160,25 +209,28 @@ export default function AdminCoachProfilesSection() {
                       : "—"}
                   </Table.Td>
                   <Table.Td>
-                    <Group gap="xs">
+                    <Group gap={6} justify="flex-start">
                       <Button
                         size="xs"
-                        variant="subtle"
-                        onClick={() => openView(p)}
+                        variant="light"
+                        leftSection={<IconEye size={14} />}
+                        onClick={() => setViewProfile(p)}
                       >
                         View
                       </Button>
                       <Button
                         size="xs"
                         variant="subtle"
-                        onClick={() => openEdit(p)}
+                        leftSection={<IconPencil size={14} />}
+                        onClick={() => setEditingProfile(p)}
                       >
                         Edit
                       </Button>
                       <Button
                         size="xs"
-                        variant="subtle"
                         color="red"
+                        variant="subtle"
+                        leftSection={<IconTrash size={14} />}
                         onClick={() => handleDelete(p)}
                       >
                         Delete
@@ -187,33 +239,33 @@ export default function AdminCoachProfilesSection() {
                   </Table.Td>
                 </Table.Tr>
               ))}
-
-              {!profiles.length && (
-                <Table.Tr>
-                  <Table.Td colSpan={8}>
-                    <Text c="dimmed" ta="center">
-                      Kol kas nėra trenerių profilių.
-                    </Text>
-                  </Table.Td>
-                </Table.Tr>
-              )}
             </Table.Tbody>
           </Table>
-        )}
-      </Paper>
+
+          {profiles.length > ITEMS_PER_PAGE && (
+            <Group justify="flex-end">
+              <Pagination
+                value={page}
+                onChange={setPage}
+                total={totalPages}
+              />
+            </Group>
+          )}
+        </>
+      )}
 
       <AdminCoachProfileViewModal
-        opened={viewOpen}
-        onClose={closeView}
+        opened={!!viewProfile}
+        onClose={() => setViewProfile(null)}
         profile={viewProfile}
       />
 
       <AdminCoachProfileEditModal
-        opened={editOpen}
-        onClose={closeEdit}
+        opened={!!editingProfile}
+        onClose={() => setEditingProfile(null)}
         profile={editingProfile}
         onUpdated={applyUpdatedProfile}
       />
-    </>
+    </Stack>
   );
 }

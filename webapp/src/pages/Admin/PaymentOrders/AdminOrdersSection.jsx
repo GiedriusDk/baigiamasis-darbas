@@ -1,17 +1,25 @@
-// webapp/src/pages/Admin/Payments/AdminOrdersSection.jsx
 import { useEffect, useState } from "react";
 import {
+  Title,
   Text,
   Table,
   Loader,
   Alert,
   Group,
-  Paper,
-  Button,
   Badge,
+  Stack,
+  Pagination,
+  Button,
 } from "@mantine/core";
+import { IconEye, IconPencil } from "@tabler/icons-react";
 
-import { adminListOrders, adminUpdateOrder } from "../../../api/payments";
+import {
+  adminListOrders,
+  adminUpdateOrder,
+  adminListProducts,
+} from "../../../api/payments";
+import { adminListUsers } from "../../../api/auth";
+
 import AdminOrderViewModal from "./AdminOrderViewModal";
 import AdminOrderEditModal from "./AdminOrderEditModal";
 
@@ -24,23 +32,64 @@ function formatDate(value) {
   }
 }
 
+const PAGE_SIZE = 15;
+
 export default function AdminOrdersSection() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 
-  const [viewOpen, setViewOpen] = useState(false);
   const [viewOrder, setViewOrder] = useState(null);
-
-  const [editOpen, setEditOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
+
+  const [usersById, setUsersById] = useState({});
+  const [productsById, setProductsById] = useState({});
+
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    load();
+  }, []);
 
   async function load() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await adminListOrders();
-      setOrders(res.data || []);
+      const [ordersRes, usersRes, productsRes] = await Promise.all([
+        adminListOrders(),
+        adminListUsers(),
+        adminListProducts(),
+      ]);
+
+      const ordersData = ordersRes?.data ?? ordersRes ?? [];
+      setOrders(Array.isArray(ordersData) ? ordersData : []);
+
+      const usersRaw = Array.isArray(usersRes?.data)
+        ? usersRes.data
+        : Array.isArray(usersRes)
+        ? usersRes
+        : [];
+      const usersMap = {};
+      usersRaw.forEach((u) => {
+        if (!u || u.id == null) return;
+        usersMap[u.id] = u;
+      });
+      setUsersById(usersMap);
+
+      
+      const productsRaw = Array.isArray(productsRes?.data)
+        ? productsRes.data
+        : Array.isArray(productsRes)
+        ? productsRes
+        : [];
+      const productsMap = {};
+      productsRaw.forEach((p) => {
+        if (!p || p.id == null) return;
+        productsMap[p.id] = p;
+      });
+      setProductsById(productsMap);
+
+      setPage(1);
     } catch (e) {
       setErr(e.message || "Failed to load orders");
     } finally {
@@ -48,71 +97,130 @@ export default function AdminOrdersSection() {
     }
   }
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  function openView(order) {
-    setViewOrder(order);
-    setViewOpen(true);
-  }
-
-  function closeView() {
-    setViewOrder(null);
-    setViewOpen(false);
-  }
-
-  function openEdit(order) {
-    setEditingOrder(order);
-    setEditOpen(true);
-  }
-
-  function closeEdit() {
-    setEditingOrder(null);
-    setEditOpen(false);
-  }
-
   function applyUpdatedOrder(updated) {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === updated.id ? updated : o))
+    if (!updated) return;
+    setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+  }
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / PAGE_SIZE));
+  const paginatedOrders = orders.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  );
+
+  function renderUserCell(userId) {
+    if (!userId) return "—";
+
+    const u = usersById[userId];
+    if (!u) {
+      return (
+        <div>
+          <Text size="sm" fw={500}>
+            User #{userId}
+          </Text>
+          <Text size="xs" c="dimmed">
+            ID: {userId}
+          </Text>
+        </div>
+      );
+    }
+
+    const fullName =
+      `${u.first_name || ""} ${u.last_name || ""}`.trim() ||
+      u.email ||
+      `User #${u.id}`;
+
+    return (
+      <div>
+        <Text size="sm" fw={500}>
+          {fullName}
+        </Text>
+        <Text size="xs" c="dimmed">
+          ID: {u.id}
+          {u.email ? ` • ${u.email}` : ""}
+        </Text>
+      </div>
+    );
+  }
+
+  function renderProductCell(productId) {
+    if (!productId) return "—";
+
+    const p = productsById[productId];
+    if (!p) {
+      return (
+        <div>
+          <Text size="sm" fw={500}>
+            Product #{productId}
+          </Text>
+          <Text size="xs" c="dimmed">
+            ID: {productId}
+          </Text>
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <Text size="sm" fw={500}>
+          {p.title || `Product #${p.id}`}
+        </Text>
+        <Text size="xs" c="dimmed">
+          ID: {p.id}
+        </Text>
+      </div>
     );
   }
 
   return (
-    <>
-      <Paper withBorder p="md" radius="lg" mt="lg">
-        {loading && (
-          <Group justify="center" my="lg">
-            <Loader />
-          </Group>
-        )}
+    <Stack gap="md">
+      <div>
+        <Title order={3}>Orders</Title>
+        <Text c="dimmed" size="sm" mt={4}>
+          View and manage user orders and their payment status.
+        </Text>
+      </div>
 
-        {err && (
-          <Alert color="red" mb="md">
-            {err}
-          </Alert>
-        )}
+      {err && <Alert color="red">{err}</Alert>}
 
-        {!loading && !err && (
-          <Table striped highlightOnHover withTableBorder>
+      {loading && (
+        <Group justify="center" my="lg">
+          <Loader />
+        </Group>
+      )}
+
+      {!loading && !err && orders.length === 0 && (
+        <Alert color="yellow">No orders yet.</Alert>
+      )}
+
+      {!loading && !err && orders.length > 0 && (
+        <>
+          <Table
+            highlightOnHover
+            striped
+            withRowBorders
+            verticalSpacing="sm"
+            horizontalSpacing="lg"
+            w="100%"
+          >
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>ID</Table.Th>
-                <Table.Th>User ID</Table.Th>
-                <Table.Th>Product ID</Table.Th>
+                <Table.Th>User</Table.Th>
+                <Table.Th>Product</Table.Th>
                 <Table.Th>Amount</Table.Th>
                 <Table.Th>Status</Table.Th>
                 <Table.Th>Paid at</Table.Th>
                 <Table.Th>Created</Table.Th>
-                <Table.Th style={{ width: 180 }}>Actions</Table.Th>
+                <Table.Th style={{ width: 220 }}>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {orders.map((o) => (
+              {paginatedOrders.map((o) => (
                 <Table.Tr key={o.id}>
                   <Table.Td>{o.id}</Table.Td>
-                  <Table.Td>{o.user_id}</Table.Td>
-                  <Table.Td>{o.product_id}</Table.Td>
+                  <Table.Td>{renderUserCell(o.user_id)}</Table.Td>
+                  <Table.Td>{renderProductCell(o.product_id)}</Table.Td>
                   <Table.Td>
                     {o.amount} {o.currency}
                   </Table.Td>
@@ -124,18 +232,20 @@ export default function AdminOrdersSection() {
                   <Table.Td>{formatDate(o.paid_at)}</Table.Td>
                   <Table.Td>{formatDate(o.created_at)}</Table.Td>
                   <Table.Td>
-                    <Group gap="xs">
+                    <Group gap={6} justify="flex-start">
                       <Button
                         size="xs"
-                        variant="subtle"
-                        onClick={() => openView(o)}
+                        variant="light"
+                        leftSection={<IconEye size={14} />}
+                        onClick={() => setViewOrder(o)}
                       >
                         View
                       </Button>
                       <Button
                         size="xs"
                         variant="subtle"
-                        onClick={() => openEdit(o)}
+                        leftSection={<IconPencil size={14} />}
+                        onClick={() => setEditingOrder(o)}
                       >
                         Edit
                       </Button>
@@ -143,34 +253,36 @@ export default function AdminOrdersSection() {
                   </Table.Td>
                 </Table.Tr>
               ))}
-
-              {!orders.length && (
-                <Table.Tr>
-                  <Table.Td colSpan={8}>
-                    <Text c="dimmed" ta="center">
-                      No orders yet.
-                    </Text>
-                  </Table.Td>
-                </Table.Tr>
-              )}
             </Table.Tbody>
           </Table>
-        )}
-      </Paper>
+
+          {totalPages > 1 && (
+            <Group justify="flex-end" mt="md">
+              <Pagination
+                total={totalPages}
+                value={page}
+                onChange={setPage}
+                size="sm"
+                radius="xl"
+              />
+            </Group>
+          )}
+        </>
+      )}
 
       <AdminOrderViewModal
-        opened={viewOpen}
-        onClose={closeView}
+        opened={!!viewOrder}
+        onClose={() => setViewOrder(null)}
         order={viewOrder}
       />
 
       <AdminOrderEditModal
-        opened={editOpen}
-        onClose={closeEdit}
+        opened={!!editingOrder}
+        onClose={() => setEditingOrder(null)}
         order={editingOrder}
         onUpdated={applyUpdatedOrder}
         onSaveApi={adminUpdateOrder}
       />
-    </>
+    </Stack>
   );
 }

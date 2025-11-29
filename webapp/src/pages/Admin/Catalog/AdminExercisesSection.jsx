@@ -16,7 +16,7 @@ import {
   adminDeleteExercise,
 } from "../../../api/catalog";
 
-import { IconPencil, IconTrash, IconSearch } from "@tabler/icons-react";
+import { IconPencil, IconTrash, IconSearch, IconEye } from "@tabler/icons-react";
 import AdminExerciseEditModal from "./AdminExerciseEditModal";
 import AdminExerciseViewModal from "./AdminExerciseViewModal";
 
@@ -47,7 +47,7 @@ export default function AdminExercisesSection() {
     try {
       const r = await adminListExercises({
         page: nextPage,
-        perPage: 50,
+        per_page: 50,
         q,
       });
 
@@ -71,7 +71,6 @@ export default function AdminExercisesSection() {
 
   useEffect(() => {
     load({ page: 1 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleDelete(id) {
@@ -140,19 +139,20 @@ export default function AdminExercisesSection() {
                   <Table.Td>{x.equipment}</Table.Td>
 
                   <Table.Td>
-                    <Group gap="xs" justify="flex-end">
+                    <Group gap={6} justify="flex-start">
                       <Button
                         size="xs"
                         variant="light"
+                        leftSection={<IconEye size={14} />}
                         onClick={() => setViewItem(x)}
-                        leftSection={<IconPencil size={14} />}
                       >
                         View
                       </Button>
 
                       <Button
                         size="xs"
-                        variant="outline"
+                        variant="subtle"
+                        leftSection={<IconPencil size={14} />}
                         onClick={() => setEditItem(x)}
                       >
                         Edit
@@ -161,9 +161,9 @@ export default function AdminExercisesSection() {
                       <Button
                         size="xs"
                         color="red"
-                        variant="light"
-                        onClick={() => handleDelete(x.id)}
+                        variant="subtle"
                         leftSection={<IconTrash size={14} />}
+                        onClick={() => handleDelete(x.id)}
                       >
                         Delete
                       </Button>

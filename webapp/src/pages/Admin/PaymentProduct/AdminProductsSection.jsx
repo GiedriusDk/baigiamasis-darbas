@@ -1,41 +1,69 @@
 import { useEffect, useState } from "react";
 import {
+  Title,
   Text,
   Table,
   Loader,
   Alert,
   Group,
-  Paper,
-  Button,
   Badge,
+  Stack,
+  Button,
+  Pagination,
 } from "@mantine/core";
+import { IconEye, IconPencil, IconTrash } from "@tabler/icons-react";
 
 import {
   adminListProducts,
   adminDeleteProduct,
 } from "../../../api/payments";
+import { adminListUsers } from "../../../api/auth";
 
 import AdminProductViewModal from "./AdminProductViewModal";
 import AdminProductEditModal from "./AdminProductEditModal";
 
+const PAGE_SIZE = 15;
+
 export default function AdminProductsSection() {
   const [products, setProducts] = useState([]);
+  const [usersById, setUsersById] = useState({});
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 
-  const [viewOpen, setViewOpen] = useState(false);
   const [viewProduct, setViewProduct] = useState(null);
-
-  const [editOpen, setEditOpen] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
+
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    load();
+  }, []);
 
   async function load() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await adminListProducts();
-      const rows = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-      setProducts(rows);
+      const [productsRes, usersRes] = await Promise.all([
+        adminListProducts(),
+        adminListUsers(),
+      ]);
+
+      const rows = productsRes?.data ?? productsRes ?? [];
+      setProducts(Array.isArray(rows) ? rows : []);
+
+      const usersRaw = Array.isArray(usersRes?.data)
+        ? usersRes.data
+        : Array.isArray(usersRes)
+        ? usersRes
+        : [];
+      const map = {};
+      usersRaw.forEach((u) => {
+        if (!u || u.id == null) return;
+        map[u.id] = u;
+      });
+      setUsersById(map);
+
+      setPage(1);
     } catch (e) {
       setErr(e.message || "Failed to load products");
     } finally {
@@ -43,34 +71,9 @@ export default function AdminProductsSection() {
     }
   }
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  function openView(p) {
-    setViewProduct(p);
-    setViewOpen(true);
-  }
-
-  function closeView() {
-    setViewOpen(false);
-    setViewProduct(null);
-  }
-
-  function openEdit(p) {
-    setEditProduct(p);
-    setEditOpen(true);
-  }
-
-  function closeEdit() {
-    setEditOpen(false);
-    setEditProduct(null);
-  }
-
   function applyUpdatedProduct(updated) {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === updated.id ? updated : p))
-    );
+    if (!updated) return;
+    setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
   }
 
   async function handleDelete(p) {
@@ -87,60 +90,122 @@ export default function AdminProductsSection() {
     }
   }
 
+  function renderCoachCell(coachId) {
+    if (!coachId) return "—";
+
+    const u = usersById[coachId];
+    if (!u) {
+      return (
+        <div>
+          <Text size="sm" fw={500}>
+            Coach #{coachId}
+          </Text>
+          <Text size="xs" c="dimmed">
+            ID: {coachId}
+          </Text>
+        </div>
+      );
+    }
+
+    const fullName =
+      `${u.first_name || ""} ${u.last_name || ""}`.trim() ||
+      u.email ||
+      `Coach #${u.id}`;
+
+    return (
+      <div>
+        <Text size="sm" fw={500}>
+          {fullName}
+        </Text>
+        <Text size="xs" c="dimmed">
+          ID: {u.id}
+          {u.email ? ` • ${u.email}` : ""}
+        </Text>
+      </div>
+    );
+  }
+
+  const totalPages = Math.max(1, Math.ceil(products.length / PAGE_SIZE));
+  const paginatedProducts = products.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  );
+
   return (
-    <>
-      <Paper withBorder p="md" radius="lg" mt="lg">
-        {loading && (
-          <Group justify="center" my="lg">
-            <Loader />
-          </Group>
-        )}
+    <Stack gap="md">
+      <div>
+        <Title order={3}>Products</Title>
+        <Text c="dimmed" size="sm" mt={4}>
+          View and manage coach products and their pricing.
+        </Text>
+      </div>
 
-        {err && (
-          <Alert color="red" mb="md">
-            {err}
-          </Alert>
-        )}
+      {err && <Alert color="red">{err}</Alert>}
 
-        {!loading && !err && (
-          <Table striped highlightOnHover withTableBorder>
+      {loading && (
+        <Group justify="center" my="lg">
+          <Loader />
+        </Group>
+      )}
+
+      {!loading && !err && products.length === 0 && (
+        <Alert color="yellow">No products yet.</Alert>
+      )}
+
+      {!loading && !err && products.length > 0 && (
+        <>
+          <Table
+            highlightOnHover
+            striped
+            withRowBorders
+            verticalSpacing="sm"
+            horizontalSpacing="lg"
+            w="100%"
+          >
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>ID</Table.Th>
-                <Table.Th>Coach ID</Table.Th>
+                <Table.Th>Coach</Table.Th>
                 <Table.Th>Title</Table.Th>
                 <Table.Th>Price</Table.Th>
                 <Table.Th>Type</Table.Th>
                 <Table.Th>Active</Table.Th>
                 <Table.Th>Created at</Table.Th>
-                <Table.Th style={{ width: 190 }}>Actions</Table.Th>
+                <Table.Th style={{ width: 260 }}>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {products.map((p) => (
+              {paginatedProducts.map((p) => (
                 <Table.Tr key={p.id}>
                   <Table.Td>{p.id}</Table.Td>
-                  <Table.Td>{p.coach_id}</Table.Td>
+                  <Table.Td>{renderCoachCell(p.coach_id)}</Table.Td>
                   <Table.Td>
                     <Text fw={500}>{p.title || "—"}</Text>
                     {p.slug && (
                       <Text c="dimmed" fz="xs">
-                        {p.slug}
+                        
                       </Text>
                     )}
                   </Table.Td>
                   <Table.Td>
                     {p.price != null ? (
-                      <>
-                        {p.price}{" "}
-                        <Text span c="dimmed" fz="xs">
-                          {p.currency || "EUR"}
-                        </Text>
-                      </>
+                        (() => {
+                        const valueInEur = Number(p.price) / 100;
+                        const formatted = valueInEur.toFixed(2);
+
+                        return (
+                            <>
+                            {formatted}{" "}
+                            <Text span c="dimmed" fz="xs">
+                                {p.currency || "EUR"}
+                            </Text>
+                            </>
+                        );
+                        })()
                     ) : (
-                      "—"
+                        "—"
                     )}
-                  </Table.Td>
+                    </Table.Td>
                   <Table.Td>{p.type || "—"}</Table.Td>
                   <Table.Td>
                     <Badge
@@ -157,25 +222,28 @@ export default function AdminProductsSection() {
                       : "—"}
                   </Table.Td>
                   <Table.Td>
-                    <Group gap="xs">
+                    <Group gap={6} justify="flex-start">
                       <Button
                         size="xs"
-                        variant="subtle"
-                        onClick={() => openView(p)}
+                        variant="light"
+                        leftSection={<IconEye size={14} />}
+                        onClick={() => setViewProduct(p)}
                       >
                         View
                       </Button>
                       <Button
                         size="xs"
                         variant="subtle"
-                        onClick={() => openEdit(p)}
+                        leftSection={<IconPencil size={14} />}
+                        onClick={() => setEditProduct(p)}
                       >
                         Edit
                       </Button>
                       <Button
                         size="xs"
-                        variant="subtle"
                         color="red"
+                        variant="subtle"
+                        leftSection={<IconTrash size={14} />}
                         onClick={() => handleDelete(p)}
                       >
                         Delete
@@ -184,33 +252,35 @@ export default function AdminProductsSection() {
                   </Table.Td>
                 </Table.Tr>
               ))}
-
-              {!products.length && (
-                <Table.Tr>
-                  <Table.Td colSpan={8}>
-                    <Text c="dimmed" ta="center">
-                      No products yet.
-                    </Text>
-                  </Table.Td>
-                </Table.Tr>
-              )}
             </Table.Tbody>
           </Table>
-        )}
-      </Paper>
+
+          {totalPages > 1 && (
+            <Group justify="flex-end" mt="md">
+              <Pagination
+                total={totalPages}
+                value={page}
+                onChange={setPage}
+                size="sm"
+                radius="xl"
+              />
+            </Group>
+          )}
+        </>
+      )}
 
       <AdminProductViewModal
-        opened={viewOpen}
-        onClose={closeView}
+        opened={!!viewProduct}
+        onClose={() => setViewProduct(null)}
         product={viewProduct}
       />
 
       <AdminProductEditModal
-        opened={editOpen}
-        onClose={closeEdit}
+        opened={!!editProduct}
+        onClose={() => setEditProduct(null)}
         product={editProduct}
         onUpdated={applyUpdatedProduct}
       />
-    </>
+    </Stack>
   );
 }

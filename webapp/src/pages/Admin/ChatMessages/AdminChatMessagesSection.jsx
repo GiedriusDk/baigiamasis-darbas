@@ -1,86 +1,28 @@
-// src/pages/Admin/ChatMessages/AdminChatMessagesSection.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
+  Title,
   Text,
   Table,
-  Loader,
-  Alert,
   Group,
-  Paper,
   Button,
-  Badge,
+  Alert,
+  Loader,
+  Stack,
+  Pagination,
 } from "@mantine/core";
-
 import {
   adminListChatMessages,
   adminUpdateChatMessage,
   adminDeleteChatMessage,
-} from "../../../api/chat"
-
+} from "../../../api/chat";
+import { adminListUsers } from "../../../api/auth";
 import AdminChatMessageViewModal from "./AdminChatMessageViewModal";
 import AdminChatMessageEditModal from "./AdminChatMessageEditModal";
+import { IconEye, IconPencil, IconTrash } from "@tabler/icons-react";
 
-function preview(text, max = 80) {
-  if (!text) return "—";
-  const t = String(text);
-  return t.length > max ? `${t.slice(0, max)}…` : t;
-}
+const PAGE_SIZE = 20;
 
-export default function AdminChatMessagesSection() {
-  const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState(null);
-
-  const [viewOpen, setViewOpen] = useState(false);
-  const [viewMessage, setViewMessage] = useState(null);
-
-  const [editOpen, setEditOpen] = useState(false);
-  const [editingMessage, setEditingMessage] = useState(null);
-
-  async function load() {
-    setLoading(true);
-    setErr(null);
-    try {
-      const res = await adminListChatMessages();
-      setMessages(res.data || []);
-    } catch (e) {
-      setErr(e.message || "Failed to load messages");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  function openView(m) {
-    setViewMessage(m);
-    setViewOpen(true);
-  }
-
-  function closeView() {
-    setViewOpen(false);
-    setViewMessage(null);
-  }
-
-  function openEdit(m) {
-    setEditingMessage(m);
-    setEditOpen(true);
-  }
-
-  function closeEdit() {
-    setEditOpen(false);
-    setEditingMessage(null);
-  }
-
-  function applyUpdatedMessage(updated) {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === updated.id ? updated : m))
-    );
-  }
-
-  function formatMessagePreview(m) {
+function formatMessagePreview(m) {
   if (m.message && m.message.trim().length > 0) {
     const max = 80;
     return m.message.length > max ? m.message.slice(0, max) + "…" : m.message;
@@ -88,7 +30,13 @@ export default function AdminChatMessagesSection() {
 
   if (m.attachment_url) {
     const url = m.attachment_url.toLowerCase();
-    if (url.endsWith(".jpg") || url.endsWith(".jpeg") || url.endsWith(".png") || url.endsWith(".gif") || url.endsWith(".webp")) {
+    if (
+      url.endsWith(".jpg") ||
+      url.endsWith(".jpeg") ||
+      url.endsWith(".png") ||
+      url.endsWith(".gif") ||
+      url.endsWith(".webp")
+    ) {
       return "[picture]";
     }
     if (url.endsWith(".mp4") || url.endsWith(".mov") || url.endsWith(".avi")) {
@@ -96,11 +44,65 @@ export default function AdminChatMessagesSection() {
     }
     return "[file]";
   }
+
   return "—";
 }
 
+export default function AdminChatMessagesSection() {
+  const [messages, setMessages] = useState([]);
+  const [usersById, setUsersById] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const [viewMessage, setViewMessage] = useState(null);
+  const [editingMessage, setEditingMessage] = useState(null);
+
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function load() {
+    setLoading(true);
+    setErr(null);
+    try {
+      const [msgRes, usersRes] = await Promise.all([
+        adminListChatMessages(),
+        adminListUsers().catch(() => null),
+      ]);
+
+      const data = msgRes?.data ?? msgRes ?? [];
+      setMessages(Array.isArray(data) ? data : []);
+
+      if (usersRes) {
+        const uData = usersRes?.data ?? usersRes ?? [];
+        const map = {};
+        (Array.isArray(uData) ? uData : []).forEach((u) => {
+          if (u?.id != null) map[u.id] = u;
+        });
+        setUsersById(map);
+      }
+
+      setPage(1);
+    } catch (e) {
+      setErr(e.message || "Failed to load messages");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function applyUpdatedMessage(updated) {
+    if (!updated) return;
+    setMessages((prev) =>
+      prev.map((m) => (m.id === updated.id ? updated : m))
+    );
+  }
+
   async function handleDelete(m) {
-    const ok = window.confirm(`Are you sure you want to delete message #${m.id}?`);
+    const ok = window.confirm(
+      `Are you sure you want to delete message #${m.id}?`
+    );
     if (!ok) return;
 
     try {
@@ -111,47 +113,98 @@ export default function AdminChatMessagesSection() {
     }
   }
 
+  function renderSenderCell(senderId) {
+    if (!senderId) {
+      return (
+        <Text c="dimmed" fz="sm">
+          —
+        </Text>
+      );
+    }
+
+    const u = usersById[senderId];
+
+    if (!u) {
+      return (
+        <Text fw={500}>
+          User #{senderId}
+        </Text>
+      );
+    }
+
+    const fullName =
+      [u.first_name, u.last_name].filter(Boolean).join(" ") ||
+      u.email ||
+      `User #${u.id}`;
+
+    return (
+      <>
+        <Text fw={500}>{fullName}</Text>
+        <Text c="dimmed" fz="xs">
+          ID: {u.id}
+          {u.email ? ` • ${u.email}` : ""}
+        </Text>
+      </>
+    );
+  }
+
+  const totalPages = Math.max(1, Math.ceil(messages.length / PAGE_SIZE));
+  const pageSafe = Math.min(page, totalPages);
+
+  const paginatedMessages = useMemo(() => {
+    const start = (pageSafe - 1) * PAGE_SIZE;
+    return messages.slice(start, start + PAGE_SIZE);
+  }, [messages, pageSafe]);
+
   return (
-    <>
-      <Paper withBorder p="md" radius="lg" mt="lg">
-        {loading && (
-          <Group justify="center" my="lg">
-            <Loader />
-          </Group>
-        )}
+    <Stack gap="md">
+      <div>
+        <Title order={3}>Chat messages</Title>
+        <Text c="dimmed" size="sm" mt={4}>
+          View and manage messages sent in chat rooms.
+        </Text>
+      </div>
 
-        {err && (
-          <Alert color="red" mb="md">
-            {err}
-          </Alert>
-        )}
+      {err && <Alert color="red">{err}</Alert>}
 
-        {!loading && !err && (
-          <Table striped highlightOnHover withTableBorder>
+      {loading && (
+        <Group justify="center" my="lg">
+          <Loader />
+        </Group>
+      )}
+
+      {!loading && !err && messages.length === 0 && (
+        <Alert color="yellow">No messages found.</Alert>
+      )}
+
+      {!loading && !err && messages.length > 0 && (
+        <>
+          <Table
+            highlightOnHover
+            striped
+            withRowBorders
+            verticalSpacing="sm"
+            horizontalSpacing="lg"
+            w="100%"
+          >
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>ID</Table.Th>
                 <Table.Th>Room</Table.Th>
                 <Table.Th>Sender</Table.Th>
                 <Table.Th>Message</Table.Th>
-                <Table.Th>Read</Table.Th>
                 <Table.Th>Created at</Table.Th>
-                <Table.Th style={{ width: 190 }}>Actions</Table.Th>
+                <Table.Th style={{ width: 300 }}>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {messages.map((m) => (
+              {paginatedMessages.map((m) => (
                 <Table.Tr key={m.id}>
                   <Table.Td>{m.id}</Table.Td>
                   <Table.Td>{m.room_id}</Table.Td>
-                  <Table.Td>{m.sender_id}</Table.Td>
+                  <Table.Td>{renderSenderCell(m.sender_id)}</Table.Td>
                   <Table.Td>
                     <Text size="sm">{formatMessagePreview(m)}</Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge size="sm" color={m.is_read ? "green" : "gray"}>
-                      {m.is_read ? "Read" : "Unread"}
-                    </Badge>
                   </Table.Td>
                   <Table.Td>
                     {m.created_at
@@ -159,25 +212,28 @@ export default function AdminChatMessagesSection() {
                       : "—"}
                   </Table.Td>
                   <Table.Td>
-                    <Group gap="xs">
+                    <Group gap={6} justify="flex-start">
                       <Button
                         size="xs"
-                        variant="subtle"
-                        onClick={() => openView(m)}
+                        variant="light"
+                        leftSection={<IconEye size={14} />}
+                        onClick={() => setViewMessage(m)}
                       >
                         View
                       </Button>
                       <Button
                         size="xs"
                         variant="subtle"
-                        onClick={() => openEdit(m)}
+                        leftSection={<IconPencil size={14} />}
+                        onClick={() => setEditingMessage(m)}
                       >
                         Edit
                       </Button>
                       <Button
                         size="xs"
-                        variant="subtle"
                         color="red"
+                        variant="subtle"
+                        leftSection={<IconTrash size={14} />}
                         onClick={() => handleDelete(m)}
                       >
                         Delete
@@ -186,34 +242,35 @@ export default function AdminChatMessagesSection() {
                   </Table.Td>
                 </Table.Tr>
               ))}
-
-              {!messages.length && (
-                <Table.Tr>
-                  <Table.Td colSpan={7}>
-                    <Text c="dimmed" ta="center">
-                      No messages found.
-                    </Text>
-                  </Table.Td>
-                </Table.Tr>
-              )}
             </Table.Tbody>
           </Table>
-        )}
-      </Paper>
+
+          {totalPages > 1 && (
+            <Group justify="flex-end" mt="md">
+              <Pagination
+                total={totalPages}
+                value={pageSafe}
+                onChange={setPage}
+                size="sm"
+              />
+            </Group>
+          )}
+        </>
+      )}
 
       <AdminChatMessageViewModal
-        opened={viewOpen}
-        onClose={closeView}
+        opened={!!viewMessage}
+        onClose={() => setViewMessage(null)}
         message={viewMessage}
       />
 
       <AdminChatMessageEditModal
-        opened={editOpen}
-        onClose={closeEdit}
+        opened={!!editingMessage}
+        onClose={() => setEditingMessage(null)}
         message={editingMessage}
         onUpdated={applyUpdatedMessage}
         onSaveApi={adminUpdateChatMessage}
       />
-    </>
+    </Stack>
   );
 }
