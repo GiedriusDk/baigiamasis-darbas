@@ -39,4 +39,7 @@ return [
     'auth' => [
         'base' => env('AUTH_BASE', 'http://gateway/api/auth'),
     ],
+    'gifs' => [
+        'base_url' => env('GIF_BASE_URL', 'https://raw.githubusercontent.com/GiedriusDk/gifstorage/main/gifs'),
+    ],
 ];

@@ -13,20 +13,18 @@ class ImportExerciseDb extends Command
 
     public function handle()
     {
-        // <--- ČIA PAKEISTA VIETA
         $base = base_path('database/exdb');
 
-        $exFile  = $base . '/exercises.json';
-        $bpFile  = $base . '/bodyparts.json';
-        $eqFile  = $base . '/equipments.json';
-        $muFile  = $base . '/muscles.json';
+        $exFile = $base . '/exercises.json';
+        $bpFile = $base . '/bodyparts.json';
+        $eqFile = $base . '/equipments.json';
+        $muFile = $base . '/muscles.json';
 
         if (!file_exists($exFile)) {
             $this->error("Missing $exFile");
             return self::FAILURE;
         }
 
-        // lookup lentelės (body_parts, equipments, muscles)
         $this->syncLookup($bpFile, 'body_parts');
         $this->syncLookup($eqFile, 'equipments');
         $this->syncLookup($muFile, 'muscles');
@@ -39,11 +37,13 @@ class ImportExerciseDb extends Command
             return self::FAILURE;
         }
 
-        $limit = (int) $this->option('limit');
-        $count = 0;
+        $limit   = (int) $this->option('limit');
+        $count   = 0;
         $skipped = 0;
-        $batch = [];
-        $now   = now();
+        $batch   = [];
+        $now     = now();
+
+        $gifBase = rtrim(config('services.gifs.base_url', ''), '/');
 
         foreach ($data as $r) {
             $name = trim((string)($r['name'] ?? ''));
@@ -59,16 +59,18 @@ class ImportExerciseDb extends Command
             $keywords         = $r['keywords']         ?? [];
             $instructions     = $r['instructions']     ?? [];
 
-            $primary = $targetMuscles[0] ?? null;
-            $equip   = $equipments[0]    ?? null;
+            $primary   = $targetMuscles[0] ?? null;
+            $equip     = $equipments[0]    ?? null;
+            $sourceId  = (string)($r['exerciseId'] ?? Str::uuid()->toString());
+            $imageUrl  = $gifBase ? "{$gifBase}/{$sourceId}.gif" : null;
 
             $batch[] = [
                 'name'              => $name,
                 'primary_muscle'    => $primary,
                 'equipment'         => $equip,
-                'image_url'         => $r['gifUrl'] ?? null,
+                'image_url'         => $imageUrl,
                 'source'            => 'exercisedb',
-                'source_id'         => (string)($r['exerciseId'] ?? Str::uuid()->toString()),
+                'source_id'         => $sourceId,
                 'tags'              => $keywords ? json_encode($keywords) : null,
                 'body_parts'        => $bodyParts ? json_encode($bodyParts) : null,
                 'target_muscles'    => $targetMuscles ? json_encode($targetMuscles) : null,
