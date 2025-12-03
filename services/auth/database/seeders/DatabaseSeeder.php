@@ -5,21 +5,25 @@ namespace Database\Seeders;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        
         $admin = Role::firstOrCreate(['name' => 'admin']);
         $coach = Role::firstOrCreate(['name' => 'coach']);
         $user  = Role::firstOrCreate(['name' => 'user']);
 
-        $u = User::firstOrCreate(
-            ['email' => 'admin@fitplans.local'],
-            ['name' => 'Admin', 'password' => Hash::make('secret123')]
-        );
+        
+        $firstUser = User::orderBy('id')->first();
 
-        $u->roles()->sync([$admin->id, $user->id]);
+        if ($firstUser) {
+            
+            $firstUser->roles()->sync([$admin->id]);
+            $this->command->info("Admin role assigned to first user: {$firstUser->email}");
+        } else {
+            $this->command->warn("No users found. Admin role will be assigned automatically when first user registers.");
+        }
     }
 }
