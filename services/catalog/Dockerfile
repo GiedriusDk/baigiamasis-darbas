@@ -1,8 +1,12 @@
 FROM php:8.3-cli
 
-# Reikalingi paketai ir PHP plėtiniai (Postgres)
-RUN apt-get update && apt-get install -y libpq-dev unzip \
-    && docker-php-ext-install pdo pdo_pgsql
+# Reikalingi paketai ir PHP plėtiniai (Postgres + ZIP)
+RUN apt-get update && apt-get install -y \
+        libpq-dev \
+        libzip-dev \
+        unzip \
+    && docker-php-ext-configure zip \
+    && docker-php-ext-install pdo pdo_pgsql zip
 
 # Darbo katalogas
 WORKDIR /var/www/html
@@ -19,7 +23,6 @@ COPY . .
 
 # 3 žingsnis: pakartotinis install (arba package:discover)
 RUN composer install --no-interaction --prefer-dist
-# (nebūtina, bet jei norėsi atskirai:)
 # RUN php artisan package:discover --ansi || true
 
 # Teisės Laravel cache’ams

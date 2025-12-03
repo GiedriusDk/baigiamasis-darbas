@@ -191,7 +191,6 @@ export async function ownedCoaches() {
 }
 
 
-// --- ADMIN PAYMENTS API (orders moderation) ---
 
 const PAYMENTS_ADMIN_BASE = '/api/payments/admin';
 

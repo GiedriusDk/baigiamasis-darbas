@@ -135,7 +135,6 @@ export function deleteWorkoutExercise(workoutId, workoutExerciseId) {
 
 
 
-// --- ADMIN PLANNER API ---
 
 const ADMIN_BASE = "/api/planner/admin";
 

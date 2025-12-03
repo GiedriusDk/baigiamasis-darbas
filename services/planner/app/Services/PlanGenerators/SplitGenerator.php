@@ -75,11 +75,10 @@ class SplitGenerator
                     $id  = (string)($cand['id'] ?? '');
                     $nm  = Str::lower(trim((string)($cand['name'] ?? $cand['title'] ?? '')));
 
-                    // ❌ jau naudotas bet kur plane
                     if ($id !== '' && isset($this->usedIds[$id])) continue;
                     if ($nm !== '' && isset($this->usedNames[$nm])) continue;
 
-                    // ❌ jau naudotas tos dienos viduje
+                    
                     if ($id !== '' && isset($alreadyIds[$id])) continue;
                     if ($nm !== '' && isset($alreadyNames[$nm])) continue;
 
@@ -184,11 +183,11 @@ class SplitGenerator
         $spent  = $this->totalSeconds($picked, $goal);
         if ($spent >= $budget) return $picked;
 
-        // Pradedam nuo globaliai naudotų
+        
         $alreadyIds   = $this->usedIds;
         $alreadyNames = $this->usedNames;
 
-        // ir dar kartą praeinam per esamus picked (šiaip jau turėtų sutapti, bet saugiai)
+        
         foreach ($picked as $ex) {
             $id = (string)($ex['id'] ?? '');
             $nm = Str::lower(trim((string)($ex['name'] ?? '')));
@@ -207,7 +206,7 @@ class SplitGenerator
         }
 
         $tags = array_keys($slotPools);
-        // random tvarka per tag'us
+        
         shuffle($tags);
 
         $added = 0;
@@ -224,7 +223,7 @@ class SplitGenerator
                 $pool = $slotPools[$t] ?? [];
                 if (!$pool) continue;
 
-                // random tvarka per kandidatų pool'ą
+                
                 $poolShuffled = $pool;
                 shuffle($poolShuffled);
 
@@ -261,7 +260,7 @@ class SplitGenerator
                 }
 
                 if (!$chosen) {
-                    // šitam tag'ui tinkančių nebėra – einam prie kito
+                    
                     continue;
                 }
 
