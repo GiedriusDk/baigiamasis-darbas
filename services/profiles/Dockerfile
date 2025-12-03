@@ -1,22 +1,23 @@
-
 FROM php:8.3-cli
 
 RUN apt-get update && apt-get install -y \
-    git unzip libpq-dev libpng-dev libjpeg-dev libfreetype6-dev \
- && docker-php-ext-configure gd --with-freetype --with-jpeg \
- && docker-php-ext-install pdo pdo_pgsql gd \
- && rm -rf /var/lib/apt/lists/*
-
-
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+    libpq-dev \
+    libzip-dev \
+    unzip \
+ && docker-php-ext-configure zip \
+ && docker-php-ext-install pdo pdo_pgsql zip
 
 WORKDIR /var/www/html
 
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY composer.json composer.lock ./
-RUN composer install --no-interaction --no-plugins --no-scripts --prefer-dist || true
+RUN composer install --no-interaction --prefer-dist --no-scripts
 
+COPY . .
+RUN composer install --no-interaction --prefer-dist
 
-EXPOSE 9000
+RUN mkdir -p storage/framework/{cache,sessions,views} storage/logs \
+  && chown -R www-data:www-data storage bootstrap/cache || true
 
-CMD sh -lc "composer install && php artisan key:generate --force || true && php artisan migrate --force || true && php artisan serve --host=0.0.0.0 --port=9000"
+CMD ["php", "-S", "0.0.0.0:9000", "-t", "public"]

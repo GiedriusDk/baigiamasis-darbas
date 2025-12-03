@@ -1,28 +1,23 @@
-# services/progress/Dockerfile
-FROM php:8.3-cli-alpine
+FROM php:8.3-cli
 
-# Sisteminės priklausomybės ir PHP plėtiniai
-RUN apk add --no-cache \
-      bash git unzip \
-      libpq postgresql-dev \
-      libzip-dev \
-      icu-dev \
-      freetype-dev libpng-dev libjpeg-turbo-dev \
-  && docker-php-ext-configure gd --with-freetype --with-jpeg \
-  && docker-php-ext-install -j$(nproc) \
-      pdo pdo_pgsql zip intl gd bcmath \
-  && rm -rf /var/cache/apk/*
-
-# Composer (kad prireikus galėtum paleisti composer install konteineryje)
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    libzip-dev \
+    unzip \
+ && docker-php-ext-configure zip \
+ && docker-php-ext-install pdo pdo_pgsql zip
 
 WORKDIR /var/www/html
 
-# (Pasirinktinai) jei nori turėti numatytą php.ini
-# COPY ./docker/php.ini /usr/local/etc/php/conf.d/app.ini
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Laravel reikalauja APP_KEY – jį sugeneruosi per docker-compose command
-# (kaip ir kituose servisuose).
+COPY composer.json composer.lock ./
+RUN composer install --no-interaction --prefer-dist --no-scripts
 
-# Numatyta komanda – TIK jeigu nepersirašysi docker-compose.yml `command` laukelyje.
+COPY . .
+RUN composer install --no-interaction --prefer-dist
+
+RUN mkdir -p storage/framework/{cache,sessions,views} storage/logs \
+  && chown -R www-data:www-data storage bootstrap/cache || true
+
 CMD ["php", "-S", "0.0.0.0:9000", "-t", "public"]

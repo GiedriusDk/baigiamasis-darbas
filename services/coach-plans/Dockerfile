@@ -1,16 +1,23 @@
+FROM php:8.3-cli
 
-FROM php:8.3-cli-alpine
-
-RUN apk add --no-cache git unzip libpq-dev $PHPIZE_DEPS \
-  && docker-php-ext-install pdo pdo_pgsql
-
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    libzip-dev \
+    unzip \
+ && docker-php-ext-configure zip \
+ && docker-php-ext-install pdo pdo_pgsql zip
 
 WORKDIR /var/www/html
 
-RUN mkdir -p storage bootstrap/cache \
-  && chmod -R 775 storage bootstrap/cache || true
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-EXPOSE 9000
+COPY composer.json composer.lock ./
+RUN composer install --no-interaction --prefer-dist --no-scripts
+
+COPY . .
+RUN composer install --no-interaction --prefer-dist
+
+RUN mkdir -p storage/framework/{cache,sessions,views} storage/logs \
+  && chown -R www-data:www-data storage bootstrap/cache || true
 
 CMD ["php", "-S", "0.0.0.0:9000", "-t", "public"]
