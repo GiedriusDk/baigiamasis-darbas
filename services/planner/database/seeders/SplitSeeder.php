@@ -10,24 +10,17 @@ class SplitSeeder extends Seeder
 {
     public function run(): void
     {
-        
-        
-        
-        
+        DB::statement('TRUNCATE TABLE split_slots, split_days, splits RESTART IDENTITY CASCADE');
 
-        
         $spec = [
-            
             ['goal' => 'muscle_gain', 'sessions' => 2, 'slug' => 'mg_2_ul',      'days' => ['Upper','Lower']],
             ['goal' => 'muscle_gain', 'sessions' => 3, 'slug' => 'mg_3_ppl',     'days' => ['Push','Pull','Legs']],
             ['goal' => 'muscle_gain', 'sessions' => 4, 'slug' => 'mg_4_ulul',    'days' => ['Upper','Lower','Upper','Lower']],
 
-            
             ['goal' => 'fat_loss',    'sessions' => 2, 'slug' => 'fl_2_fb_card', 'days' => ['Full Body','Cardio']],
             ['goal' => 'fat_loss',    'sessions' => 3, 'slug' => 'fl_3_fbfbcard','days' => ['Full Body','Full Body','Cardio']],
             ['goal' => 'fat_loss',    'sessions' => 4, 'slug' => 'fl_4_ulfbcard','days' => ['Upper','Lower','Full Body','Cardio']],
 
-            
             ['goal' => 'general_fitness', 'sessions' => 2, 'slug' => 'gf_2_ul',   'days' => ['Upper','Lower']],
             ['goal' => 'general_fitness', 'sessions' => 3, 'slug' => 'gf_3_ulfb', 'days' => ['Upper','Lower','Full Body']],
             ['goal' => 'general_fitness', 'sessions' => 4, 'slug' => 'gf_4_ulul', 'days' => ['Upper','Lower','Upper','Lower']],
@@ -65,8 +58,6 @@ class SplitSeeder extends Seeder
         }
     }
 
-    
-    
     private function slotsFor(string $day): array
     {
         return match ($day) {

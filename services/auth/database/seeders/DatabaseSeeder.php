@@ -26,6 +26,6 @@ class DatabaseSeeder extends Seeder
 
         $adminUser->roles()->sync([$admin->id]);
 
-        $this->command->info("Admin user created/updated: admin@fitplans.local");
+        $this->command->info("Admin user created/updated: admin@gmail.com");
     }
 }
