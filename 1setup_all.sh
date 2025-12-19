@@ -33,16 +33,36 @@ echo "== 0) Build'inam PHP servisų image'us =="
 docker compose build "${PHP_SERVICES[@]}"
 
 echo
-echo "== 1) composer install kiekvienam servise (per docker compose run) =="
+echo "== 1) composer install kiekvienam servise (per docker compose run) + vendor patikra =="
+
+FAILED=0
 
 for S in "${PHP_SERVICES[@]}"; do
   echo
   echo "---- [$S] composer install ----"
-  docker compose run --rm "$S" \
-    composer install --no-interaction --prefer-dist || {
-      echo "⚠️ composer install nepavyko servise '$S' (skriptas tęsia)."
-    }
+
+  if ! docker compose run --rm "$S" composer install --no-interaction --prefer-dist; then
+    echo "❌ $S: composer install nepavyko"
+    FAILED=1
+    continue
+  fi
+
+  # Patikrinam, kad vendor tikrai yra ten, kur tikimės
+  if ! docker compose run --rm "$S" test -f vendor/autoload.php; then
+    echo "❌ $S: nerastas vendor/autoload.php po composer install (greičiausiai working_dir/volume problema)"
+    FAILED=1
+    continue
+  fi
+
+  echo "✅ $S: vendor/autoload.php yra"
 done
+
+if [[ "$FAILED" -ne 0 ]]; then
+  echo
+  echo "⛔ Bent vienam servisui nesusigeneravo vendor/autoload.php arba composer failino."
+  echo "   Nestartuoju viso stack'o, kad negautum 'autoload.php missing'."
+  exit 1
+fi
 
 echo
 echo "== 2) Keliame VISĄ stack'ą (db, gateway, mailpit, php servisus) =="
