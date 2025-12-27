@@ -259,3 +259,13 @@ export function adminDeleteCoachExercise(id) {
     method: "DELETE",
   });
 }
+
+export async function getMyAnthropometrics() {
+  const res = await getUserProfile();
+  const p = res?.data ?? res;
+
+  return {
+    heightCm: p?.height_cm != null ? Number(p.height_cm) : null,
+    weightKg: p?.weight_kg != null ? Number(p.weight_kg) : null,
+  };
+}

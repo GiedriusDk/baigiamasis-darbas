@@ -14,7 +14,6 @@ class User extends Authenticatable implements JWTSubject
     protected $hidden   = ['password', 'remember_token'];
     protected $casts    = ['email_verified_at' => 'datetime'];
 
-    // (jei naudoji roles – palik, jei ne – gali ištrinti)
     public function roles()
     {
         return $this->belongsToMany(Role::class);

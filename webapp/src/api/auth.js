@@ -118,3 +118,10 @@ export async function adminDeleteUser(id) {
 }
 
 export const adminListAuthUsers = adminListUsers;
+
+export async function selectRole(role) {
+  return req('/role/select', {
+    method: 'POST',
+    body: JSON.stringify({ role }),
+  });
+}

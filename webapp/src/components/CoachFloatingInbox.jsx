@@ -49,7 +49,17 @@ export default function CoachFloatingInbox() {
   const [input, setInput] = useState("");
 
   const [userMeta, setUserMeta] = useState({});
-  const scrollRef = useRef(null);
+
+  // ✅ atskiri ref’ai
+  const convosScrollRef = useRef(null);
+  const messagesScrollRef = useRef(null);
+
+  // ✅ ar vartotojas apačioj (kad auto-scroll nešokinėtų)
+  const nearBottomRef = useRef(true);
+  function isNearBottom(el, threshold = 80) {
+    return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+  }
+
   const canType = !!(ready && user && activeId);
 
   const [attachmentFile, setAttachmentFile] = useState(null);
@@ -72,7 +82,6 @@ export default function CoachFloatingInbox() {
     const need = ids.filter((id) => !userMeta[id]);
     if (!need.length) return;
 
-    // 1) Vartotojų profiliai (vardas, avataras)
     const profiles = await Promise.all(
       need.map(async (id) => {
         try {
@@ -89,10 +98,8 @@ export default function CoachFloatingInbox() {
       })
     );
 
-    // 2) Presence info (is_online + last_seen_at) iš /presence
     const presence = await getPresenceStatus(need).catch(() => ({}));
 
-    // 3) Sujungiame į vieną objektą
     const patch = {};
     profiles.forEach(([id, base]) => {
       const rec = presence[id] || {};
@@ -112,10 +119,21 @@ export default function CoachFloatingInbox() {
     try {
       const r = await getMessages(id, { perPage: 50 });
       const rows = Array.isArray(r?.data) ? r.data : [];
-      setMessages(rows);
+
+      // ✅ jei niekas nepasikeitė – nedarom state update (nes nešokinės UI)
+      setMessages((prev) => {
+        const prevLast = prev[prev.length - 1]?.id;
+        const nextLast = rows[rows.length - 1]?.id;
+        if (prev.length === rows.length && prevLast === nextLast) return prev;
+        return rows;
+      });
+
       requestAnimationFrame(() => {
-        const el = scrollRef.current;
-        if (el) el.scrollTo({ top: el.scrollHeight });
+        const el = messagesScrollRef.current;
+        if (!el) return;
+        if (nearBottomRef.current) {
+          el.scrollTo({ top: el.scrollHeight });
+        }
       });
     } finally {
       setLoadingMessages(false);
@@ -125,6 +143,7 @@ export default function CoachFloatingInbox() {
   useEffect(() => {
     if (!opened || !ready || !user) return;
     loadConvos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, ready, user]);
 
   useEffect(() => {
@@ -133,13 +152,19 @@ export default function CoachFloatingInbox() {
       new Set(convos.map((c) => Number(c.user_id)).filter(Boolean))
     );
     ensureUserMeta(uids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convos]);
 
   useEffect(() => {
     if (!opened || !activeId) return;
+
+    // atidarius / perjungus convo laikom kad esi apačioj
+    nearBottomRef.current = true;
+
     loadMessagesOnce(activeId);
     const t = setInterval(() => loadMessagesOnce(activeId), 5000);
     return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, activeId]);
 
   async function handleSend() {
@@ -149,19 +174,17 @@ export default function CoachFloatingInbox() {
 
     setSending(true);
     try {
-      const r = await sendMessage(activeId, {
-        body,
-        attachmentFile,
-      });
-
+      const r = await sendMessage(activeId, { body, attachmentFile });
       const msg = r?.data || r;
+
       setInput("");
       setAttachmentFile(null);
       setAttachmentName("");
+
       setMessages((m) => [...m, msg].slice(-200));
 
       requestAnimationFrame(() => {
-        const el = scrollRef.current;
+        const el = messagesScrollRef.current;
         if (el) el.scrollTo({ top: el.scrollHeight });
       });
     } finally {
@@ -172,13 +195,11 @@ export default function CoachFloatingInbox() {
   function handleAttachClick() {
     fileInputRef.current?.click();
   }
-
   function handleFileChange(e) {
     const f = e.target.files?.[0] || null;
     setAttachmentFile(f);
     setAttachmentName(f ? f.name : "");
   }
-
   function handleRemoveAttachment() {
     setAttachmentFile(null);
     setAttachmentName("");
@@ -187,9 +208,8 @@ export default function CoachFloatingInbox() {
 
   function timeAgo(date) {
     if (!date) return "";
-
     const d = new Date(date);
-    const diff = (Date.now() - d.getTime()) / 1000; // sec
+    const diff = (Date.now() - d.getTime()) / 1000;
 
     if (diff < 60) return "just now";
     if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
@@ -248,6 +268,7 @@ export default function CoachFloatingInbox() {
               gap: 8,
             }}
           >
+            {/* LEFT: convos */}
             <Stack
               gap="xs"
               p="xs"
@@ -266,7 +287,8 @@ export default function CoachFloatingInbox() {
               </Group>
 
               {loadingList && <Loader size="sm" />}
-              <ScrollArea style={{ flex: 1 }} offsetScrollbars>
+
+              <ScrollArea style={{ flex: 1 }} viewportRef={convosScrollRef}>
                 <Stack gap="xs">
                   {convos.map((c) => {
                     const uid = Number(c.user_id);
@@ -274,6 +296,7 @@ export default function CoachFloatingInbox() {
                     const title = meta?.name || `User #${uid}`;
                     const sub = `Conversation #${c.id}`;
                     const active = activeId === c.id;
+
                     return (
                       <Card
                         key={c.id}
@@ -292,6 +315,7 @@ export default function CoachFloatingInbox() {
                           <Avatar radius="xl" src={meta?.avatar || undefined}>
                             {!meta?.avatar && String(uid).slice(-1)}
                           </Avatar>
+
                           <div style={{ minWidth: 0 }}>
                             <Text fw={600} truncate="end">
                               {title}
@@ -300,6 +324,7 @@ export default function CoachFloatingInbox() {
                               {sub}
                             </Text>
                           </div>
+
                           <Group gap={6} ml="auto">
                             {meta && (
                               <>
@@ -323,6 +348,7 @@ export default function CoachFloatingInbox() {
                       </Card>
                     );
                   })}
+
                   {!loadingList && convos.length === 0 && (
                     <Text c="dimmed" size="sm">
                       No conversations yet.
@@ -332,6 +358,7 @@ export default function CoachFloatingInbox() {
               </ScrollArea>
             </Stack>
 
+            {/* RIGHT: messages */}
             <Stack p="xs" gap="xs" style={{ minWidth: 0, minHeight: 0 }}>
               <Group justify="space-between">
                 <Group gap="sm">
@@ -348,6 +375,7 @@ export default function CoachFloatingInbox() {
                         ? `Conversation #${activeId}`
                         : "Select a conversation"}
                     </Title>
+
                     {activeUser && (
                       <Group gap={6}>
                         <Badge
@@ -371,13 +399,22 @@ export default function CoachFloatingInbox() {
 
               <Divider />
 
-              <ScrollArea style={{ flex: 1 }} viewportRef={scrollRef}>
+              <ScrollArea
+                style={{ flex: 1 }}
+                viewportRef={messagesScrollRef}
+                onScrollPositionChange={() => {
+                  const el = messagesScrollRef.current;
+                  if (!el) return;
+                  nearBottomRef.current = isNearBottom(el);
+                }}
+              >
                 <Stack gap="xs">
                   {loadingMessages && (
                     <Group justify="center" my="md">
                       <Loader size="sm" />
                     </Group>
                   )}
+
                   {!loadingMessages && messages.length === 0 && activeId && (
                     <Text c="dimmed" ta="center">
                       No messages.
@@ -452,11 +489,8 @@ export default function CoachFloatingInbox() {
                                   style={{
                                     display: "block",
                                     width: "100%",
-                                    height: "auto",
-                                    maxWidth: "240px",
-                                    maxHeight: "180px",
-                                    borderRadius: "8px",
-                                    objectFit: "contain",
+                                    maxHeight: 180,
+                                    objectFit: "cover",
                                   }}
                                 />
                               )}
@@ -501,9 +535,7 @@ export default function CoachFloatingInbox() {
 
               <Group align="end" wrap="nowrap">
                 <Textarea
-                  placeholder={
-                    activeId ? "Type a reply…" : "Select a conversation…"
-                  }
+                  placeholder={activeId ? "Type a reply…" : "Select a conversation…"}
                   autosize
                   minRows={1}
                   maxRows={4}
@@ -523,9 +555,7 @@ export default function CoachFloatingInbox() {
                 <Button
                   onClick={handleSend}
                   loading={sending}
-                  disabled={
-                    !canType || (!input.trim() && !attachmentFile)
-                  }
+                  disabled={!canType || (!input.trim() && !attachmentFile)}
                   rightSection={<IconSend size={16} />}
                 >
                   Send

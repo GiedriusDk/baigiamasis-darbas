@@ -54,7 +54,17 @@ export default function UserFloatingInbox() {
   const [input, setInput] = useState("");
 
   const [coachMeta, setCoachMeta] = useState({});
-  const scrollRef = useRef(null);
+
+  // ✅ skirtingi ref’ai skirtingiems ScrollArea
+  const convosScrollRef = useRef(null);
+  const messagesScrollRef = useRef(null);
+
+  const nearBottomRef = useRef(true);
+
+  function isNearBottom(el, threshold = 80) {
+    return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+  }
+
   const canType = !!(ready && user && activeId);
 
   const [attachmentFile, setAttachmentFile] = useState(null);
@@ -130,10 +140,24 @@ export default function UserFloatingInbox() {
     try {
       const r = await getMessages(id, { perPage: 50 });
       const rows = Array.isArray(r?.data) ? r.data : [];
-      setMessages(rows);
+
+      setMessages((prev) => {
+        const prevLast = prev[prev.length - 1]?.id;
+        const nextLast = rows[rows.length - 1]?.id;
+
+        // ✅ jei niekas nepasikeitė – nere-renderinam
+        if (prev.length === rows.length && prevLast === nextLast) return prev;
+        return rows;
+      });
+
       requestAnimationFrame(() => {
-        const el = scrollRef.current;
-        if (el) el.scrollTo({ top: el.scrollHeight });
+        const el = messagesScrollRef.current;
+        if (!el) return;
+
+        // ✅ scrollinam tik jei vartotojas buvo apačioj
+        if (nearBottomRef.current) {
+          el.scrollTo({ top: el.scrollHeight });
+        }
       });
     } finally {
       setLoadingMessages(false);
@@ -146,6 +170,7 @@ export default function UserFloatingInbox() {
       await bootstrapEnsureConvos();
       await loadConvos();
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, ready, user]);
 
   useEffect(() => {
@@ -154,13 +179,19 @@ export default function UserFloatingInbox() {
       new Set(convos.map((c) => Number(c.coach_id)).filter(Boolean))
     );
     ensureCoachMeta(coachIds);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convos]);
 
   useEffect(() => {
     if (!opened || !activeId) return;
+
+    // kai atidarai naują chat – laikom kad esi apačioj
+    nearBottomRef.current = true;
+
     loadMessagesOnce(activeId);
     const t = setInterval(() => loadMessagesOnce(activeId), 5000);
     return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, activeId]);
 
   async function handleSend() {
@@ -182,7 +213,7 @@ export default function UserFloatingInbox() {
       setMessages((m) => [...m, msg].slice(-200));
 
       requestAnimationFrame(() => {
-        const el = scrollRef.current;
+        const el = messagesScrollRef.current;
         if (el) el.scrollTo({ top: el.scrollHeight });
       });
     } finally {
@@ -215,7 +246,7 @@ export default function UserFloatingInbox() {
     if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`;
     if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
 
-    return d.toLocaleDateString(); 
+    return d.toLocaleDateString();
   }
 
   if (!ready || !user) return null;
@@ -265,6 +296,7 @@ export default function UserFloatingInbox() {
               gap: 8,
             }}
           >
+            {/* LEFT: conversations */}
             <Stack
               gap="xs"
               p="xs"
@@ -283,7 +315,8 @@ export default function UserFloatingInbox() {
               </Group>
 
               {(booting || loadingList) && <Loader size="sm" />}
-              <ScrollArea style={{ flex: 1 }} offsetScrollbars>
+
+              <ScrollArea style={{ flex: 1 }} viewportRef={convosScrollRef}>
                 <Stack gap="xs">
                   {convos.map((c) => {
                     const cid = Number(c.coach_id);
@@ -291,6 +324,7 @@ export default function UserFloatingInbox() {
                     const title = meta?.name || `Coach #${cid}`;
                     const sub = `Conversation #${c.id}`;
                     const active = activeId === c.id;
+
                     return (
                       <Card
                         key={c.id}
@@ -309,6 +343,7 @@ export default function UserFloatingInbox() {
                           <Avatar radius="xl" src={meta?.avatar || undefined}>
                             {!meta?.avatar && String(cid).slice(-1)}
                           </Avatar>
+
                           <div style={{ minWidth: 0 }}>
                             <Text fw={600} truncate="end">
                               {title}
@@ -317,6 +352,7 @@ export default function UserFloatingInbox() {
                               {sub}
                             </Text>
                           </div>
+
                           <Group gap={4} ml="auto">
                             <Badge
                               size="xs"
@@ -336,6 +372,7 @@ export default function UserFloatingInbox() {
                       </Card>
                     );
                   })}
+
                   {!loadingList && convos.length === 0 && (
                     <Text c="dimmed" size="sm">
                       No conversations.
@@ -345,6 +382,7 @@ export default function UserFloatingInbox() {
               </ScrollArea>
             </Stack>
 
+            {/* RIGHT: messages */}
             <Stack p="xs" gap="xs" style={{ minWidth: 0, minHeight: 0 }}>
               <Group justify="space-between">
                 <Group gap="sm">
@@ -360,6 +398,7 @@ export default function UserFloatingInbox() {
                         ? `Conversation #${activeId}`
                         : "Conversation"}
                     </Title>
+
                     {activeCoachId && (
                       <Group gap={6}>
                         <Badge
@@ -382,23 +421,37 @@ export default function UserFloatingInbox() {
               </Group>
 
               <Divider />
-              <ScrollArea style={{ flex: 1 }} viewportRef={scrollRef}>
+
+              <ScrollArea
+                style={{ flex: 1 }}
+                viewportRef={messagesScrollRef}
+                onScrollPositionChange={() => {
+                  const el = messagesScrollRef.current;
+                  if (!el) return;
+                  nearBottomRef.current = isNearBottom(el);
+                }}
+              >
                 <Stack gap="xs">
                   {loadingMessages && (
                     <Group justify="center" my="md">
                       <Loader size="sm" />
                     </Group>
                   )}
+
                   {!loadingMessages && messages.length === 0 && activeId && (
                     <Text c="dimmed" ta="center">
                       No messages.
                     </Text>
                   )}
+
                   {messages.map((m) => {
                     const mine = m.sender_id === user?.id;
                     const text = m.body ?? m.message ?? m.text ?? "";
-                    const when = new Date(m.created_at || m.createdAt).toLocaleString();
-                    const attachment = m.attachment_url || m.attachmentUrl || "";
+                    const when = new Date(
+                      m.created_at || m.createdAt
+                    ).toLocaleString();
+                    const attachment =
+                      m.attachment_url || m.attachmentUrl || "";
                     const hasText = !!text;
                     const hasAttachment = !!attachment;
 
@@ -421,7 +474,6 @@ export default function UserFloatingInbox() {
                           p="xs"
                           withBorder
                           style={{
-                            // toks pats „burbulo“ plotis kaip tekstinių žinučių
                             maxWidth: 260,
                             background: mine
                               ? "var(--mantine-color-blue-light)"
@@ -446,8 +498,8 @@ export default function UserFloatingInbox() {
                                   controls
                                   style={{
                                     display: "block",
-                                    width: "100%",     // pilnai telpa į burbulą
-                                    maxHeight: 180,    // kad neužimtų viso chat’o
+                                    width: "100%",
+                                    maxHeight: 180,
                                   }}
                                 />
                               ) : (
@@ -456,9 +508,9 @@ export default function UserFloatingInbox() {
                                   alt=""
                                   style={{
                                     display: "block",
-                                    width: "100%",     // prisitaiko prie burbulo
+                                    width: "100%",
                                     maxHeight: 180,
-                                    objectFit: "cover" // gražiai apkarpo, ne ištempia
+                                    objectFit: "cover",
                                   }}
                                 />
                               )}
@@ -485,25 +537,21 @@ export default function UserFloatingInbox() {
               </ScrollArea>
 
               <Divider />
+
               {attachmentName && (
                 <Group justify="space-between" gap="xs">
                   <Text size="xs" c="dimmed">
                     Attached: {attachmentName}
                   </Text>
-                  <Button
-                    size="xs"
-                    variant="subtle"
-                    onClick={handleRemoveAttachment}
-                  >
+                  <Button size="xs" variant="subtle" onClick={handleRemoveAttachment}>
                     Remove
                   </Button>
                 </Group>
               )}
+
               <Group align="end" wrap="nowrap">
                 <Textarea
-                  placeholder={
-                    activeId ? "Type a message…" : "Select a coach…"
-                  }
+                  placeholder={activeId ? "Type a message…" : "Select a coach…"}
                   autosize
                   minRows={1}
                   maxRows={4}
@@ -523,10 +571,7 @@ export default function UserFloatingInbox() {
                 <Button
                   onClick={handleSend}
                   loading={sending}
-                  disabled={
-                    !canType ||
-                    (!input.trim() && !attachmentFile)
-                  }
+                  disabled={!canType || (!input.trim() && !attachmentFile)}
                   rightSection={<IconSend size={16} />}
                 >
                   Send

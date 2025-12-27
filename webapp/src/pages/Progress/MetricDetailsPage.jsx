@@ -43,6 +43,9 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 
+import { getUserProfile } from "../../api/profiles";
+import { getBmiSnapshot } from "../../utils/bmi";
+
 export default function MetricDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -52,6 +55,9 @@ export default function MetricDetailsPage() {
   const [entries, setEntries] = useState([]);
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const [bmiSnap, setBmiSnap] = useState(null);
+  const [bmiLoading, setBmiLoading] = useState(false);
 
   const [value, setValue] = useState(null);
   const [date, setDate] = useState(() => {
@@ -68,6 +74,26 @@ export default function MetricDetailsPage() {
   const [savingGoal, setSavingGoal] = useState(false);
 
   const [previewPhoto, setPreviewPhoto] = useState(null);
+
+  const loadBmi = async () => {
+    setBmiLoading(true);
+    try {
+      const profRes = await getUserProfile();
+      const prof = profRes?.data ?? profRes;
+
+      const snap = await getBmiSnapshot({
+        profileHeightCm: prof?.height_cm,
+        profileWeightKg: prof?.weight_kg,
+      });
+
+      setBmiSnap(snap);
+    } catch (e) {
+      console.error("BMI load error:", e);
+      setBmiSnap(null);
+    } finally {
+      setBmiLoading(false);
+    }
+  };
 
   const movePhoto = (photoId, direction) => {
     setPhotos((prev) => {
@@ -158,7 +184,7 @@ export default function MetricDetailsPage() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadBmi();
   }, [id]);
 
   const addEntry = async () => {
@@ -174,6 +200,8 @@ export default function MetricDetailsPage() {
     setEntries((prev) => [created, ...prev]);
     setValue(null);
     setNote("");
+    await loadBmi();
+    
   };
 
   const onUpload = async () => {
@@ -332,6 +360,31 @@ export default function MetricDetailsPage() {
             </Text>
           )}
         </Stack>
+      </Card>
+
+      <Card withBorder>
+        <Title order={4} mb="sm">BMI</Title>
+
+        {bmiLoading ? (
+          <Loader size="sm" />
+        ) : !bmiSnap ? (
+          <Text c="dimmed" size="sm">Failed to calculate.</Text>
+        ) : !bmiSnap.ok ? (
+          <Text size="sm" c="dimmed">
+            {bmiSnap.missing.includes("height") && "Enter height in profile to see BMI."}
+            {bmiSnap.missing.includes("weight") && "Enter weight in Progress to see BMI."}
+          </Text>
+        ) : (
+          <Stack gap={6}>
+            <Text>
+              <b>{bmiSnap.bmi}</b> — {bmiSnap.info?.label}
+            </Text>
+            <Text size="sm" c="dimmed">{bmiSnap.info?.hint}</Text>
+            <Text size="xs" c="dimmed">
+              Used: height {bmiSnap.heightCm} cm, weight {bmiSnap.weightKg} kg
+            </Text>
+          </Stack>
+        )}
       </Card>
 
       <Card withBorder>

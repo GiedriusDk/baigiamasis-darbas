@@ -37,8 +37,24 @@ export default function LoginPage() {
     }
   }
 
+  async function onGoogle() {
+    try {
+      const r = await fetch("http://localhost:8080/api/auth/google/redirect");
+      const data = await r.json();
+      if (!data?.url) throw new Error("No redirect URL returned");
+      window.location.href = data.url; // čia ir prasideda Google login
+    } catch (e) {
+      notifications.show({ color: "red", message: e.message || "Google login failed" });
+    }
+  }
+
   return (
+
+
+
     <Card maw={520} mx="auto" mt="xl" withBorder radius="md" p="lg">
+
+
       <Title order={3} mb="md">Sign in</Title>
 
       <form onSubmit={onSubmit}>
@@ -62,6 +78,11 @@ export default function LoginPage() {
             <Anchor component={Link} to="/forgot-password" size="sm">
               Forgot your password?
             </Anchor>
+
+            <Button variant="default" onClick={onGoogle}>
+              Continue with Google
+            </Button>
+
             <Button type="submit" loading={loading}>
               Sign in
             </Button>

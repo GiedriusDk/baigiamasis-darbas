@@ -256,3 +256,23 @@ export function adminListProgressMetrics() {
     headers: authHeaders(),
   });
 }
+
+export async function getLatestEntryBySlug(slug) {
+  const m = await ensureMetric(slug);
+  const res = await listEntries({
+    metric_id: m.id,
+    per_page: 1,
+    sort: "recorded_at_desc",
+  });
+
+  const items = res?.data ?? res ?? [];
+  return items[0] ?? null;
+}
+
+export async function getLatestValueBySlug(slug) {
+  const e = await getLatestEntryBySlug(slug);
+  if (!e) return null;
+
+  const v = e.value ?? e.value_numeric ?? null;
+  return v == null ? null : Number(v);
+}

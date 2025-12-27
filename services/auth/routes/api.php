@@ -7,17 +7,23 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Admin\AdminUsersController;
-
+use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\Auth\RoleSelectionController;
 
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login',    [AuthController::class, 'login']);
+
+    Route::get('/google/redirect', [GoogleAuthController::class, 'redirect']);
+    Route::get('/google/callback', [GoogleAuthController::class, 'callback']);
 
     Route::middleware('auth:api')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
         Route::put('users/me', [UserController::class, 'updateMe']);
         Route::put('me/email', [UserController::class, 'updateEmail']);
         Route::put('me/password', [UserController::class, 'updatePassword']);
+
+        Route::post('role/select', [RoleSelectionController::class, 'select']);
     });
 
     Route::middleware('throttle:5,1')->post('forgot-password', [PasswordResetLinkController::class, 'store']);

@@ -42,8 +42,9 @@ import GoalsPage from './pages/Progress/GoalsPage.jsx';
 import ForumsPage from "./pages/ForumsPage.jsx";
 import UserPlanBuilder from './pages/UserPlanBuilder.jsx';
 import CoachClientsPage from './pages/CoachClientsPage.jsx';
+import OAuthCallbackPage from "./pages/OAuthCallbackPage";
+import ChooseRolePage from "./pages/ChooseRolePage.jsx";
 
-// ⬇️ naujas importas
 import AdminHomePage from "./pages/Admin/AdminHomePage.jsx";
 
 setChatDebug(true);
@@ -244,6 +245,9 @@ function AppInner() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/choose-role" element={<ChooseRolePage />} />
+          <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/coaches" element={<CoachesListPage />} />
           <Route path="/coaches/:id" element={<CoachPublicPage />} />
