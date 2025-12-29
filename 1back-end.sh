@@ -47,7 +47,6 @@ for S in "${PHP_SERVICES[@]}"; do
     continue
   fi
 
-  # Patikrinam, kad vendor tikrai yra ten, kur tikimės
   if ! docker compose run --rm "$S" test -f vendor/autoload.php; then
     echo "❌ $S: nerastas vendor/autoload.php po composer install (greičiausiai working_dir/volume problema)"
     FAILED=1
