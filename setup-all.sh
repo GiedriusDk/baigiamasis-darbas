@@ -21,8 +21,7 @@ pause() {
   read -r -p "Paspauskite ENTER, kad tęsti, arba Ctrl+C, kad nutraukti..." _ || true
 }
 
-# Pasitikrinam, kad visi skriptai yra
-require_script "./1back-end.sh"        # <-- jei pas tave realiai 1setup_all.sh, pakeisk čia
+require_script "./1back-end.sh" 
 require_script "./2migrate_all.sh"
 require_script "./3seeder.sh"
 require_script "./4front-end.sh"
