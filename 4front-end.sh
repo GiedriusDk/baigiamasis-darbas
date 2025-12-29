@@ -62,4 +62,5 @@ info "  ${DEV_URL_DEFAULT}"
 warn "Sustabdyti: Ctrl + C"
 echo
 
+
 npm run dev

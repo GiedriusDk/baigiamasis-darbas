@@ -51,13 +51,19 @@ pause
 
 echo
 echo "▶ 4) Front-end aplikacijos paleidimas"
+
+echo
+echo "===================="
+echo "Prisijungimai:"
+echo "Admin:"
+echo "  Email: admin@gmail.com"
+echo "  Password: admin"
+echo "===================="
+echo
+
 ./4front-end.sh
 
 echo
 echo "✅ VISKAS PARUOŠTA"
 echo "===================="
-echo "Admin paskyra:"
-echo "  El. paštas: admin@gmail.com"
-echo "  Slaptažodis: admin"
-echo
 echo "Sistema sėkmingai paleista."
