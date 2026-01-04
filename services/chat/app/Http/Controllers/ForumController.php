@@ -44,15 +44,15 @@ class ForumController extends Controller
 
         $attachmentUrl = null;
 
-        // ---- IDENTIŠKAI kaip profile servise ----
+        
         if ($r->hasFile('attachment')) {
 
-            // 1) Saugojimas į PUBLIC DISK — svarbiausia dalis
+            
             $stored = $r->file('attachment')->store('public/forum_attachments');
 
-            // 2) Konvertuojam į URL kaip profile servise
-            $attachmentUrl = Storage::url($stored); 
-            // pvz. /chat/storage/forum_attachments/abc.jpg
+            
+            $attachmentUrl = url(Storage::url($stored));
+            
         }
 
         $msg = Message::create([

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Container,
   Group,
@@ -17,12 +17,7 @@ import {
   Alert,
   ActionIcon,
 } from "@mantine/core";
-import {
-  IconPlus,
-  IconTrash,
-  IconCirclePlus,
-  IconSearch,
-} from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconCirclePlus, IconSearch } from "@tabler/icons-react";
 
 import {
   createPlan,
@@ -71,10 +66,7 @@ function ExerciseSearchModal({ opened, onClose, onSelect }) {
 
   useEffect(() => {
     if (!opened) return;
-    const handle = setTimeout(() => {
-      fetchExercises({ q });
-    }, 300);
-
+    const handle = setTimeout(() => fetchExercises({ q }), 300);
     return () => clearTimeout(handle);
   }, [q, opened]);
 
@@ -89,10 +81,7 @@ function ExerciseSearchModal({ opened, onClose, onSelect }) {
             onChange={(e) => setQ(e.currentTarget.value)}
             style={{ flex: 1 }}
           />
-          <Button
-            leftSection={<IconSearch size={16} />}
-            onClick={() => fetchExercises({ q })}
-          >
+          <Button leftSection={<IconSearch size={16} />} onClick={() => fetchExercises({ q })}>
             Search
           </Button>
         </Group>
@@ -170,6 +159,12 @@ export default function UserPlanBuilder() {
   const [creating, setCreating] = useState(false);
   const [exercisePickerWorkoutId, setExercisePickerWorkoutId] = useState(null);
 
+  const workoutsById = useMemo(() => {
+    const m = new Map();
+    for (const w of workouts) m.set(w.id, w);
+    return m;
+  }, [workouts]);
+
   async function loadAll() {
     setLoading(true);
     setError("");
@@ -182,41 +177,28 @@ export default function UserPlanBuilder() {
         p = res?.data ?? res ?? null;
       } catch (e) {
         const msg = String(e && e.message ? e.message : "");
-        if (msg.includes("No plan")) {
-          p = null;
-        } else {
-          throw e;
-        }
+        if (msg.includes("No plan")) p = null;
+        else throw e;
       }
 
       if (!p) {
         setPlan(null);
         setWorkouts([]);
         setExercisesByWorkout({});
-        setLoading(false);
         return;
       }
 
       setPlan(p);
 
       const wRes = await listWorkouts(p.id);
-      const ws = Array.isArray(wRes?.data)
-        ? wRes.data
-        : Array.isArray(wRes)
-        ? wRes
-        : [];
-
+      const ws = Array.isArray(wRes?.data) ? wRes.data : Array.isArray(wRes) ? wRes : [];
       ws.sort((a, b) => (a.day_index ?? 0) - (b.day_index ?? 0));
       setWorkouts(ws);
 
       const exMap = {};
       for (const w of ws) {
         const eRes = await listWorkoutExercises(w.id);
-        const rows = Array.isArray(eRes?.data)
-          ? eRes.data
-          : Array.isArray(eRes)
-          ? eRes
-          : [];
+        const rows = Array.isArray(eRes?.data) ? eRes.data : Array.isArray(eRes) ? eRes : [];
         exMap[w.id] = rows;
       }
       setExercisesByWorkout(exMap);
@@ -253,16 +235,9 @@ export default function UserPlanBuilder() {
     if (!plan) return;
 
     const nextIndex =
-      workouts.length === 0
-        ? 0
-        : Math.max(...workouts.map((w) => w.day_index ?? 0)) + 1;
+      workouts.length === 0 ? 0 : Math.max(...workouts.map((w) => w.day_index ?? 0)) + 1;
 
-    const payload = {
-      day_index: nextIndex,
-      name: `Day ${nextIndex + 1}`,
-      notes: "",
-    };
-
+    const payload = { day_index: nextIndex, name: `Day ${nextIndex + 1}`, notes: "" };
     const res = await createWorkout(plan.id, payload);
     const w = res?.data ?? res;
 
@@ -275,9 +250,7 @@ export default function UserPlanBuilder() {
   async function handleUpdateWorkout(workoutId, fields) {
     const res = await updateWorkout(workoutId, fields);
     const updated = res?.data ?? res;
-    setWorkouts((prev) =>
-      prev.map((w) => (w.id === updated.id ? { ...w, ...updated } : w))
-    );
+    setWorkouts((prev) => prev.map((w) => (w.id === updated.id ? { ...w, ...updated } : w)));
   }
 
   async function handleDeleteWorkout(workoutId) {
@@ -293,10 +266,7 @@ export default function UserPlanBuilder() {
 
   async function handleAddExercise(workoutId, exFromCatalog) {
     const list = exercisesByWorkout[workoutId] || [];
-    const order =
-      list.length === 0
-        ? 0
-        : Math.max(...list.map((e) => e.order ?? 0)) + 1;
+    const order = list.length === 0 ? 0 : Math.max(...list.map((e) => e.order ?? 0)) + 1;
 
     const payload = {
       exercise_id: exFromCatalog.id,
@@ -326,9 +296,7 @@ export default function UserPlanBuilder() {
       const list = prev[workoutId] || [];
       return {
         ...prev,
-        [workoutId]: list.map((e) =>
-          e.id === updated.id ? { ...e, ...updated } : e
-        ),
+        [workoutId]: list.map((e) => (e.id === updated.id ? { ...e, ...updated } : e)),
       };
     });
   }
@@ -337,11 +305,33 @@ export default function UserPlanBuilder() {
     await deleteWorkoutExercise(workoutId, exRowId);
     setExercisesByWorkout((prev) => {
       const list = prev[workoutId] || [];
+      return { ...prev, [workoutId]: list.filter((e) => e.id !== exRowId) };
+    });
+  }
+
+  function updateExerciseLocal(workoutId, exRowId, patch) {
+    setExercisesByWorkout((prev) => {
+      const list = prev[workoutId] || [];
       return {
         ...prev,
-        [workoutId]: list.filter((e) => e.id !== exRowId),
+        [workoutId]: list.map((e) => (e.id === exRowId ? { ...e, ...patch } : e)),
       };
     });
+  }
+
+  async function commitExercise(workoutId, exRowId) {
+    const list = exercisesByWorkout[workoutId] || [];
+    const row = list.find((x) => x.id === exRowId);
+    if (!row) return;
+
+    const fields = {
+      sets: Number(row.sets ?? 0),
+      rep_min: Number(row.rep_min ?? 0),
+      rep_max: Number(row.rep_max ?? 0),
+      rest_sec: Number(row.rest_sec ?? 0),
+    };
+
+    await handleUpdateExercise(workoutId, exRowId, fields);
   }
 
   const hasPlan = !!plan;
@@ -363,8 +353,8 @@ export default function UserPlanBuilder() {
           <Title order={3}>Your training plan</Title>
           {error && <Alert color="red">{error}</Alert>}
           <Text c="dimmed" size="sm">
-            You do not have any plan yet. Create a manual plan and then add
-            days and exercises from the catalog.
+            You do not have any plan yet. Create a manual plan and then add days and exercises
+            from the catalog.
           </Text>
           <Button
             onClick={handleCreateManualPlan}
@@ -385,14 +375,10 @@ export default function UserPlanBuilder() {
           <div>
             <Title order={2}>{plan.title || "My training plan"}</Title>
             <Text c="dimmed" size="sm">
-              Goal: {plan.goal || "general_fitness"} • Sessions per week:{" "}
-              {plan.sessions_per_week}
+              Goal: {plan.goal || "general_fitness"} • Sessions per week: {plan.sessions_per_week}
             </Text>
           </div>
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={handleAddWorkout}
-          >
+          <Button leftSection={<IconPlus size={16} />} onClick={handleAddWorkout}>
             Add day
           </Button>
         </Group>
@@ -410,52 +396,48 @@ export default function UserPlanBuilder() {
         <Stack gap="md">
           {workouts.map((w) => {
             const list = exercisesByWorkout[w.id] || [];
+            const currentWorkout = workoutsById.get(w.id) || w;
+
             return (
               <Card key={w.id} withBorder radius="lg" p="md">
                 <Stack gap="sm">
                   <Group justify="space-between" align="flex-start">
                     <Stack gap={4} style={{ flex: 1 }}>
                       <Group gap="sm">
-                        <Badge variant="light">Day {w.day_index + 1}</Badge>
+                        <Badge variant="light">Day {(currentWorkout.day_index ?? 0) + 1}</Badge>
                         <TextInput
-                          value={w.name || ""}
-                          onChange={(e) =>
+                          value={currentWorkout.name ?? ""}
+                          onChange={(e) => {
+                            const val = e.currentTarget.value;
                             setWorkouts((prev) =>
-                              prev.map((x) =>
-                                x.id === w.id
-                                  ? { ...x, name: e.currentTarget.value }
-                                  : x
-                              )
-                            )
-                          }
-                          onBlur={(e) =>
-                            handleUpdateWorkout(w.id, {
-                              name: e.currentTarget.value.trim() || null,
-                            })
-                          }
+                              prev.map((x) => (x.id === w.id ? { ...x, name: val } : x))
+                            );
+                          }}
+                          onBlur={() => {
+                            const val = String(currentWorkout.name ?? "").trim();
+                            handleUpdateWorkout(w.id, { name: val === "" ? "" : val });
+                          }}
                           style={{ maxWidth: 260 }}
                         />
                       </Group>
+
                       <Textarea
                         minRows={2}
                         placeholder="Notes for this day…"
-                        value={w.notes || ""}
-                        onChange={(e) =>
+                        value={currentWorkout.notes ?? ""}
+                        onChange={(e) => {
+                          const val = e.currentTarget.value;
                           setWorkouts((prev) =>
-                            prev.map((x) =>
-                              x.id === w.id
-                                ? { ...x, notes: e.currentTarget.value }
-                                : x
-                            )
-                          )
-                        }
-                        onBlur={(e) =>
-                          handleUpdateWorkout(w.id, {
-                            notes: e.currentTarget.value.trim() || null,
-                          })
-                        }
+                            prev.map((x) => (x.id === w.id ? { ...x, notes: val } : x))
+                          );
+                        }}
+                        onBlur={() => {
+                          const val = String(currentWorkout.notes ?? "").trim();
+                          handleUpdateWorkout(w.id, { notes: val === "" ? null : val });
+                        }}
                       />
                     </Stack>
+
                     <Button
                       size="xs"
                       color="red"
@@ -469,14 +451,17 @@ export default function UserPlanBuilder() {
 
                   <Stack gap="xs" mt="xs">
                     {list.map((row) => {
-                      const catalog = row.catalog_exercise || {};
+                      const catalog = row?.catalog_exercise || {};
                       const title =
-                        catalog.name ||
-                        row.exercise_name ||
-                        `Exercise #${row.exercise_id}`;
-                      const primaryMuscle = catalog.primary_muscle;
-                      const equipment = catalog.equipment;
-                      const imageUrl = catalog.image_url || row.image_url;
+                        catalog?.name || row?.exercise_name || `Exercise #${row?.exercise_id ?? "?"}`;
+                      const primaryMuscle = catalog?.primary_muscle;
+                      const equipment = catalog?.equipment;
+                      const imageUrl = catalog?.image_url || row?.image_url;
+
+                      const setsVal = Number.isFinite(Number(row?.sets)) ? Number(row.sets) : 3;
+                      const repMinVal = Number.isFinite(Number(row?.rep_min)) ? Number(row.rep_min) : 8;
+                      const repMaxVal = Number.isFinite(Number(row?.rep_max)) ? Number(row.rep_max) : 12;
+                      const restVal = Number.isFinite(Number(row?.rest_sec)) ? Number(row.rest_sec) : 60;
 
                       return (
                         <Card
@@ -484,9 +469,7 @@ export default function UserPlanBuilder() {
                           withBorder
                           radius="md"
                           p="sm"
-                          style={{
-                            background: "var(--mantine-color-gray-0)",
-                          }}
+                          style={{ background: "var(--mantine-color-gray-0)" }}
                         >
                           <Group align="flex-start" justify="space-between">
                             <Group align="flex-start" gap="md" style={{ flex: 1 }}>
@@ -503,11 +486,7 @@ export default function UserPlanBuilder() {
                                   <img
                                     src={imageUrl}
                                     alt={title}
-                                    style={{
-                                      width: "100%",
-                                      height: "100%",
-                                      objectFit: "cover",
-                                    }}
+                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                   />
                                 </div>
                               )}
@@ -516,6 +495,7 @@ export default function UserPlanBuilder() {
                                 <Text fw={600} size="sm">
                                   {title}
                                 </Text>
+
                                 <Group gap={6} mt={4}>
                                   {primaryMuscle && (
                                     <Badge size="xs" variant="light">
@@ -532,107 +512,48 @@ export default function UserPlanBuilder() {
                                 <Group gap="xs" mt="sm" wrap="wrap">
                                   <NumberInput
                                     label="Sets"
-                                    value={row.sets ?? 3}
+                                    value={setsVal}
                                     min={1}
                                     max={10}
                                     w={90}
-                                    onChange={(v) =>
-                                      setExercisesByWorkout((prev) => {
-                                        const list2 = prev[w.id] || [];
-                                        return {
-                                          ...prev,
-                                          [w.id]: list2.map((e) =>
-                                            e.id === row.id ? { ...e, sets: v } : e
-                                          ),
-                                        };
-                                      })
-                                    }
-                                    onBlur={(e) =>
-                                      handleUpdateExercise(w.id, row.id, {
-                                        sets: Number(e.currentTarget.value || 0),
-                                      })
-                                    }
+                                    onChange={(v) => updateExerciseLocal(w.id, row.id, { sets: v ?? 0 })}
+                                    onBlur={() => commitExercise(w.id, row.id)}
                                   />
+
                                   <NumberInput
                                     label="Rep min"
-                                    value={row.rep_min ?? 8}
+                                    value={repMinVal}
                                     min={1}
                                     max={50}
                                     w={110}
                                     onChange={(v) =>
-                                      setExercisesByWorkout((prev) => {
-                                        const list2 = prev[w.id] || [];
-                                        return {
-                                          ...prev,
-                                          [w.id]: list2.map((e) =>
-                                            e.id === row.id
-                                              ? { ...e, rep_min: v }
-                                              : e
-                                          ),
-                                        };
-                                      })
+                                      updateExerciseLocal(w.id, row.id, { rep_min: v ?? 0 })
                                     }
-                                    onBlur={(e) =>
-                                      handleUpdateExercise(w.id, row.id, {
-                                        rep_min: Number(
-                                          e.currentTarget.value || 0
-                                        ),
-                                      })
-                                    }
+                                    onBlur={() => commitExercise(w.id, row.id)}
                                   />
+
                                   <NumberInput
                                     label="Rep max"
-                                    value={row.rep_max ?? 12}
+                                    value={repMaxVal}
                                     min={1}
                                     max={50}
                                     w={110}
                                     onChange={(v) =>
-                                      setExercisesByWorkout((prev) => {
-                                        const list2 = prev[w.id] || [];
-                                        return {
-                                          ...prev,
-                                          [w.id]: list2.map((e) =>
-                                            e.id === row.id
-                                              ? { ...e, rep_max: v }
-                                              : e
-                                          ),
-                                        };
-                                      })
+                                      updateExerciseLocal(w.id, row.id, { rep_max: v ?? 0 })
                                     }
-                                    onBlur={(e) =>
-                                      handleUpdateExercise(w.id, row.id, {
-                                        rep_max: Number(
-                                          e.currentTarget.value || 0
-                                        ),
-                                      })
-                                    }
+                                    onBlur={() => commitExercise(w.id, row.id)}
                                   />
+
                                   <NumberInput
                                     label="Rest (sec)"
-                                    value={row.rest_sec ?? 60}
+                                    value={restVal}
                                     min={10}
                                     max={600}
                                     w={120}
                                     onChange={(v) =>
-                                      setExercisesByWorkout((prev) => {
-                                        const list2 = prev[w.id] || [];
-                                        return {
-                                          ...prev,
-                                          [w.id]: list2.map((e) =>
-                                            e.id === row.id
-                                              ? { ...e, rest_sec: v }
-                                              : e
-                                          ),
-                                        };
-                                      })
+                                      updateExerciseLocal(w.id, row.id, { rest_sec: v ?? 0 })
                                     }
-                                    onBlur={(e) =>
-                                      handleUpdateExercise(w.id, row.id, {
-                                        rest_sec: Number(
-                                          e.currentTarget.value || 0
-                                        ),
-                                      })
-                                    }
+                                    onBlur={() => commitExercise(w.id, row.id)}
                                   />
                                 </Group>
                               </div>
@@ -642,9 +563,7 @@ export default function UserPlanBuilder() {
                               color="red"
                               variant="subtle"
                               radius="xl"
-                              onClick={() =>
-                                handleDeleteExercise(w.id, row.id)
-                              }
+                              onClick={() => handleDeleteExercise(w.id, row.id)}
                             >
                               <IconTrash size={16} />
                             </ActionIcon>
@@ -680,9 +599,7 @@ export default function UserPlanBuilder() {
         opened={!!exercisePickerWorkoutId}
         onClose={() => setExercisePickerWorkoutId(null)}
         onSelect={(ex) => {
-          if (exercisePickerWorkoutId) {
-            handleAddExercise(exercisePickerWorkoutId, ex);
-          }
+          if (exercisePickerWorkoutId) handleAddExercise(exercisePickerWorkoutId, ex);
         }}
       />
     </Container>

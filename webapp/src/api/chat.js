@@ -23,7 +23,11 @@ function authHeaders(extra = {}) {
 }
 
 async function request(url, { method = 'GET', headers = {}, body } = {}) {
-
+  log('🟦 FETCH:', method || 'GET', url);
+  if (body) log('🟦 BODY:', body);
+  const res  = await fetch(url, { method, headers, body, credentials: 'include' });
+  const text = await res.text().catch(() => '');
+  log('🟦 STATUS:', res.status, res.statusText);
 
   let data;
   try { data = text ? JSON.parse(text) : null; } catch { data = { message: text }; }
