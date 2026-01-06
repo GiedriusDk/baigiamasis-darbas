@@ -33,9 +33,9 @@ ok "== Frontend: katalogas '$WEBAPP_DIR/' =="
 command -v node >/dev/null 2>&1 || fail "Nerastas 'node'. Reikia Node.js (>= ${REQUIRED_NODE_MAJOR})."
 command -v npm  >/dev/null 2>&1 || fail "Nerastas 'npm'. Įdiekite Node.js su npm."
 
-NODE_VERSION_RAW="$(node -v || true)"           
-NODE_VERSION="${NODE_VERSION_RAW
-NODE_MAJOR="${NODE_VERSION%%.*}"               
+NODE_VERSION_RAW="$(node -v || true)"
+NODE_VERSION="${NODE_VERSION_RAW#v}"
+NODE_MAJOR="${NODE_VERSION%%.*}"       
 
 if [[ "$NODE_MAJOR" -lt "$REQUIRED_NODE_MAJOR" ]]; then
   fail "Node.js per sena: $NODE_VERSION_RAW. Reikia >= ${REQUIRED_NODE_MAJOR}.x"
