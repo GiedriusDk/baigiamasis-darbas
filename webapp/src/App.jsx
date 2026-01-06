@@ -7,28 +7,28 @@ import { Routes, Route, Link, useLocation, Navigate, useParams } from 'react-rou
 
 import { AuthProvider, useAuth } from './auth/useAuth';
 
-import SettingsPage from "./pages/SettingsPage";
-import ExercisesPage from './pages/ExercisesPage.jsx';
-import RegisterPage from './pages/RegisterPage.jsx';
-import LoginPage from './pages/LoginPage.jsx';
-import CoachProfilePage from './pages/CoachProfilePage.jsx';
-import CoachExercisesPage from './pages/CoachExercisesPage.jsx';
+import SettingsPage from "./pages/Settings/SettingsPage.jsx";
+import ExercisesPage from './pages/Catalog/ExercisesPage.jsx';
+import RegisterPage from './pages/Auth/RegisterPage.jsx';
+import LoginPage from './pages/Auth/LoginPage.jsx';
+import CoachProfilePage from './pages/Coach/CoachProfilePage.jsx';
+import CoachExercisesPage from './pages/Coach/Exercises/CoachExercisesPage.jsx';
 import { getCoachProfile, getUserProfile } from './api/profiles';
-import UserProfilePage from './pages/UserProfilePage.jsx';
-import CoachesListPage from './pages/CoachesListPage.jsx';
-import CoachPublicPage from './pages/CoachPublicPage.jsx';
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
+import UserProfilePage from './pages/User/UserProfilePage.jsx';
+import CoachesListPage from './pages/Coach/CoachesListPage.jsx';
+import CoachPublicPage from './pages/Coach/CoachPublicPage.jsx';
+import ForgotPasswordPage from "./pages/Auth/ForgotPasswordPage.jsx";
+import ResetPasswordPage from "./pages/Auth/ResetPasswordPage.jsx";
 
-import PlannerPage from "./pages/PlannerPage.jsx";
+import PlannerPage from "./pages/User/Plan/PlannerPage.jsx";
 import MyPlanPage from "./pages/MyPlanPage.jsx";
 
-import CoachPlansPublic from "./pages/CoachPlansPublic";
-import CoachPlansManage from "./pages/CoachPlansManage";
-import PaymentsSuccess from "./pages/PaymentsSuccess";
-import PaymentsCancel from "./pages/PaymentsCancel";
-import CoachPlanEditor from "./pages/CoachPlanEditor";
-import PlanViewPage from "./pages/PlanViewPage";
+import CoachPlansPublic from "./pages/Coach/Plans/CoachPlansPublic.jsx";
+import CoachPlansManage from "./pages/Coach/Plans/CoachPlansManage.jsx";
+import PaymentsSuccess from "./pages/Payments/PaymentsSuccess.jsx";
+import PaymentsCancel from "./pages/Payments/PaymentsCancel.jsx";
+import CoachPlanEditor from "./pages/Coach/Plans/CoachPlanEditor.jsx";
+import PlanViewPage from "./pages/User/Plan/PlanViewPage.jsx";
 import { setChatDebug, presenceTouch } from './api/chat';
 import CoachFloatingInbox from "./components/CoachFloatingInbox";
 import UserFloatingInbox from "./components/UserFloatingInbox";
@@ -39,11 +39,11 @@ import MetricsPage from './pages/Progress/MetricsPage.jsx';
 import MetricDetailsPage from './pages/Progress/MetricDetailsPage.jsx';
 import GoalsPage from './pages/Progress/GoalsPage.jsx';
 
-import ForumsPage from "./pages/ForumsPage.jsx";
+import ForumsPage from "./pages/Community/ForumsPage.jsx";
 import UserPlanBuilder from './pages/UserPlanBuilder.jsx';
-import CoachClientsPage from './pages/CoachClientsPage.jsx';
-import OAuthCallbackPage from "./pages/OAuthCallbackPage";
-import ChooseRolePage from "./pages/ChooseRolePage.jsx";
+import CoachClientsPage from './pages/Coach/CoachClientsPage.jsx';
+import OAuthCallbackPage from "./pages/Auth/OAuthCallbackPage.jsx";
+import ChooseRolePage from "./pages/Auth/ChooseRolePage.jsx";
 
 import AdminHomePage from "./pages/Admin/AdminHomePage.jsx";
 

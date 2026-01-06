@@ -16,9 +16,9 @@ import {
   updateCoachExercise,
   deleteCoachExercise,
   reorderCoachExercises,
-} from '../api/profiles';
-import { myProducts } from "../api/payments";
-import { useAuth } from "../auth/useAuth";
+} from '../../../api/profiles';
+import { myProducts } from "../../../api/payments";
+import { useAuth } from "../../../auth/useAuth";
 
 const difficulties = [
   { value: 'easy',   label: 'Easy' },

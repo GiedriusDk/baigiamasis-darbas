@@ -5,8 +5,8 @@ import {
   Container, Group, Title, Card, Grid, Text, Badge, Loader, Alert, Avatar, Modal, AspectRatio, Stack, Divider
 } from "@mantine/core";
 import { IconPlayerPlayFilled } from "@tabler/icons-react";
-import { getPublicPlan, getPublicDayExercises } from "../api/plans";
-import { getPublicCoachExercises } from "../api/profiles";
+import { getPublicPlan, getPublicDayExercises } from "../../../api/plans";
+import { getPublicCoachExercises } from "../../../api/profiles";
 
 function ytId(url = "") {
   const m = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|v\/|embed\/|shorts\/))([A-Za-z0-9_-]{6,12})/);

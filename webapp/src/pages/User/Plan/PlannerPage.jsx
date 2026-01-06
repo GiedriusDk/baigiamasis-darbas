@@ -4,7 +4,7 @@ import {
   Paper, Title, Text, Group, Button, Select, NumberInput, Stack,
   SegmentedControl, Badge, Divider, Alert, Skeleton, Grid, Card, Image, MultiSelect, Checkbox } from "@mantine/core";
 import { IconInfoCircle } from "@tabler/icons-react";
-import { createPlan, getPlan } from "../api/planner";
+import { createPlan, getPlan } from "../../../api/planner";
 import { notifications } from "@mantine/notifications";
 
 

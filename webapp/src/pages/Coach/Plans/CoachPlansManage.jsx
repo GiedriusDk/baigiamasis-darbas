@@ -21,8 +21,8 @@ import {
   Badge,
 } from "@mantine/core";
 import { IconArrowUp, IconArrowDown } from "@tabler/icons-react";
-import PlanCard from "../components/PlanCard";
-import { myProducts, createProduct, updateProduct, archiveProduct, reorderProducts } from "../api/payments";
+import PlanCard from "../../../components/PlanCard";
+import { myProducts, createProduct, updateProduct, archiveProduct, reorderProducts } from "../../../api/payments";
 
 const currencies = [
   { value: "EUR", label: "EUR (€)" },

@@ -5,7 +5,7 @@ import {
   LoadingOverlay, Divider
 } from "@mantine/core";
 import { IconUpload, IconTrash } from "@tabler/icons-react";
-import { getCoachProfile, saveCoachProfile, uploadCoachAvatar } from "../api/profiles";
+import { getCoachProfile, saveCoachProfile, uploadCoachAvatar } from "../../api/profiles";
 import { notifications } from "@mantine/notifications";
 
 function toCsv(arr) { return Array.isArray(arr) ? arr.join(", ") : ""; }

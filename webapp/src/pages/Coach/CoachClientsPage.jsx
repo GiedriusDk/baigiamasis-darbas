@@ -18,7 +18,7 @@ import {
   Divider,
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { getCoachClients, getCoachClientProfile } from "../api/chat";
+import { getCoachClients, getCoachClientProfile } from "../../api/chat";
 
 function computeAge(birthDateStr) {
   if (!birthDateStr) return null;

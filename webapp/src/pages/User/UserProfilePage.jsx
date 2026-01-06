@@ -5,7 +5,7 @@ import {
   LoadingOverlay, Divider, Select, MultiSelect
 } from '@mantine/core';
 import { IconUpload, IconTrash } from '@tabler/icons-react';
-import { getUserProfile, saveUserProfile, uploadUserAvatar } from '../api/profiles';
+import { getUserProfile, saveUserProfile, uploadUserAvatar } from '../../api/profiles';
 import { notifications } from '@mantine/notifications';
 
 const EQUIPMENT_OPTS = [

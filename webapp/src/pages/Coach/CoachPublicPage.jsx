@@ -5,12 +5,12 @@ import {
   Loader, Alert, Divider, Button, Modal, AspectRatio, ActionIcon, Anchor
 } from "@mantine/core";
 import { IconBrandInstagram, IconBrandFacebook, IconBrandYoutube, IconBrandLinkedin } from "@tabler/icons-react";
-import { getPublicCoach, getPublicCoachExercises, getSharedExerciseById } from "../api/profiles";
-import { listProducts, createOrder, checkout, getProductExerciseIdsPublic, getMyAccess } from "../api/payments";
-import { getPublicUser } from "../api/auth";
-import { useAuth } from "../auth/useAuth";
-import PlanCard from "../components/PlanCard";
-import ExerciseDetailsModal from "../components/ExerciseDetailsModal.jsx";
+import { getPublicCoach, getPublicCoachExercises, getSharedExerciseById } from "../../api/profiles.js";
+import { listProducts, createOrder, checkout, getProductExerciseIdsPublic, getMyAccess } from "../../api/payments.js";
+import { getPublicUser } from "../../api/auth.js";
+import { useAuth } from "../../auth/useAuth.jsx";
+import PlanCard from "../../components/PlanCard.jsx";
+import ExerciseDetailsModal from "../../components/ExerciseDetailsModal.jsx";
 
 function getYoutubeId(url = "") {
   try {

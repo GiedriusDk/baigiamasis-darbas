@@ -13,7 +13,7 @@ import {
   ThemeIcon,
 } from "@mantine/core";
 import { IconCircleCheck, IconAlertCircle, IconArrowRight } from "@tabler/icons-react";
-import { confirm } from "../api/payments";
+import { confirm } from "../../api/payments";
 
 export default function PaymentsSuccess() {
   const [params] = useSearchParams();

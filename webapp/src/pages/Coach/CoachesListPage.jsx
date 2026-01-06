@@ -5,8 +5,8 @@ import {
   TextInput, Button, Paper
 } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { getPublicCoaches } from "../api/profiles";
-import { getPublicUser } from "../api/auth";
+import { getPublicCoaches } from "../../api/profiles";
+import { getPublicUser } from "../../api/auth";
 
 export default function CoachesListPage() {
   const [items, setItems] = useState([]);

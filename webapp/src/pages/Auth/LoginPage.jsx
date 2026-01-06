@@ -6,8 +6,8 @@ import {
 } from '@mantine/core';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
-import { login, me as fetchMe, setToken } from '../api/auth';
-import { useAuth } from '../auth/useAuth';
+import { login, me as fetchMe, setToken } from '../../api/auth';
+import { useAuth } from '../../auth/useAuth';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');

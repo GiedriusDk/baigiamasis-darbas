@@ -13,14 +13,14 @@ import {
   Title,
 } from "@mantine/core";
 
-import { useAuth } from "../auth/useAuth";
+import { useAuth } from "../../auth/useAuth";
 import {
   listForumRooms,
   listForumMessages,
   sendForumMessage,
   getCoachPublicProfile,
   getUserPublicProfile,
-} from "../api/chat";
+} from "../../api/chat";
 
 export default function ForumsPage() {
   const { user } = useAuth();

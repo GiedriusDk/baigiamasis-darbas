@@ -5,14 +5,14 @@ import {
   TextInput, Textarea, ScrollArea, Checkbox, Loader, Alert, Divider, Avatar, ActionIcon, Tabs, Pagination
 } from "@mantine/core";
 import { IconPlayerPlayFilled, IconArrowUp, IconArrowDown, IconTrash } from "@tabler/icons-react";
-import { listCoachExercises, importExerciseFromCatalog } from "../api/profiles";
+import { listCoachExercises, importExerciseFromCatalog } from "../../../api/profiles";
 import {
   getPlanByProduct, createWeek, createDay, deleteWeek, deleteDay,
   getDayExercises, setDayExercises, updateWeek, updateDay
-} from "../api/plans";
-import { useAuth } from "../auth/useAuth";
-import { getPublicPlan } from "../api/plans"; 
-import { searchCatalogExercises } from "../api/catalog";
+} from "../../../api/plans";
+import { useAuth } from "../../../auth/useAuth";
+import { getPublicPlan } from "../../../api/plans"; 
+import { searchCatalogExercises } from "../../../api/catalog";
 
 function ytId(url = "") {
   const m = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|v\/|embed\/|shorts\/))([A-Za-z0-9_-]{6,12})/);

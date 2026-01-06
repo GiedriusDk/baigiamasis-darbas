@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { listProducts, createOrder, checkout } from "../api/payments";
-import PlanCard from "../components/PlanCard";
+import { listProducts, createOrder, checkout } from "../../../api/payments";
+import PlanCard from "../../../components/PlanCard";
 
 export default function CoachPlansPublic({ coachId }) {
   const [loading, setLoading] = useState(true);

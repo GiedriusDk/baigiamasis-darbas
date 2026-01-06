@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { notifications } from "@mantine/notifications";
-import { me as fetchMe, setToken } from "../api/auth";
-import { useAuth } from "../auth/useAuth";
+import { me as fetchMe, setToken } from "../../api/auth";
+import { useAuth } from "../../auth/useAuth";
 
 export default function OAuthCallbackPage() {
   const [params] = useSearchParams();

@@ -1,8 +1,8 @@
 import { Button, Stack, Title, Text } from "@mantine/core";
 import { useNavigate } from "react-router-dom";
 import { notifications } from "@mantine/notifications";
-import { selectRole, me as fetchMe } from "../api/auth";
-import { useAuth } from "../auth/useAuth";
+import { selectRole, me as fetchMe } from "../../api/auth";
+import { useAuth } from "../../auth/useAuth";
 
 export default function ChooseRolePage() {
   const nav = useNavigate();

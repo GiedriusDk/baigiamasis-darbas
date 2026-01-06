@@ -4,8 +4,8 @@ import {
   MultiSelect, TextInput, Button, Pagination, Stack, Badge
 } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-import { getExercises, getFilters } from '../api'
-import ExerciseDetailsModal from '../components/ExerciseDetailsModal.jsx'
+import { getExercises, getFilters } from '../../api.js'
+import ExerciseDetailsModal from '../../components/ExerciseDetailsModal.jsx'
 
 const PER_PAGE = 24
 

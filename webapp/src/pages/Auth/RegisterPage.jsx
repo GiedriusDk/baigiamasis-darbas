@@ -3,7 +3,7 @@ import {
   Button, Card, PasswordInput, TextInput, Title, Alert, Anchor, Group, SegmentedControl
 } from '@mantine/core';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/useAuth';
+import { useAuth } from '../../auth/useAuth';
 
 export default function RegisterPage() {
   const { doRegister } = useAuth();

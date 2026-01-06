@@ -5,14 +5,14 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/useAuth';
+import { useAuth } from '../../auth/useAuth';
 
 import {
   updateMe,
   updateEmail,
   updatePassword,
   logout,
-} from '../api/auth';
+} from '../../api/auth';
 
 export default function SettingsPage() {
   const { user, ready, setUser } = useAuth();
