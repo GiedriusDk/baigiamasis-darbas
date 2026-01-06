@@ -1,0 +1,129 @@
+Baigiamojo darbo sistemos paleidimas rankiniu būdu
+
+Šiame skyriuje aprašomas sistemos paleidimo procesas, kai visi veiksmai atliekami rankiniu būdu,
+nenaudojant automatizuotų setup skriptų. Šis būdas leidžia detaliau suprasti sistemos architektūrą
+ir kiekvieno etapo paskirtį.
+
+1. Sistemos paleidimo reikalavimai
+
+Prieš pradedant sistemos paleidimą, kompiuteryje turi būti įdiegti šie įrankiai:
+
+• Docker Engine
+• Docker Compose (Compose v2)
+• Node.js (rekomenduojama versija – 22 arba naujesnė)
+• npm (įdiegiama kartu su Node.js)
+
+2. Projekto struktūra
+
+Projektas laikomas lokaliai kompiuteryje. Daroma prielaida, kad naudotojas jau turi projekto
+katalogą su visa reikalinga struktūra (services/, webapp/, docker-compose.yml ir kt.).
+
+3. Aplinkos kintamųjų (.env) konfigūracija mikroservisuose
+
+Kiekvienas PHP mikroservisas naudoja savo .env konfigūracijos failą. Jei mikroserviso kataloge
+egzistuoja .env.example failas, jis turi būti nukopijuotas į .env.
+
+Mikroservisų sąrašas:
+
+services/auth
+services/catalog
+services/chat
+services/coach-plans
+services/payments
+services/planner
+services/profiles
+services/progress
+
+Pavyzdys vienam servisui:
+
+cp services/auth/.env.example services/auth/.env
+
+Šį veiksmą reikia pakartoti kiekvienam išvardintam mikroservisui.
+
+4. Docker konteinerių paruošimas ir paleidimas
+
+Projekto pagrindiniame kataloge vykdomos šios komandos:
+
+docker compose build
+docker compose up -d
+
+Patikrinimui, ar visi konteineriai sėkmingai paleisti:
+
+docker compose ps
+
+5. PHP priklausomybių (Composer) diegimas
+
+Kadangi vendor katalogai nėra saugomi repozitorijoje, kiekviename PHP mikroservise būtina
+įdiegti Composer priklausomybes.
+
+Priklausomybių diegimas vykdomas naudojant Docker:
+
+docker compose run --rm auth composer install --no-interaction --prefer-dist
+docker compose run --rm catalog composer install --no-interaction --prefer-dist
+docker compose run --rm chat composer install --no-interaction --prefer-dist
+docker compose run --rm coach-plans composer install --no-interaction --prefer-dist
+docker compose run --rm payments composer install --no-interaction --prefer-dist
+docker compose run --rm planner composer install --no-interaction --prefer-dist
+docker compose run --rm profiles composer install --no-interaction --prefer-dist
+docker compose run --rm progress composer install --no-interaction --prefer-dist
+
+Patikrinimui, ar priklausomybės sėkmingai įdiegtos (pavyzdys):
+
+docker compose run --rm auth test -f vendor/autoload.php
+
+6. Duomenų bazės migracijų vykdymas
+
+Po konteinerių paleidimo reikia sukurti duomenų bazės struktūrą paleidžiant migracijas.
+Migracijos vykdomos kiekviename mikroservise atskirai:
+
+docker compose exec auth php artisan migrate
+docker compose exec catalog php artisan migrate
+docker compose exec chat php artisan migrate
+docker compose exec coach-plans php artisan migrate
+docker compose exec payments php artisan migrate
+docker compose exec planner php artisan migrate
+docker compose exec profiles php artisan migrate
+docker compose exec progress php artisan migrate
+
+Jei sistemos architektūroje migracijos centralizuotos viename servise,
+jos vykdomos pagal atitinkamą konfigūraciją.
+
+7. Pradiniai duomenys (Seed)
+
+Norint turėti pradinius sistemos duomenis (roles, administratorių, testinius vartotojus),
+paleidžiami duomenų užpildymo (seed) scenarijai.
+
+Pavyzdys:
+
+docker compose exec auth php artisan db:seed
+
+Jei seed duomenys išskaidyti per kelis mikroservisus, ši komanda vykdoma kiekviename
+servise, kuriame yra aprašyti seed’eriai.
+
+8. Front-end aplikacijos paleidimas
+
+Eikite į front-end katalogą:
+
+cd webapp
+
+Įdiekite JavaScript priklausomybes:
+
+npm install
+
+Paleiskite front-end kūrimo serverį:
+
+npm run dev
+
+Sistema pasiekiama naršyklėje adresu:
+
+http://localhost:5173
+
+9. Sistemos sustabdymas
+
+Norint sustabdyti visus Docker konteinerius:
+
+docker compose down
+
+Jei būtina pašalinti ir Docker volumes (įskaitant duomenų bazės duomenis):
+
+docker compose down -v

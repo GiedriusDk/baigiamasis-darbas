@@ -1,0 +1,78 @@
+Baigiamojo darbo sistemos paleidimas naudojant paruoštus skriptus
+
+1. Sistemos paleidimas naudojant pagrindinį skriptą
+
+Sistemos paleidimui parengtas pagrindinis skriptas setup-all.sh, kuris automatizuotai vykdo visus reikalingus sistemos paruošimo ir paleidimo veiksmus, paeiliui iškviesdamas kitus pagalbinius skriptus. Jis ir visi kiti skriptai yra prie sistemos failų, src/ kataloge.
+
+Prieš paleidžiant skriptus, būtina atsidaryti Bash suderinamą terminalą (pvz., Linux ar macOS terminalą, arba Git Bash Windows aplinkoje) ir pereiti į projekto šakninį katalogą, kuriame yra failas setup-all.sh.
+
+Sistemos paleidimas vykdomas komanda:
+
+sudo ./setup-all.sh
+
+Pagrindinis skriptas setup-all.sh paeiliui atlieka šiuos veiksmus:
+1) Backend servisų paruošimą
+2) Duomenų bazės migracijų vykdymą
+3) Pradinių duomenų (seed) įkėlimą
+4) Front-end aplikacijos paleidimą
+
+Po kiekvieno žingsnio skriptas sustabdomas ir prašoma paspausti ENTER, kad būtų tęsiamas vykdymas.
+
+
+2. Skriptų paskirtis
+
+Čia trumpai aprašomi skriptai, kuriuos paeiliui vykdo pagrindinis skriptas setup-all.sh.
+
+2.1. 1back-end.sh
+
+Šis skriptas atsakingas už backend dalies paruošimą:
+- Nukopijuoja .env.example į .env kiekviename mikroservise, jei .env dar neegzistuoja.
+- Sukuria ir paruošia Docker atvaizdus (docker compose build).
+- Kiekviename PHP servise paleidžia composer install.
+- Patikrina, ar sugeneruotas vendor/autoload.php, siekiant išvengti automatinio klasių įkėlimo klaidų.
+- Paleidžia visą backend infrastruktūrą naudojant docker compose up -d.
+
+2.2. 2migrate_all.sh
+
+Šis skriptas vykdo duomenų bazės struktūros paruošimą:
+- Paleidžia duomenų bazės migracijas visuose mikroservisuose.
+- Sukuria reikiamas lenteles ir duomenų struktūras duomenų bazėje.
+
+2.3. 3seeder.sh
+
+Šis skriptas atsakingas už pradinius sistemos duomenis:
+- Įkelia pradinius sistemos duomenis (seed).
+- Sukuria bazinius sistemos įrašus, tokius kaip naudotojų rolės ir administratoriaus paskyra (jei numatyta).
+
+2.4. 4front-end.sh
+
+Šis skriptas paruošia ir paleidžia front-end dalį:
+- Patikrina Node.js ir npm versijas.
+- Paleidžia npm install, jei node_modules katalogas dar neegzistuoja.
+- Paleidžia front-end aplikaciją naudojant npm run dev.
+- Terminale pateikia URL, skirtą sistemos atidarymui naršyklėje.
+
+
+3. Sistemos veikimo patikrinimas
+
+Sėkmingai įvykdžius visus paleidimo skriptus, front-end aplikacija bus pasiekiama naršyklėje šiuo adresu:
+
+http://localhost:5173
+
+
+4. Prisijungimo duomenys (jei naudojamas seed)
+
+Jeigu pradiniai duomenys buvo sėkmingai įkelti, sistemoje bus sukurta administratoriaus paskyra:
+
+El. paštas: admin@gmail.com
+Slaptažodis: admin
+
+Jeigu prisijungti nepavyksta, rekomenduojama pakartotinai paleisti skriptą 3seeder.sh ir patikrinti duomenų bazės būseną.
+
+
+5. Dažniausiai pasitaikančios problemos
+
+- Permission denied – būtina suteikti vykdymo teises skriptams naudojant chmod +x.
+- Docker not running – reikia paleisti Docker Desktop arba Docker servisą.
+- Per sena Node.js versija – reikalinga Node.js versija ne žemesnė nei 22.
+- Windows CRLF problema – jei gaunama klaida „bad interpreter“, skriptus reikia konvertuoti į LF formato eilučių pabaigas.
