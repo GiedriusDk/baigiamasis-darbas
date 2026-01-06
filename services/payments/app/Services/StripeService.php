@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Models\Product;
 use Stripe\StripeClient;
 
 class StripeService
@@ -22,9 +23,21 @@ class StripeService
     {
         $currency = strtolower(config('services.stripe.currency', 'eur'));
 
+        $product = Product::find($order->product_id);
+        $coachId = $product?->coach_id;
+
         $frontend = rtrim(env('FRONTEND_URL', env('APP_URL', 'http://localhost:5173')), '/');
-        $success  = $frontend . '/payments/success?order=' . $order->id . '&session_id={CHECKOUT_SESSION_ID}';
-        $cancel   = $frontend . '/payments/cancelled?order=' . $order->id;
+
+        $success  = $frontend
+            . '/payments/success?order=' . $order->id
+            . '&product_id=' . $order->product_id
+            . ($coachId ? ('&coach_id=' . $coachId) : '')
+            . '&session_id={CHECKOUT_SESSION_ID}';
+
+        $cancel = $frontend
+            . '/payments/cancelled?order=' . $order->id
+            . '&product_id=' . $order->product_id
+            . ($coachId ? ('&coach_id=' . $coachId) : '');
 
         $amount = (int) $order->amount;
 
@@ -44,8 +57,10 @@ class StripeService
                 'quantity' => 1,
             ]],
             'metadata' => [
-                'order_id'  => (string) $order->id,
-                'public_id' => (string) $order->public_id,
+                'order_id'   => (string) $order->id,
+                'public_id'  => (string) $order->public_id,
+                'product_id' => (string) $order->product_id,
+                'coach_id'   => (string) ($coachId ?? ''),
             ],
         ]);
 

@@ -82,7 +82,6 @@ class AdminUsersController extends EnsureAdminController
 
         $user = User::findOrFail($id);
 
-        // jei nenori leisti ištrinti savęs:
         if ($request->user()->id === $user->id) {
             return response()->json(['message' => 'Cannot delete yourself'], 422);
         }

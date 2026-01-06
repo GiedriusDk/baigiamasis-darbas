@@ -24,7 +24,6 @@ class User extends Authenticatable implements JWTSubject
         return $this->roles()->whereIn('name', $roles)->exists();
     }
 
-    /** JWTSubject */
     public function getJWTIdentifier()
     {
         return $this->getKey();

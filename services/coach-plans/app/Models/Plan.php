@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Plan extends Model
 {
@@ -15,6 +16,11 @@ class Plan extends Model
     public function weeks()
     {
         return $this->hasMany(PlanWeek::class, 'plan_id');
+    }
+
+    public function days(): HasMany
+    {
+        return $this->hasMany(PlanDay::class, 'plan_id');
     }
 
     public function product()

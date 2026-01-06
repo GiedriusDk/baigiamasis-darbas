@@ -31,7 +31,6 @@ class CheckoutController extends Controller
         /** @var Order $order */
         $order = Order::findOrFail($data['order']);
 
-        // jau apmokėtas?
         if ($order->status === 'paid') {
             return response()->json([
                 'status'  => 'paid',
@@ -40,6 +39,7 @@ class CheckoutController extends Controller
         }
 
         $session = $stripe->retrieveCheckoutSession($data['session']);
+        $coachId = $session->metadata->coach_id ?? null;
 
         $isPaid = (
             (isset($session->payment_status) && $session->payment_status === 'paid') ||
@@ -81,6 +81,7 @@ class CheckoutController extends Controller
         return response()->json([
             'status'  => 'paid',
             'message' => 'Payment confirmed.',
+            'coach_id' => $coachId ? (int)$coachId : null,
         ]);
     }
 }

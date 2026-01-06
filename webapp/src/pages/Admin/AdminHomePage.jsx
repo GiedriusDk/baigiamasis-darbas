@@ -23,8 +23,7 @@ export default function AdminHomePage() {
     <Box>
       <Title order={2}>Admin panel</Title>
       <Text c="dimmed" mt="sm">
-        Čia gali matyti ir valdyti vartotojus, profilius, trenerius,
-        planus ir kitą turinį.
+        Here you can view and manage users, profiles, coaches, plans, and other system content.
       </Text>
 
       <Tabs value={tab} onChange={setTab} mt="lg">
@@ -43,17 +42,6 @@ export default function AdminHomePage() {
           <Tabs.Tab value="splits">Planner Splits</Tabs.Tab>
           <Tabs.Tab value="workouts">Planner Workouts</Tabs.Tab>
           <Tabs.Tab value="catalog-exercises">Admin Exercises</Tabs.Tab>
-
-          
-          <Tabs.Tab value="plans" disabled>
-            Planai
-          </Tabs.Tab>
-          <Tabs.Tab value="payments" disabled>
-            Mokėjimai
-          </Tabs.Tab>
-          <Tabs.Tab value="forum" disabled>
-            Forumas
-          </Tabs.Tab>
         </Tabs.List>
 
         {/* Users */}

@@ -49,7 +49,7 @@ class PlanDayController extends Controller
             $max = (int) \DB::table('plan_days')
                 ->where('plan_week_id', $weekId)
                 ->max('day_number');
-            $data['day_number'] = $max + 1;  // <— serveris pats paskiria sekantį
+            $data['day_number'] = $max + 1;
         }
 
         $id = \DB::table('plan_days')->insertGetId([

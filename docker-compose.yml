@@ -6,7 +6,7 @@ services:
     ports: ["8080:80"]
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on: [catalog, auth, profiles, planner]
+    depends_on: [catalog, auth, profiles, planner, payments, coach-plans, chat, progress]
     networks: [backend]
 
   catalog:
@@ -53,7 +53,6 @@ services:
       MAIL_FROM_ADDRESS: noreply@example.test
       MAIL_FROM_NAME: "${APP_NAME}"
 
-      # (pasirinktinai FE nuorodai reseto mygtuke)
       FRONTEND_URL: http://localhost:5173
     volumes:
       - ./services/auth:/var/www/html
@@ -84,8 +83,8 @@ services:
   mailpit:
     image: axllent/mailpit:latest
     ports:
-      - "8025:8025"   # Web UI
-      - "1025:1025"   # SMTP
+      - "8025:8025"
+      - "1025:1025"
     networks: [backend]
 
 

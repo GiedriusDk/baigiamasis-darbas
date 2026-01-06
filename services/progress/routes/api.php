@@ -10,7 +10,7 @@ use App\Http\Controllers\GoalCheckinsController;
 use App\Http\Controllers\Admin\AdminProgressGoalsController;
 use App\Http\Controllers\Admin\AdminProgressEntriesController;
 
-Route::middleware(['auth.via'])->group(function () {
+Route::middleware(['auth.via:user,admin'])->group(function () {
 
     Route::prefix('metrics')->group(function () {
         Route::get('',        [MetricsController::class, 'index']);

@@ -65,7 +65,6 @@ function RequireAuth({ children }) {
   return user ? children : <Navigate to="/login" replace state={{ from: location }} />;
 }
 
-// ⬇️ tik adminams
 function RequireAdmin({ children }) {
   const { user, ready } = useAuth();
   const location = useLocation();
@@ -146,6 +145,8 @@ function AppInner() {
 
   const isCoach = !!user?.roles?.some(r => r.name === 'coach');
   const isAdmin = !!user?.roles?.some(r => r.name === 'admin');
+  const UserArea = !!user && (!isCoach || isAdmin);
+  const CoachArea = !!user && (isCoach || isAdmin);
 
   const coachIdFromUrl = useMemo(() => {
     const m = location.pathname.match(/^\/coaches\/(\d+)/);
@@ -191,33 +192,31 @@ function AppInner() {
           <NavLink component={Link} to="/" label="Home" active={location.pathname === '/'} />
           <NavLink component={Link} to="/exercises" label="Exercises" active={location.pathname.startsWith('/exercises')} />
 
-          {ready && !isCoach && (
+          {ready && UserArea && (
             <>
               <NavLink component={Link} to="/plans" label="Generate Plan" active={location.pathname === '/plans'} />
               <NavLink component={Link} to="/my" label="My plan" active={location.pathname === '/my'} />
               <NavLink component={Link} to="/plan-builder" label="Plan Builder" active={location.pathname === '/plan-builder'} />
-              <NavLink
-                component={Link}
-                to="/progress"
-                label="Progress"
-                active={location.pathname === '/progress'}
-              />
+              <NavLink component={Link} to="/progress" label="Progress" active={location.pathname === '/progress'} />
             </>
           )}
 
           <NavLink component={Link} to="/coaches" label="Coaches" active={location.pathname.startsWith('/coaches')} />
 
-          {ready && !isCoach && (
+          {ready && UserArea && (
             <NavLink component={Link} to="/profile" label="My profile" active={location.pathname.startsWith('/profile')} />
           )}
 
-          {ready && isCoach && (
+          {ready && CoachArea && (
             <>
               <NavLink component={Link} to="/coach/exercises" label="Manage exercises" active={location.pathname.startsWith('/coach/exercises')} />
               <NavLink component={Link} to="/coach/plans/manage" label="Manage plans" active={location.pathname.startsWith('/coach/plans/manage')} />
-              <NavLink component={Link} to="/coach/profile" label="Profile" active={location.pathname.startsWith('/coach/profile')} />
               <NavLink component={Link} to="/coach/clients" label="My clients" active={location.pathname.startsWith('/coach/clients')} />
             </>
+          )}
+
+          {ready && isCoach && (
+            <NavLink component={Link} to="/coach/profile" label="Profile" active={location.pathname.startsWith('/coach/profile')} />
           )}
 
           {ready && user && (

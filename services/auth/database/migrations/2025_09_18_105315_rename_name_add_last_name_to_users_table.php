@@ -16,7 +16,6 @@ return new class extends Migration {
 
     public function down(): void {
         Schema::table('users', function (Blueprint $t) {
-            // atstatom atgal
             $t->renameColumn('first_name', 'name');
             $t->dropColumn('last_name');
         });

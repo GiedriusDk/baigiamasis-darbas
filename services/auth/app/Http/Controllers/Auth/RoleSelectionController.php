@@ -23,12 +23,10 @@ class RoleSelectionController extends Controller
             return response()->json(['message' => 'Role not found'], 404);
         }
 
-        // Jei jau turi coach (ar admin) - nekeičiam
         if ($u->roles()->whereIn('name', ['coach', 'admin'])->exists()) {
             return response()->json(['message' => 'Role already set'], 409);
         }
 
-        // Užtikrinam, kad user role visada liktų
         $userRole = Role::where('name', 'user')->first();
         if ($userRole) {
             $u->roles()->syncWithoutDetaching([$userRole->id]);

@@ -12,7 +12,7 @@ use App\Http\Controllers\Admin\AdminProfilesController;
 use App\Http\Controllers\Admin\AdminCoachController;
 use App\Http\Controllers\Admin\AdminExerciseController;
 
-Route::middleware('auth.via:coach')->prefix('coach')->group(function () {
+Route::middleware('auth.via:coach,admin')->prefix('coach')->group(function () {
 
     Route::get('clients/{userId}', [CoachClientProfileController::class, 'show']);
     Route::get('profile', [CoachProfileController::class, 'show']);
@@ -28,13 +28,10 @@ Route::middleware('auth.via:coach')->prefix('coach')->group(function () {
     Route::post('exercises/{coachExercise}', [CoachExerciseController::class, 'update']);
     Route::delete('exercises/{coachExercise}', [CoachExerciseController::class, 'destroy']);
     Route::put('exercises/reorder', [CoachExerciseController::class, 'reorder']);
-
-    
-
 });
 
 
-Route::middleware('auth.via')->group(function () {
+Route::middleware('auth.via:user,admin')->group(function () {
     Route::get('user/profile',  [UserProfileController::class, 'show']);
     Route::put('user/profile',  [UserProfileController::class, 'update']);
     Route::post('user/upload',  [UserProfileController::class, 'upload']);

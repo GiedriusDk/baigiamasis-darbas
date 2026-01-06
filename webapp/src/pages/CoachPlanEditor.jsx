@@ -46,6 +46,7 @@ function DayExercisesPicker({ opened, onClose, productId, day, onSaved }) {
   const [sharedQ, setSharedQ] = useState("");
   const [sharedPage, setSharedPage] = useState(1);
   const [sharedSel, setSharedSel] = useState(new Set());
+  const [importedTitles, setImportedTitles] = useState({});
   const perPage = 24;
 
   useEffect(() => {
@@ -61,6 +62,12 @@ function DayExercisesPicker({ opened, onClose, productId, day, onSaved }) {
           ? have.data.map((x) => Number(x.exercise_id ?? x.id))
           : [];
         setSel(new Set(ids));
+        const map = {};
+        (have?.data || []).forEach((x) => {
+          const id = Number(x.exercise_id ?? x.id);
+          if (x.custom_title) map[id] = x.custom_title;
+        });
+        setImportedTitles(map);
       } catch (e) {
         setErr(e.message || "Failed to load");
       } finally {
@@ -136,8 +143,17 @@ function DayExercisesPicker({ opened, onClose, productId, day, onSaved }) {
     try {
       const ex = await importExerciseFromCatalog(n);
       const newId = Number(ex?.id ?? ex?.data?.id);
+
       if (newId) {
+        const picked = (shared || []).find((x) => Number(x.id) === n);
+
+        setImportedTitles((prev) => ({
+          ...prev,
+          [newId]: picked?.name || picked?.title || `Exercise ${newId}`,
+        }));
+
         setSel((prev) => new Set([...prev, newId]));
+
         const all = await listCoachExercises({ only_custom: 1 });
         setMyItems(Array.isArray(all) ? all : []);
       }
@@ -155,12 +171,16 @@ function DayExercisesPicker({ opened, onClose, productId, day, onSaved }) {
     setSaving(true);
     setErr("");
     try {
-      const ordered = Array.from(sel).map((eid, i) => ({
-        exercise_id: eid,
-        order: i,
-      }));
+      const ordered = Array.from(sel).map((eid, i) => {
+        const ex = (myItems || []).find((x) => Number(x.id) === Number(eid));
+        return {
+          exercise_id: Number(eid),
+          order: i,
+          custom_title: ex?.title ?? importedTitles[Number(eid)] ?? null,
+        };
+      });
       await setDayExercises(Number(productId), Number(day.id), ordered);
-      onSaved?.(Array.from(sel));
+      await onSaved?.(); 
       onClose();
     } catch (e) {
       setErr(e.message || "Save failed");
@@ -329,7 +349,6 @@ useEffect(() => {
 
   (async () => {
     try {
-      // Coach API: struktūra edytinimui
       const res = await getPlanByProduct(Number(productId));
       if (cancelled) return;
 
@@ -354,7 +373,6 @@ useEffect(() => {
 
       await Promise.all(ds.map((d) => loadDayItems(Number(productId), d.id)));
 
-      // Public API: tekstiniai pavadinimai/aprašai (rodymui)
       const pub = await getPublicPlan(Number(productId));
       const pubPayload = pub?.data ?? pub ?? null;
       if (!cancelled) setPublicPlan(pubPayload || null);
@@ -427,7 +445,14 @@ useEffect(() => {
     const next = [...list];
     [next[idx], next[i2]] = [next[i2], next[idx]];
     setDayItems((p) => ({ ...p, [dayId]: next }));
-    const payload = next.map((eid, i) => ({ exercise_id: eid, order: i }));
+    const payload = next.map((eid, i) => {
+      const ex = exById.get(Number(eid));
+      return {
+        exercise_id: Number(eid),
+        order: i,
+        custom_title: ex?.title ?? importedTitles[Number(eid)] ?? null,
+      };
+    });
     await setDayExercises(Number(productId), dayId, payload);
   };
 
@@ -585,7 +610,14 @@ useEffect(() => {
                                       onClick={async () => {
                                         const filtered = (dayItems[d.id] || []).filter((x, i) => i !== idx);
                                         setDayItems((p) => ({ ...p, [d.id]: filtered }));
-                                        const payload = filtered.map((eid2, i) => ({ exercise_id: eid2, order: i }));
+                                        const payload = filtered.map((eid2, i) => {
+                                          const ex = exById.get(Number(eid2));
+                                          return {
+                                            exercise_id: Number(eid2),
+                                            order: i,
+                                            custom_title: ex?.title ?? importedTitles[Number(eid)] ?? null,
+                                          };
+                                        });
                                         await setDayExercises(Number(productId), d.id, payload);
                                       }}
                                     >
@@ -625,7 +657,10 @@ useEffect(() => {
         day={pickerDay}
         coachId={ownerCoachId}
         onSaved={async () => {
-          if (pickerDay?.id) await loadDayItems(Number(productId), pickerDay.id);
+          if (!pickerDay?.id) return;
+          await loadDayItems(Number(productId), pickerDay.id);
+          const ex = await listCoachExercises({ only_custom: 0 });
+          setCoachEx(Array.isArray(ex) ? ex : []);
         }}
       />
 

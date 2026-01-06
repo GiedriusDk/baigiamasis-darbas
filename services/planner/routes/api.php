@@ -14,7 +14,7 @@ Route::middleware('auth.via')->get('/me', function (Request $r) {
     return response()->json($r->attributes->get('auth_user'));
 });
 
-Route::middleware('auth.via')->group(function () {
+Route::middleware('auth.via:user,admin')->group(function () {
 
     Route::post('/plans', [PlanController::class, 'store']);
     Route::get('/plans/latest', [PlanController::class, 'latest']);

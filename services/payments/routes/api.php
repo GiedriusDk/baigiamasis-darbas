@@ -14,7 +14,7 @@ use App\Http\Controllers\Admin\AdminProductsController;
 Route::prefix('')->group(function () {
     Route::get('products', [ProductsController::class, 'index']);
 
-    Route::middleware('auth.via')->group(function () {
+    Route::middleware('auth.via:user,admin')->group(function () {
         Route::post('orders', [OrdersController::class, 'store']);
         Route::get('orders/{order}', [OrdersController::class, 'show'])->whereNumber('order');
         Route::get('orders/{order}/access', [OrdersController::class, 'access'])->whereNumber('order');
@@ -24,7 +24,7 @@ Route::prefix('')->group(function () {
         Route::get('me/access', [OrdersController::class, 'meAccess']);
     });
 
-    Route::middleware('auth.via:coach')->group(function () {
+    Route::middleware('auth.via:coach,admin')->group(function () {
         Route::get('products/mine', [ProductsController::class, 'mine']);
         Route::put('products/reorder', [ProductsController::class, 'reorder']);
         Route::post('products', [ProductsController::class, 'store']);
