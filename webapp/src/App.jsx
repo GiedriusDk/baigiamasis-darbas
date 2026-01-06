@@ -21,7 +21,7 @@ import ForgotPasswordPage from "./pages/Auth/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/Auth/ResetPasswordPage.jsx";
 
 import PlannerPage from "./pages/User/Plan/PlannerPage.jsx";
-import MyPlanPage from "./pages/MyPlanPage.jsx";
+import MyPlanPage from "./pages/User/Plan/MyPlanPage.jsx";
 
 import CoachPlansPublic from "./pages/Coach/Plans/CoachPlansPublic.jsx";
 import CoachPlansManage from "./pages/Coach/Plans/CoachPlansManage.jsx";
@@ -40,12 +40,14 @@ import MetricDetailsPage from './pages/Progress/MetricDetailsPage.jsx';
 import GoalsPage from './pages/Progress/GoalsPage.jsx';
 
 import ForumsPage from "./pages/Community/ForumsPage.jsx";
-import UserPlanBuilder from './pages/UserPlanBuilder.jsx';
+import UserPlanBuilder from './pages/User/Plan/UserPlanBuilder.jsx';
 import CoachClientsPage from './pages/Coach/CoachClientsPage.jsx';
 import OAuthCallbackPage from "./pages/Auth/OAuthCallbackPage.jsx";
 import ChooseRolePage from "./pages/Auth/ChooseRolePage.jsx";
 
 import AdminHomePage from "./pages/Admin/AdminHomePage.jsx";
+
+import HomePage from './pages/HomePage.jsx';
 
 setChatDebug(true);
 
@@ -239,7 +241,7 @@ function AppInner() {
 
       <AppShell.Main>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<HomePage />} />
           <Route path="/exercises" element={<ExercisesPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />

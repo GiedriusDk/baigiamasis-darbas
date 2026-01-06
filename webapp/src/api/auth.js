@@ -4,7 +4,10 @@ const BASE = 'http://localhost:8080/api/auth';
 const LS_KEY = 'auth_token';
 
 export const getToken = () => localStorage.getItem(LS_KEY);
-export const setToken = (t) => t && localStorage.setItem(LS_KEY, t);
+export const setToken = (t) => {
+  if (t) localStorage.setItem(LS_KEY, t);
+  else localStorage.removeItem(LS_KEY);
+};
 export const clearToken = () => localStorage.removeItem(LS_KEY);
 
 function pickFirstError(errors) {
@@ -56,6 +59,8 @@ export async function login({ email, password }) {
 }
 
 export async function me() {
+  const token = getToken();
+  if (!token) return null;
   return req('/me', { method: 'GET' });
 }
 

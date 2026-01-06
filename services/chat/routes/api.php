@@ -28,7 +28,7 @@ Route::middleware(['auth.via'])->group(function () {
     Route::get('/forums/{room}/messages', [ForumController::class, 'messages']);
     Route::post('/forums/{room}/messages', [ForumController::class, 'send']);
 });
-Route::middleware(['auth.via:coach'])->group(function () {
+Route::middleware(['auth.via:coach,admin'])->group(function () {
     Route::get('/coach/clients', [CoachClientLinkController::class, 'list']);
     Route::get('/coach/clients/{userId}', [CoachClientLinkController::class, 'check']);
 });

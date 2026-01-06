@@ -1,4 +1,3 @@
-// src/pages/Admin/CoachPlans/AdminPlanViewModal.jsx
 import { useEffect, useState } from "react";
 import {
   Modal,
@@ -13,7 +12,7 @@ import {
 import { adminGetPlan } from "../../../api/plans";
 
 export default function AdminPlanViewModal({ opened, onClose, planId }) {
-  const [data, setData] = useState(null); // full plan with relations
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 

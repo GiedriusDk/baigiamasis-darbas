@@ -4,7 +4,7 @@ import {
   Alert, Skeleton, Button, Modal, Tabs, TextInput, ActionIcon, ScrollArea, Loader
 } from "@mantine/core";
 import { IconInfoCircle, IconArrowsExchange, IconSearch } from "@tabler/icons-react";
-import ExerciseDetailsModal from "../components/ExerciseDetailsModal.jsx";
+import ExerciseDetailsModal from "../../../components/ExerciseDetailsModal.jsx";
 
 
 export default function MyPlanPage() {
@@ -47,7 +47,6 @@ export default function MyPlanPage() {
     setSwap({ open: true, workoutId, order });
   }
 
-  // kai sėkmingai pakeitėm — atnaujinam UI vietoje:
   function applySwapToState(newExercise) {
     setPlan((prev) => {
       if (!prev) return prev;
@@ -58,7 +57,6 @@ export default function MyPlanPage() {
       if (!ex) return prev;
       ex.exercise_id = newExercise.id;
       ex.exercise_name = newExercise.name;
-      // Išsaugom ir „catalog_exercise“ kad iškart matytųsi paveiksliukas/pavadinimas
       ex.catalog_exercise = newExercise;
       return next;
     });
@@ -152,7 +150,7 @@ export default function MyPlanPage() {
                             variant="light"
                             leftSection={<IconArrowsExchange size={14} />}
                             onClick={(e) => {
-                            e.stopPropagation();            // <-- labai svarbu, kad neatsidarytų modalas
+                            e.stopPropagation();
                             openSwap(w.id, ex.order);
                             }}
                         >
@@ -214,7 +212,6 @@ function SwapModal({ opened, onClose, workoutId, order, onPicked, token }) {
         setSuggested(j.data || []);
         setCurrent(j.current || null);
       } catch (e) {
-        // tyliai
       } finally {
         setLoading(false);
       }
@@ -262,9 +259,8 @@ function SwapModal({ opened, onClose, workoutId, order, onPicked, token }) {
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.message || "Swap failed");
-      onPicked(ex); // optimistinis atnaujinimas
+      onPicked(ex);
     } catch (e) {
-      // gali parodyti toast
     } finally {
       setLoading(false);
     }

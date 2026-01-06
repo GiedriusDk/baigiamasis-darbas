@@ -52,7 +52,6 @@ const INJURIES = [
   { value: "wrists", label: "Wrists" },
 ];
 
-// paima {data: {...}} arba {...}
 const unwrap = (x) => (x && x.data) ? x.data : x;
 
 export default function PlannerPage() {
@@ -70,7 +69,6 @@ export default function PlannerPage() {
 
   const token = useMemo(() => localStorage.getItem("auth_token") || "", []);
 
-  // UI prefill iš profilio (pasirinktinai)
   useEffect(() => {
     let alive = true;
     (async () => {

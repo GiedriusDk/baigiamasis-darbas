@@ -31,7 +31,7 @@ Route::middleware(['auth.via:user,admin'])->group(function () {
     });
 
     Route::prefix('photos')->group(function () {
-        Route::post('',        [PhotosController::class, 'store']);     // multipart: image, entry_id
+        Route::post('',        [PhotosController::class, 'store']);
         Route::delete('{photo}',[PhotosController::class, 'destroy']);
     });
 

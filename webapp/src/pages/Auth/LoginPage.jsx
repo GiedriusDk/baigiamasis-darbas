@@ -1,4 +1,3 @@
-// webapp/src/pages/LoginPage.jsx
 import { useState } from 'react';
 import {
   Card, Title, Text, TextInput, PasswordInput,
@@ -13,7 +12,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setUser } = useAuth(); // make sure your AuthProvider exposes setUser
+  const { setUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/';
@@ -42,7 +41,7 @@ export default function LoginPage() {
       const r = await fetch("http://localhost:8080/api/auth/google/redirect");
       const data = await r.json();
       if (!data?.url) throw new Error("No redirect URL returned");
-      window.location.href = data.url; // čia ir prasideda Google login
+      window.location.href = data.url;
     } catch (e) {
       notifications.show({ color: "red", message: e.message || "Google login failed" });
     }

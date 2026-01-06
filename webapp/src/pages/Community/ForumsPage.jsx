@@ -129,7 +129,6 @@ export default function ForumsPage() {
     const room = rooms.find((r) => r.id === activeId) || null;
     setActiveRoom(room);
     loadMessages(activeId).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
   useEffect(() => {

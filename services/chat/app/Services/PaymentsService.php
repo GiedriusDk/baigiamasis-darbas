@@ -16,10 +16,6 @@ class PaymentsService
         );
     }
 
-    /**
-     * Patikrina ar user_id turi NORS VIENĄ apmokėtą ir galiojantį plano pirkimą pas coach_id.
-     * Naudoja payments serviso /internal/can-chat endpointą.
-     */
     public function userHasAccessToCoach(int $userId, int $coachId, ?string $bearer = null): bool
     {
         try {

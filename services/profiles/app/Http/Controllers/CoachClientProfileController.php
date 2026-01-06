@@ -20,11 +20,8 @@ class CoachClientProfileController extends Controller
         if (!$coachId) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
-
-        // http://gateway/chat/api  (pagal services.php)
         $chatBase = rtrim(config('services.chat.base'), '/');
 
-        // paklausiam chat serviso, ar šitas user’is tikrai šio coach kliento sąraše
         $resp = Http::acceptJson()
             ->withToken((string) $r->bearerToken())
             ->get("{$chatBase}/coach/clients/{$userId}");
@@ -39,7 +36,6 @@ class CoachClientProfileController extends Controller
             return response()->json(['message' => 'Not found'], 404);
         }
 
-        // Čia jau grąžinam pilną profilį, be jokių „public“ ribojimų
         return response()->json($profile);
     }
 }

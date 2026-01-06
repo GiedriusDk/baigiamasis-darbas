@@ -3,27 +3,25 @@ import { presenceTouch } from '../api/chat';
 import { useAuth } from '../auth/useAuth';
 
 export default function usePresenceHeartbeat({
-  intervalMs = 60000,           // kas 60 s
-  fireImmediately = true,       // pirmą ping iškart
+  intervalMs = 60000,
+  fireImmediately = true,
 } = {}) {
   const { ready, user, token } = useAuth();
   const timerRef = useRef(null);
 
-  // paprastas "leader tab" lock'as, kad nerodytų kelių pingų iš skirtingų tabų
   function isLeader() {
     const key = 'presence_leader';
     const now = Date.now();
     try {
       const raw = localStorage.getItem(key);
       const last = raw ? parseInt(raw, 10) : 0;
-      // jei > 10s seniau – perimam lyderystę
       if (!last || now - last > 10000) {
         localStorage.setItem(key, String(now));
         return true;
       }
       return false;
     } catch {
-      return true; // jei localStorage nepavyksta – nekliūnam
+      return true;
     }
   }
 
@@ -31,7 +29,6 @@ export default function usePresenceHeartbeat({
     const canPing = ready && user && token;
 
     function tick() {
-      // tik kai tab'as matomas ir šis tab'as "lyderis"
       if (document.visibilityState === 'visible' && isLeader()) {
         presenceTouch().catch(() => {});
       }

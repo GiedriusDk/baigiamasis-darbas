@@ -31,7 +31,7 @@ import {
   updateWorkoutExercise,
   deleteWorkoutExercise,
   searchExercises,
-} from "../api/planner";
+} from "../../../api/planner";
 
 function ExerciseSearchModal({ opened, onClose, onSelect }) {
   const [q, setQ] = useState("");

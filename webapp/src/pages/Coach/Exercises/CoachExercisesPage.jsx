@@ -102,7 +102,6 @@ export default function CoachExercisesPage() {
   const [plansForAssign, setPlansForAssign] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
 
-  // unified form state (create + edit)
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -116,8 +115,6 @@ export default function CoachExercisesPage() {
   const [mediaFile, setMediaFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [creating, setCreating] = useState(false);
-
-  // edit mode
   const [editingId, setEditingId] = useState(null);
   const isEditing = editingId !== null;
   const [savingEdit, setSavingEdit] = useState(false);
