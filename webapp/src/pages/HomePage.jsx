@@ -22,7 +22,7 @@ export default function HomePage() {
         <div>
           <Title order={2}>Fit Plans</Title>
           <Text c="dimmed" mt={4}>
-            Centralizuota treniruočių planavimo ir sportininkų bendradarbiavimo sistema.
+            A centralized training planning and athlete collaboration platform.
           </Text>
         </div>
 
@@ -30,11 +30,11 @@ export default function HomePage() {
       </Group>
 
       <Card withBorder radius="md" p="md" mb="md">
-        <Title order={4}>Sistemos paskirtis</Title>
+        <Title order={4}>System purpose</Title>
         <Text c="dimmed" size="sm" mt={6}>
-          Fit Plans sistema skirta sportininkams ir treneriams, siekiantiems efektyviai
-          planuoti treniruotes, stebėti progresą ir palaikyti nuolatinį tarpusavio ryšį
-          vienoje integruotoje platformoje.
+          Fit Plans is designed for athletes and coaches who want to efficiently
+          plan training sessions, track progress, and maintain continuous
+          communication within a single integrated platform.
         </Text>
       </Card>
 
@@ -42,55 +42,55 @@ export default function HomePage() {
         <Card withBorder radius="md" p="md">
           <Group gap="sm">
             <IconBarbell size={28} />
-            <Title order={5}>Treniruočių planai</Title>
+            <Title order={5}>Training plans</Title>
           </Group>
           <Text c="dimmed" size="sm" mt={6}>
-            Sistema leidžia kurti, administruoti ir automatiškai generuoti individualius
-            treniruočių planus pagal sportininko tikslus ir galimybes.
+            The system allows users to create, manage, and automatically generate
+            personalized training plans based on individual goals and capabilities.
           </Text>
         </Card>
 
         <Card withBorder radius="md" p="md">
           <Group gap="sm">
             <IconChartLine size={28} />
-            <Title order={5}>Progreso stebėjimas</Title>
+            <Title order={5}>Progress tracking</Title>
           </Group>
           <Text c="dimmed" size="sm" mt={6}>
-            Naudotojai gali sekti savo fizinius rodiklius, treniruočių rezultatus ir
-            ilgalaikį progresą, pasitelkiant struktūrizuotą duomenų kaupimą.
+            Users can track physical metrics, training results, and long-term
+            progress using structured and consistent data collection.
           </Text>
         </Card>
 
         <Card withBorder radius="md" p="md">
           <Group gap="sm">
             <IconUsers size={28} />
-            <Title order={5}>Trenerių ekosistema</Title>
+            <Title order={5}>Coach ecosystem</Title>
           </Group>
           <Text c="dimmed" size="sm" mt={6}>
-            Treneriai turi galimybę valdyti klientus, teikti skaitmenines paslaugas,
-            kurti treniruočių programas ir bendrauti su sportininkais.
+            Coaches can manage clients, provide digital services, create training
+            programs, and communicate directly with athletes.
           </Text>
         </Card>
 
         <Card withBorder radius="md" p="md">
           <Group gap="sm">
             <IconMessageCircle size={28} />
-            <Title order={5}>Komunikacija</Title>
+            <Title order={5}>Communication</Title>
           </Group>
           <Text c="dimmed" size="sm" mt={6}>
-            Integruota pokalbių sistema užtikrina tiesioginį ir asinchroninį bendravimą
-            tarp sportininkų ir trenerių.
+            An integrated chat system enables both real-time and asynchronous
+            communication between athletes and coaches.
           </Text>
         </Card>
 
         <Card withBorder radius="md" p="md">
           <Group gap="sm">
             <IconCalendar size={28} />
-            <Title order={5}>Planavimas</Title>
+            <Title order={5}>Planning</Title>
           </Group>
           <Text c="dimmed" size="sm" mt={6}>
-            Sistema palaiko treniruočių struktūrizavimą laike, leidžiant aiškiai planuoti
-            treniruočių ciklus ir krūvio paskirstymą.
+            The system supports time-based training organization, allowing clear
+            planning of training cycles and workload distribution.
           </Text>
         </Card>
       </SimpleGrid>
